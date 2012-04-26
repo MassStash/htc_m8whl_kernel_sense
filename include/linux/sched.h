@@ -122,6 +122,15 @@ extern void sched_update_nr_prod(int cpu, unsigned long nr, bool inc);
 extern void sched_get_nr_running_avg(int *avg, int *iowait_avg);
 
 extern void calc_global_load(unsigned long ticks);
+extern void update_cpu_load_nohz(void);
+
+/* Notifier for when a task gets migrated to a new CPU */
+struct task_migration_notifier {
+	struct task_struct *task;
+	int from_cpu;
+	int to_cpu;
+};
+extern void register_task_migration_notifier(struct notifier_block *n);
 
 extern unsigned long get_parent_ip(unsigned long addr);
 
@@ -296,7 +305,6 @@ extern signed long schedule_timeout_killable(signed long timeout);
 extern signed long schedule_timeout_uninterruptible(signed long timeout);
 asmlinkage void schedule(void);
 extern void schedule_preempt_disabled(void);
-extern int mutex_spin_on_owner(struct mutex *lock, struct task_struct *owner);
 
 struct nsproxy;
 struct user_namespace;
@@ -498,13 +506,15 @@ struct signal_struct {
 	struct mutex cred_guard_mutex;	
 };
 
-#ifdef __ARCH_WANT_INTERRUPTS_ON_CTXSW
-# define __ARCH_WANT_UNLOCKED_CTXSW
-#endif
-
-#define SIGNAL_STOP_STOPPED	0x00000001 
-#define SIGNAL_STOP_CONTINUED	0x00000002 
-#define SIGNAL_GROUP_EXIT	0x00000004 
+/*
+ * Bits in flags field of signal_struct.
+ */
+#define SIGNAL_STOP_STOPPED	0x00000001 /* job control stop in effect */
+#define SIGNAL_STOP_CONTINUED	0x00000002 /* SIGCONT since WCONTINUED reap */
+#define SIGNAL_GROUP_EXIT	0x00000004 /* group exit in progress */
+/*
+ * Pending notifications to parent.
+ */
 #define SIGNAL_CLD_STOPPED	0x00000010
 #define SIGNAL_CLD_CONTINUED	0x00000020
 #define SIGNAL_CLD_MASK		(SIGNAL_CLD_STOPPED|SIGNAL_CLD_CONTINUED)
@@ -632,59 +642,20 @@ enum cpu_idle_type {
 #define SCHED_POWER_SCALE	(1L << SCHED_POWER_SHIFT)
 
 #ifdef CONFIG_SMP
-#define SD_LOAD_BALANCE		0x0001	
-#define SD_BALANCE_NEWIDLE	0x0002	
-#define SD_BALANCE_EXEC		0x0004	
-#define SD_BALANCE_FORK		0x0008	
-#define SD_BALANCE_WAKE		0x0010  
-#define SD_WAKE_AFFINE		0x0020	
-#define SD_PREFER_LOCAL		0x0040  
-#define SD_SHARE_CPUPOWER	0x0080	
-#define SD_POWERSAVINGS_BALANCE	0x0100	
-#define SD_SHARE_PKG_RESOURCES	0x0200	
-#define SD_SERIALIZE		0x0400	
-#define SD_ASYM_PACKING		0x0800  
-#define SD_PREFER_SIBLING	0x1000	
-#define SD_OVERLAP		0x2000	
-
-enum powersavings_balance_level {
-	POWERSAVINGS_BALANCE_NONE = 0,  
-	POWERSAVINGS_BALANCE_BASIC,	
-	POWERSAVINGS_BALANCE_WAKEUP,	
-	MAX_POWERSAVINGS_BALANCE_LEVELS
-};
-
-extern int sched_mc_power_savings, sched_smt_power_savings;
-
-static inline int sd_balance_for_mc_power(void)
-{
-	if (sched_smt_power_savings)
-		return SD_POWERSAVINGS_BALANCE;
-
-	if (!sched_mc_power_savings)
-		return SD_PREFER_SIBLING;
-
-	return 0;
-}
-
-static inline int sd_balance_for_package_power(void)
-{
-	if (sched_mc_power_savings | sched_smt_power_savings)
-		return SD_POWERSAVINGS_BALANCE;
-
-	return SD_PREFER_SIBLING;
-}
+#define SD_LOAD_BALANCE		0x0001	/* Do load balancing on this domain. */
+#define SD_BALANCE_NEWIDLE	0x0002	/* Balance when about to become idle */
+#define SD_BALANCE_EXEC		0x0004	/* Balance on exec */
+#define SD_BALANCE_FORK		0x0008	/* Balance on fork, clone */
+#define SD_BALANCE_WAKE		0x0010  /* Balance on wakeup */
+#define SD_WAKE_AFFINE		0x0020	/* Wake task to waking CPU */
+#define SD_SHARE_CPUPOWER	0x0080	/* Domain members share cpu power */
+#define SD_SHARE_PKG_RESOURCES	0x0200	/* Domain members share cpu pkg resources */
+#define SD_SERIALIZE		0x0400	/* Only a single load balancing instance */
+#define SD_ASYM_PACKING		0x0800  /* Place busy groups earlier in the domain */
+#define SD_PREFER_SIBLING	0x1000	/* Prefer to place tasks in a sibling domain */
+#define SD_OVERLAP		0x2000	/* sched_domains of this level overlap */
 
 extern int __weak arch_sd_sibiling_asym_packing(void);
-
-
-static inline int sd_power_saving_flags(void)
-{
-	if (sched_mc_power_savings | sched_smt_power_savings)
-		return SD_BALANCE_NEWIDLE;
-
-	return 0;
-}
 
 struct sched_group_power {
 	atomic_t ref;
@@ -739,7 +710,9 @@ struct sched_domain {
 	unsigned int wake_idx;
 	unsigned int forkexec_idx;
 	unsigned int smt_gain;
-	int flags;			
+
+	int nohz_idle;			/* NOHZ IDLE status */
+	int flags;			/* See SD_* */
 	int level;
 
 	
@@ -1609,6 +1582,14 @@ static inline void set_wake_up_idle(bool enabled)
 	else
 		current->flags &= ~PF_WAKE_UP_IDLE;
 }
+
+#ifdef CONFIG_NO_HZ
+void calc_load_enter_idle(void);
+void calc_load_exit_idle(void);
+#else
+static inline void calc_load_enter_idle(void) { }
+static inline void calc_load_exit_idle(void) { }
+#endif /* CONFIG_NO_HZ */
 
 #ifndef CONFIG_CPUMASK_OFFSTACK
 static inline int set_cpus_allowed(struct task_struct *p, cpumask_t new_mask)
