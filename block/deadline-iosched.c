@@ -14,33 +14,26 @@
 #include <linux/compiler.h>
 #include <linux/rbtree.h>
 
-/*
- * See Documentation/block/deadline-iosched.txt
- */
-static const int read_expire = HZ / 2;  /* max time before a read is submitted. */
-static const int write_expire = 5 * HZ; /* ditto for writes, these limits are SOFT! */
-static const int writes_starved = 2;    /* max times reads can starve a write */
-static const int fifo_batch = 16;       /* # of sequential requests treated as one
-				     by the above parameters. For throughput. */
+static const int read_expire = HZ / 2;
+static const int write_expire = 5 * HZ;
+static const int writes_starved = 2;
+static const int fifo_batch = 16;
 
 struct deadline_data {
 	/*
 	 * run time data
 	 */
 
-	/*
-	 * requests (deadline_rq s) are present on both sort_list and fifo_list
-	 */
-	struct rb_root sort_list[2];	
+	struct rb_root sort_list[2];
 	struct list_head fifo_list[2];
 
 	/*
 	 * next in sort order. read, write or both are NULL
 	 */
 	struct request *next_rq[2];
-	unsigned int batching;		/* number of sequential requests made */
-	sector_t last_sector;		/* head position */
-	unsigned int starved;		/* times reads have starved writes */
+	unsigned int batching;
+	sector_t last_sector;
+	unsigned int starved;
 
 	/*
 	 * settings that change how the i/o scheduler behaves
@@ -257,7 +250,6 @@ static int deadline_dispatch_requests(struct request_queue *q, int force)
 		rq = dd->next_rq[READ];
 
 	if (rq && dd->batching < dd->fifo_batch)
-		/* we have a next request are still entitled to batch */
 		goto dispatch_request;
 
 	/*
