@@ -132,8 +132,6 @@ struct cpuidle_driver {
 	const char		*name;
 	struct module 		*owner;
 
-	unsigned int		power_specified:1;
-	/* set to 1 to use the core cpuidle time keeping (for all states). */
 	unsigned int		en_core_tk_irqen:1;
 	struct cpuidle_state	states[CPUIDLE_STATE_MAX];
 	int			state_count;
