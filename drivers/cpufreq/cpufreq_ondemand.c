@@ -1894,11 +1894,10 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 		this_dbs_info->cur_policy = NULL;
 		if (!cpu)
 			input_unregister_handler(&dbs_input_handler);
-		if (!dbs_enable) {
-			dbs_deinit_freq_map_table();
-
+		if (!dbs_enable)
 			sysfs_remove_group(cpufreq_global_kobject,
 					   &dbs_attr_group);
+		mutex_unlock(&dbs_mutex);
 
 #ifndef CONFIG_ARCH_MSM_CORTEXMP
 			atomic_notifier_chain_unregister(
