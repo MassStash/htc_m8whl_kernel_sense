@@ -412,6 +412,13 @@ void cpuidle_unregister_device(struct cpuidle_device *dev)
 
 EXPORT_SYMBOL_GPL(cpuidle_unregister_device);
 
+/*
+ * cpuidle_unregister: unregister a driver and the devices. This function
+ * can be used only if the driver has been previously registered through
+ * the cpuidle_register function.
+ *
+ * @drv: a valid pointer to a struct cpuidle_driver
+ */
 void cpuidle_unregister(struct cpuidle_driver *drv)
 {
 	int cpu;
@@ -426,6 +433,17 @@ void cpuidle_unregister(struct cpuidle_driver *drv)
 }
 EXPORT_SYMBOL_GPL(cpuidle_unregister);
 
+/**
+ * cpuidle_register: registers the driver and the cpu devices with the
+ * coupled_cpus passed as parameter. This function is used for all common
+ * initialization pattern there are in the arch specific drivers. The
+ * devices is globally defined in this file.
+ *
+ * @drv         : a valid pointer to a struct cpuidle_driver
+ * @coupled_cpus: a cpumask for the coupled states
+ *
+ * Returns 0 on success, < 0 otherwise
+ */
 int cpuidle_register(struct cpuidle_driver *drv,
 		     const struct cpumask *const coupled_cpus)
 {
@@ -443,6 +461,11 @@ int cpuidle_register(struct cpuidle_driver *drv,
 		device->cpu = cpu;
 
 #ifdef CONFIG_ARCH_NEEDS_CPU_IDLE_COUPLED
+		/*
+		 * On multiplatform for ARM, the coupled idle states could
+		 * enabled in the kernel even if the cpuidle driver does not
+		 * use it. Note, coupled_cpus is a struct copy.
+		 */
 		if (coupled_cpus)
 			device->coupled_cpus = *coupled_cpus;
 #endif
