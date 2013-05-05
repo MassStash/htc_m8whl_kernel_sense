@@ -15,6 +15,9 @@
 #include <linux/cpufreq.h>
 #include <linux/init.h>
 
+#include <trace/events/cpufreq_interactive.h>
+#include <mach/kgsl.h>
+
 #define LOAD 100
 
 static int cpufreq_governor_performance(struct cpufreq_policy *policy,
