@@ -80,7 +80,8 @@ struct cpufreq_policy {
 
 	unsigned int		min;    
 	unsigned int		max;    
-	unsigned int		cur;    
+	unsigned int		cur;
+	unsigned int            util;  /* CPU utilization at max frequency */
 	unsigned int		policy; 
 	struct cpufreq_governor	*governor; 
 
@@ -263,6 +264,8 @@ __ATTR(_name, 0444, show_##_name, NULL)
 static struct global_attr _name =		\
 __ATTR(_name, 0644, show_##_name, store_##_name)
 
+void cpufreq_notify_utilization(struct cpufreq_policy *policy,
+			unsigned int load);
 
 int cpufreq_get_policy(struct cpufreq_policy *policy, unsigned int cpu);
 int cpufreq_update_policy(unsigned int cpu);
