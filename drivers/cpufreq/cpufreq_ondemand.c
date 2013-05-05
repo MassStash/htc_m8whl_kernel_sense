@@ -1346,6 +1346,10 @@ set_freq:
 	if (input_event_boosted()) {
 		trace_cpufreq_interactive_already (policy->cpu, max_cur_load, policy->cur, policy->cur, policy->cur);
 
+	/* Extrapolated load of this CPU */
+	unsigned int load_at_max_freq = 0;
+	unsigned int max_load_freq;
+
 	/* calculate the scaled load across CPU */
 	load_at_max_freq = (cur_load * policy->cur)/policy->max;
 
