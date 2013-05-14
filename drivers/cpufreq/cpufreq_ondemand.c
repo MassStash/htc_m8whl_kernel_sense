@@ -1419,12 +1419,12 @@ set_freq:
 			    dbs_tuners_ins.down_differential) &&
 			    freq_next < dbs_tuners_ins.sync_freq)
 				freq_next = dbs_tuners_ins.sync_freq;
-#endif
-			if (dbs_tuners_ins.optimal_freq > policy->min && max_load_freq >
-			    ((dbs_tuners_ins.up_threshold_multi_core -
-			    dbs_tuners_ins.down_differential_multi_core) *
-			    policy->cur) &&
-			    freq_next < dbs_tuners_ins.optimal_freq)
+
+			if (max_load_freq >
+				 ((dbs_tuners_ins.up_threshold_multi_core -
+				  dbs_tuners_ins.down_differential_multi_core) *
+				  policy->cur) &&
+				freq_next < dbs_tuners_ins.optimal_freq)
 				freq_next = dbs_tuners_ins.optimal_freq;
 		}
 
