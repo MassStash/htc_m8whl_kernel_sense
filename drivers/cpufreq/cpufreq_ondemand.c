@@ -1514,8 +1514,6 @@ static void do_dbs_timer(struct work_struct *work)
 		__cpufreq_driver_target(dbs_info->cur_policy,
 			dbs_info->freq_lo, CPUFREQ_RELATION_H);
 	}
-
-sched_wait:
 	queue_delayed_work_on(cpu, dbs_wq, &dbs_info->work, delay);
 	mutex_unlock(&dbs_info->timer_mutex);
 }
@@ -1743,7 +1741,7 @@ static int dbs_migration_notify(struct notifier_block *nb,
 		&per_cpu(dbs_sync_work, target_cpu);
 	sync_work->src_cpu = (unsigned int)arg;
 
-	queue_work_on(target_cpu, input_wq,
+	queue_work_on(target_cpu, dbs_wq,
 		&per_cpu(dbs_sync_work, target_cpu).work);
 
 	return NOTIFY_OK;
@@ -1836,69 +1834,8 @@ static void dbs_input_event(struct input_handle *handle, unsigned int type,
 		return;
 	}
 
-	if (type == EV_SYN && code == SYN_REPORT) {
-		
-		dbs_tuners_ins.powersave_bias = 0;
-	}
-	else if (type == EV_ABS && code == ABS_MT_TRACKING_ID) {
-		
-		if (value != -1) {
-			input_event_counter++;
-			input_event_min_freq = input_event_min_freq_array[num_online_cpus() - 1];
-			
-			switch_turbo_mode(0);
-		}
-		
-		else {
-			if (likely(input_event_counter > 0))
-				input_event_counter--;
-			else
-				pr_warning("dbs_input_event: Touch isn't paired!\n");
-
-			input_event_min_freq = 0;
-			
-			switch_turbo_mode(DBS_SWITCH_MODE_TIMEOUT);
-		}
-	}
-	else if (type == EV_KEY && value == 1 &&
-			(code == KEY_POWER || code == KEY_VOLUMEUP || code == KEY_VOLUMEDOWN))
-	{
-		input_event_min_freq = input_event_min_freq_array[num_online_cpus() - 1];
-		
-		switch_turbo_mode(DBS_SWITCH_MODE_TIMEOUT);
-	}
-
-	if (input_event_min_freq > 0) {
-		
-		spin_lock_irqsave(&input_boost_lock, flags);
-		input_event_boost = true;
-		input_event_boost_expired = jiffies + usecs_to_jiffies(dbs_tuners_ins.sampling_rate * 4);
-		spin_unlock_irqrestore(&input_boost_lock, flags);
-
-		for_each_online_cpu(i)
-		{
-#ifdef CONFIG_ARCH_MSM_CORTEXMP
-			if (i != CPU0)
-				break;
-#endif
-			dbs_info = &per_cpu(od_cpu_dbs_info, i);
-			 if (dbs_info->cur_policy &&             
-				dbs_info->cur_policy->cur < input_event_min_freq) {
-				dbs_info->input_event_freq = input_event_min_freq;
-				wake_up_process(per_cpu(up_task, i));
-			}
-		}
-	}
-}
-
-static int input_dev_filter(const char *input_dev_name)
-{
-	if (strstr(input_dev_name, "touchscreen") ||
-	    strstr(input_dev_name, "keypad")) {
-		return 0; 
-	} else {
-		return 1;
-	}
+	for_each_online_cpu(i)
+		queue_work_on(i, dbs_wq, &per_cpu(dbs_refresh_work, i).work);
 }
 
 static int dbs_input_connect(struct input_handler *handler,
