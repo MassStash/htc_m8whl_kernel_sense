@@ -150,6 +150,9 @@ static inline void switch_normal_mode(void);
 static void reset_freq_map_table(struct cpufreq_policy *policy) {};
 #endif
 
+/*
+ * dbs_mutex protects dbs_enable and dbs_info during start/stop.
+ */
 static DEFINE_MUTEX(dbs_mutex);
 
 static struct workqueue_struct *dbs_wq;
@@ -662,7 +665,10 @@ static ssize_t store_powersave_bias(struct kobject *a, struct attribute *b,
 				POWERSAVE_BIAS_MINLEVEL));
 
 	dbs_tuners_ins.powersave_bias = input;
+
+	mutex_lock(&dbs_mutex);
 	get_online_cpus();
+
 	if (!bypass) {
 		if (reenable_timer) {
 			
@@ -738,7 +744,9 @@ skip_this_cpu_bypass:
 			unlock_policy_rwsem_write(cpu);
 		}
 	}
+
 	put_online_cpus();
+	mutex_unlock(&dbs_mutex);
 
 	mutex_unlock(&dbs_mutex);
 	put_online_cpus();
