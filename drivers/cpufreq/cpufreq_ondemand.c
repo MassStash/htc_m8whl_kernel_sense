@@ -172,6 +172,7 @@ static struct dbs_tuners {
 	unsigned int freq_down_step;
 	unsigned int freq_down_step_barriar;
 	int gboost;
+	unsigned int input_boost;
 } dbs_tuners_ins = {
 	.up_threshold_multi_core = DEF_FREQUENCY_UP_THRESHOLD,
 	.up_threshold = DEF_FREQUENCY_UP_THRESHOLD,
@@ -188,6 +189,7 @@ static struct dbs_tuners {
 	.freq_down_step = DEF_FREQ_DOWN_STEP,
 	.freq_down_step_barriar = DEF_FREQ_DOWN_STEP_BARRIAR,
 	.gboost = 1,
+	.input_boost = 0,
 };
 
 /*
@@ -311,6 +313,7 @@ show_one(sync_freq, sync_freq);
 show_one(freq_down_step, freq_down_step);
 show_one(freq_down_step_barriar, freq_down_step_barriar);
 show_one(gboost, gboost);
+show_one(input_boost, input_boost);
 
 static ssize_t show_powersave_bias
 (struct kobject *kobj, struct attribute *attr, char *buf)
@@ -371,6 +374,18 @@ static ssize_t store_sampling_rate(struct kobject *a, struct attribute *b,
 	if (ret != 1)
 		return -EINVAL;
 	update_sampling_rate(input);
+	return count;
+}
+
+static ssize_t store_input_boost(struct kobject *a, struct attribute *b,
+				const char *buf, size_t count)
+{
+	unsigned int input;
+	int ret;
+	ret = sscanf(buf, "%u", &input);
+	if (ret != 1)
+		return -EINVAL;
+	dbs_tuners_ins.input_boost = input;
 	return count;
 }
 
@@ -833,6 +848,7 @@ define_one_global_rw(two_phase_freq);
 define_one_global_rw(freq_down_step);
 define_one_global_rw(freq_down_step_barriar);
 define_one_global_rw(gboost);
+define_one_global_rw(input_boost);
 
 static struct attribute *dbs_attributes[] = {
 	&sampling_rate_min.attr,
@@ -855,6 +871,7 @@ static struct attribute *dbs_attributes[] = {
 	&freq_down_step.attr,
 	&freq_down_step_barriar.attr,
 	&gboost.attr,
+	&input_boost.attr,
 	NULL
 };
 
@@ -1470,6 +1487,56 @@ static int should_io_be_busy(void)
 }
 
 #ifndef CONFIG_ARCH_MSM_CORTEXMP
+
+static void dbs_refresh_callback(struct work_struct *work)
+{
+	struct cpufreq_policy *policy;
+	struct cpu_dbs_info_s *this_dbs_info;
+	struct dbs_work_struct *dbs_work;
+	unsigned int cpu;
+	unsigned int target_freq;
+
+	dbs_work = container_of(work, struct dbs_work_struct, work);
+	cpu = dbs_work->cpu;
+
+	get_online_cpus();
+
+	if (lock_policy_rwsem_write(cpu) < 0)
+		goto bail_acq_sema_failed;
+
+	this_dbs_info = &per_cpu(od_cpu_dbs_info, cpu);
+	policy = this_dbs_info->cur_policy;
+	if (!policy) {
+		/* CPU not using ondemand governor */
+		goto bail_incorrect_governor;
+	}
+
+	if (dbs_tuners_ins.input_boost)
+		target_freq = dbs_tuners_ins.input_boost;
+	else
+		target_freq = policy->max;
+
+	if (policy->cur < target_freq) {
+		/*
+		 * Arch specific cpufreq driver may fail.
+		 * Don't update governor frequency upon failure.
+		 */
+		if (__cpufreq_driver_target(policy, target_freq,
+					CPUFREQ_RELATION_L) >= 0)
+			policy->cur = target_freq;
+
+		this_dbs_info->prev_cpu_idle = get_cpu_idle_time(cpu,
+				&this_dbs_info->prev_cpu_wall, true);
+	}
+
+bail_incorrect_governor:
+	unlock_policy_rwsem_write(cpu);
+
+bail_acq_sema_failed:
+	put_online_cpus();
+	return;
+}
+
 static int dbs_migration_notify(struct notifier_block *nb,
 				unsigned long target_cpu, void *arg)
 {
