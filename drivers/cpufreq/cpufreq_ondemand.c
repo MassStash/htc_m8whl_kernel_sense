@@ -716,7 +716,7 @@ skip_this_cpu:
 			cpumask_set_cpu(cpu, &cpus_timer_done);
 
 			if (dbs_info->cur_policy) {
-				
+				/* cpu using ondemand, cancel dbs timer */
 				dbs_timer_exit(dbs_info);
 #ifndef CONFIG_ARCH_MSM_CORTEXMP
 				atomic_set(&dbs_info->sync_enabled, 0);
