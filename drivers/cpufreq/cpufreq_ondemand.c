@@ -176,11 +176,7 @@ static struct dbs_tuners {
 	unsigned int sampling_down_factor;
 	int          powersave_bias;
 	unsigned int io_is_busy;
-	unsigned int shortcut;
-	unsigned int two_phase_freq;
-	unsigned int freq_down_step;
-	unsigned int freq_down_step_barriar;
-	int gboost;
+	unsigned int input_boost;
 } dbs_tuners_ins = {
 	.up_threshold_multi_core = DEF_FREQUENCY_UP_THRESHOLD,
 	.up_threshold = DEF_FREQUENCY_UP_THRESHOLD,
@@ -192,11 +188,7 @@ static struct dbs_tuners {
 	.powersave_bias = 0,
 	.sync_freq = 0,
 	.optimal_freq = 0,
-	.shortcut = 0,
-	.two_phase_freq = DEF_TWO_PHASE_FREQUENCY,
-	.freq_down_step = DEF_FREQ_DOWN_STEP,
-	.freq_down_step_barriar = DEF_FREQ_DOWN_STEP_BARRIAR,
-	.gboost = 1,
+	.input_boost = 0,
 };
 
 static inline u64 get_cpu_idle_time_jiffy(unsigned int cpu, u64 *wall)
@@ -356,9 +348,7 @@ show_one(down_differential_multi_core, down_differential_multi_core);
 show_one(optimal_freq, optimal_freq);
 show_one(up_threshold_any_cpu_load, up_threshold_any_cpu_load);
 show_one(sync_freq, sync_freq);
-show_one(freq_down_step, freq_down_step);
-show_one(freq_down_step_barriar, freq_down_step_barriar);
-show_one(gboost, gboost);
+show_one(input_boost, input_boost);
 
 static ssize_t show_powersave_bias
 (struct kobject *kobj, struct attribute *attr, char *buf)
@@ -419,6 +409,18 @@ static ssize_t store_sampling_rate(struct kobject *a, struct attribute *b,
 	if (ret != 1)
 		return -EINVAL;
 	update_sampling_rate(input);
+	return count;
+}
+
+static ssize_t store_input_boost(struct kobject *a, struct attribute *b,
+				const char *buf, size_t count)
+{
+	unsigned int input;
+	int ret;
+	ret = sscanf(buf, "%u", &input);
+	if (ret != 1)
+		return -EINVAL;
+	dbs_tuners_ins.input_boost = input;
 	return count;
 }
 
@@ -878,12 +880,7 @@ define_one_global_rw(down_differential_multi_core);
 define_one_global_rw(optimal_freq);
 define_one_global_rw(up_threshold_any_cpu_load);
 define_one_global_rw(sync_freq);
-define_one_global_rw(input_event_min_freq);
-define_one_global_rw(multi_phase_freq_tbl);
-define_one_global_rw(two_phase_freq);
-define_one_global_rw(freq_down_step);
-define_one_global_rw(freq_down_step_barriar);
-define_one_global_rw(gboost);
+define_one_global_rw(input_boost);
 
 static struct attribute *dbs_attributes[] = {
 	&sampling_rate_min.attr,
@@ -900,12 +897,7 @@ static struct attribute *dbs_attributes[] = {
 	&optimal_freq.attr,
 	&up_threshold_any_cpu_load.attr,
 	&sync_freq.attr,
-	&input_event_min_freq.attr,
-	&multi_phase_freq_tbl.attr,
-	&two_phase_freq.attr,
-	&freq_down_step.attr,
-	&freq_down_step_barriar.attr,
-	&gboost.attr,
+	&input_boost.attr,
 	NULL
 };
 
@@ -1571,7 +1563,10 @@ static int dbs_sync_thread(void *data)
 	unsigned int src_freq, src_max_load;
 	struct cpu_dbs_info_s *this_dbs_info, *src_dbs_info;
 	struct cpufreq_policy *policy;
-	int delay;
+	struct cpu_dbs_info_s *this_dbs_info;
+	struct dbs_work_struct *dbs_work;
+	unsigned int cpu;
+	unsigned int target_freq;
 
 	this_dbs_info = &per_cpu(od_cpu_dbs_info, cpu);
 
@@ -1696,25 +1691,19 @@ void dbs_synchronize(struct work_struct *work)
 		goto bail_incorrect_governor;
 	}
 
-	delay = usecs_to_jiffies(dbs_tuners_ins.sampling_rate);
+	if (dbs_tuners_ins.input_boost)
+		target_freq = dbs_tuners_ins.input_boost;
+	else
+		target_freq = policy->max;
 
-	if (policy->cur < src_freq) {
-
-		/* Cancelling the next ondemand sample */
-		cancel_delayed_work_sync(&this_dbs_info->work);
-
+	if (policy->cur < target_freq) {
 		/*
 		 * Arch specific cpufreq driver may fail.
 		 * Don't update governor frequency upon failure.
 		 */
-		if (__cpufreq_driver_target(policy, src_freq,
-					CPUFREQ_RELATION_L) >= 0) {
-			policy->cur = src_freq;
-			if (src_max_load > this_dbs_info->max_load) {
-				this_dbs_info->max_load = src_max_load;
-				this_dbs_info->prev_load = src_max_load;
-			}
-		}
+		if (__cpufreq_driver_target(policy, target_freq,
+					CPUFREQ_RELATION_L) >= 0)
+			policy->cur = target_freq;
 
 		/* Rescheduling the next ondemand sample */
 		mutex_lock(&this_dbs_info->timer_mutex);
