@@ -652,10 +652,9 @@ static ssize_t store_powersave_bias(struct kobject *a, struct attribute *b,
 
 					mutex_lock(&dbs_info->timer_mutex);
 					dbs_timer_init(dbs_info);
-#ifndef CONFIG_ARCH_MSM_CORTEXMP
-					mutex_unlock(&dbs_info->timer_mutex);
+					/* Enable frequency synchronization
+					 * of CPUs */
 					atomic_set(&dbs_info->sync_enabled, 1);
-#endif
 				}
 skip_this_cpu:
 				unlock_policy_rwsem_write(cpu);
@@ -685,9 +684,10 @@ skip_this_cpu:
 			if (dbs_info->cur_policy) {
 
 				dbs_timer_exit(dbs_info);
-#ifndef CONFIG_ARCH_MSM_CORTEXMP
+				/* Disable frequency synchronization of
+				 * CPUs to avoid re-queueing of work from
+				 * sync_thread */
 				atomic_set(&dbs_info->sync_enabled, 0);
-#endif
 
 				mutex_lock(&dbs_info->timer_mutex);
 				ondemand_powersave_bias_setspeed(
@@ -1598,8 +1598,8 @@ static int dbs_sync_thread(void *data)
 
 		if (!atomic_read(&this_dbs_info->sync_enabled)) {
 			atomic_set(&this_dbs_info->src_sync_cpu, -1);
-			unlock_policy_rwsem_write(cpu);
 			put_online_cpus();
+			unlock_policy_rwsem_write(cpu);
 			continue;
 		}
 
@@ -1828,7 +1828,6 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 					 *cpumask_of(j));
 			if (!dbs_tuners_ins.powersave_bias)
 				atomic_set(&j_dbs_info->sync_enabled, 1);
-#endif
 		}
 		this_dbs_info->cpu = cpu;
 		this_dbs_info->rate_mult = 1;
