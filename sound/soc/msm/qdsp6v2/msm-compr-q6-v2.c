@@ -157,8 +157,6 @@ static void compr_event_handler(uint32_t opcode,
 	int buffer_length = 0;
 	int stop_playback = 0;
 
-	wake_lock_timeout(&compr_lpa_wakelock, 3 * HZ);
-
 	pr_debug("%s opcode =%08x\n", __func__, opcode);
 	switch (opcode) {
 	case ASM_DATA_EVENT_WRITE_DONE_V2: {
@@ -181,7 +179,6 @@ static void compr_event_handler(uint32_t opcode,
 
 		snd_pcm_stream_lock_irq(substream);
 		if (runtime->status->hw_ptr >= runtime->control->appl_ptr) {
-			pr_info("render stopped");
 			runtime->render_flag |= SNDRV_RENDER_STOPPED;
 			stop_playback = 1;
 		}
