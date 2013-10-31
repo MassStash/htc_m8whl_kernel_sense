@@ -1925,8 +1925,9 @@ static void wcd9xxx_find_plug_and_report(struct wcd9xxx_mbhc *mbhc,
 		wcd9xxx_start_hs_polling(mbhc);
 	} else if (plug_type == PLUG_TYPE_HIGH_HPH) {
 		if (mbhc->mbhc_cfg->detect_extn_cable) {
-			
-			wcd9xxx_report_plug(mbhc, 1, SND_JACK_LINEOUT);
+			/* High impedance device found. Report as LINEOUT*/
+			if (mbhc->current_plug == PLUG_TYPE_NONE)
+				wcd9xxx_report_plug(mbhc, 1, SND_JACK_LINEOUT);
 			wcd9xxx_cleanup_hs_polling(mbhc);
 			pr_debug("%s: setup mic trigger for further detection\n",
 				 __func__);
@@ -2625,6 +2626,14 @@ static void wcd9xxx_correct_swch_plug(struct work_struct *work)
 		} else if (plug_type == PLUG_TYPE_HIGH_HPH) {
 			pr_debug("%s: High HPH detected, continue polling\n",
 				  __func__);
+			if (mbhc->mbhc_cfg->detect_extn_cable) {
+				if (mbhc->current_plug != plug_type)
+					wcd9xxx_report_plug(mbhc, 1,
+							    SND_JACK_LINEOUT);
+			} else if (mbhc->current_plug == PLUG_TYPE_NONE) {
+				wcd9xxx_report_plug(mbhc, 1,
+						    SND_JACK_HEADPHONE);
+			}
 		} else {
 			if (plug_type == PLUG_TYPE_GND_MIC_SWAP) {
 				pt_gnd_mic_swap_cnt++;
