@@ -194,6 +194,12 @@ int msm_platform_secondary_init(unsigned int cpu)
 
 static int __init init_hotplug(void)
 {
-	return register_hotcpu_notifier(&hotplug_rtb_notifier);
+	int rc;
+
+	rc = register_hotcpu_notifier(&hotplug_rtb_notifier);
+	if (rc)
+		return rc;
+
+	return register_hotcpu_notifier(&hotplug_cpu_check_notifier);
 }
 early_initcall(init_hotplug);
