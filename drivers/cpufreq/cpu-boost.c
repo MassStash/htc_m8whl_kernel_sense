@@ -43,11 +43,22 @@ static struct workqueue_struct *cpu_boost_wq;
 
 static struct work_struct input_boost_work;
 
+static struct work_struct input_boost_work;
+
 static unsigned int boost_ms;
 module_param(boost_ms, uint, 0644);
 
 static unsigned int sync_threshold;
 module_param(sync_threshold, uint, 0644);
+
+static unsigned int input_boost_freq;
+module_param(input_boost_freq, uint, 0644);
+
+static unsigned int input_boost_ms = 40;
+module_param(input_boost_ms, uint, 0644);
+
+static u64 last_input_time;
+#define MIN_INPUT_INTERVAL (150 * USEC_PER_MSEC)
 
 /*
  * The CPUFREQ_ADJUST notifier is used to override the current policy min to
