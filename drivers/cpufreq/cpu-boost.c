@@ -41,10 +41,6 @@ struct cpu_sync {
 static DEFINE_PER_CPU(struct cpu_sync, sync_info);
 static struct workqueue_struct *cpu_boost_wq;
 
-static struct work_struct input_boost_work;
-
-static struct work_struct input_boost_work;
-
 static unsigned int boost_ms;
 module_param(boost_ms, uint, 0644);
 
