@@ -24,7 +24,6 @@
 #include <linux/ktime.h>
 #include <linux/kthread.h>
 #include <linux/sched.h>
-#include <linux/input.h>
 #include <linux/workqueue.h>
 #include <linux/slab.h>
 
@@ -172,7 +171,6 @@ static struct dbs_tuners {
 	unsigned int freq_down_step;
 	unsigned int freq_down_step_barriar;
 	int gboost;
-	unsigned int input_boost;
 } dbs_tuners_ins = {
 	.up_threshold_multi_core = DEF_FREQUENCY_UP_THRESHOLD,
 	.up_threshold = DEF_FREQUENCY_UP_THRESHOLD,
@@ -189,7 +187,6 @@ static struct dbs_tuners {
 	.freq_down_step = DEF_FREQ_DOWN_STEP,
 	.freq_down_step_barriar = DEF_FREQ_DOWN_STEP_BARRIAR,
 	.gboost = 1,
-	.input_boost = 0,
 };
 
 static inline u64 get_cpu_idle_time_jiffy(unsigned int cpu, u64 *wall)
@@ -352,7 +349,6 @@ show_one(sync_freq, sync_freq);
 show_one(freq_down_step, freq_down_step);
 show_one(freq_down_step_barriar, freq_down_step_barriar);
 show_one(gboost, gboost);
-show_one(input_boost, input_boost);
 
 static ssize_t show_powersave_bias
 (struct kobject *kobj, struct attribute *attr, char *buf)
@@ -413,18 +409,6 @@ static ssize_t store_sampling_rate(struct kobject *a, struct attribute *b,
 	if (ret != 1)
 		return -EINVAL;
 	update_sampling_rate(input);
-	return count;
-}
-
-static ssize_t store_input_boost(struct kobject *a, struct attribute *b,
-				const char *buf, size_t count)
-{
-	unsigned int input;
-	int ret;
-	ret = sscanf(buf, "%u", &input);
-	if (ret != 1)
-		return -EINVAL;
-	dbs_tuners_ins.input_boost = input;
 	return count;
 }
 
@@ -858,7 +842,6 @@ define_one_global_rw(two_phase_freq);
 define_one_global_rw(freq_down_step);
 define_one_global_rw(freq_down_step_barriar);
 define_one_global_rw(gboost);
-define_one_global_rw(input_boost);
 
 static struct attribute *dbs_attributes[] = {
 	&sampling_rate_min.attr,
@@ -881,7 +864,6 @@ static struct attribute *dbs_attributes[] = {
 	&freq_down_step.attr,
 	&freq_down_step_barriar.attr,
 	&gboost.attr,
-	&input_boost.attr,
 	NULL
 };
 
@@ -1511,55 +1493,6 @@ static int should_io_be_busy(void)
 
 #ifndef CONFIG_ARCH_MSM_CORTEXMP
 
-static void dbs_refresh_callback(struct work_struct *work)
-{
-	struct cpufreq_policy *policy;
-	struct cpu_dbs_info_s *this_dbs_info;
-	struct dbs_work_struct *dbs_work;
-	unsigned int cpu;
-	unsigned int target_freq;
-
-	dbs_work = container_of(work, struct dbs_work_struct, work);
-	cpu = dbs_work->cpu;
-
-	get_online_cpus();
-
-	if (lock_policy_rwsem_write(cpu) < 0)
-		goto bail_acq_sema_failed;
-
-	this_dbs_info = &per_cpu(od_cpu_dbs_info, cpu);
-	policy = this_dbs_info->cur_policy;
-	if (!policy) {
-		/* CPU not using ondemand governor */
-		goto bail_incorrect_governor;
-	}
-
-	if (dbs_tuners_ins.input_boost)
-		target_freq = dbs_tuners_ins.input_boost;
-	else
-		target_freq = policy->max;
-
-	if (policy->cur < target_freq) {
-		/*
-		 * Arch specific cpufreq driver may fail.
-		 * Don't update governor frequency upon failure.
-		 */
-		if (__cpufreq_driver_target(policy, target_freq,
-					CPUFREQ_RELATION_L) >= 0)
-			policy->cur = target_freq;
-
-		this_dbs_info->prev_cpu_idle = get_cpu_idle_time(cpu,
-				&this_dbs_info->prev_cpu_wall, true);
-	}
-
-bail_incorrect_governor:
-	unlock_policy_rwsem_write(cpu);
-
-bail_acq_sema_failed:
-	put_online_cpus();
-	return;
-}
-
 static int dbs_migration_notify(struct notifier_block *nb,
 				unsigned long target_cpu, void *arg)
 {
@@ -1660,160 +1593,6 @@ bail_acq_sema_failed:
 }
 #endif
 
-static void dbs_input_event(struct input_handle *handle, unsigned int type,
-		unsigned int code, int value)
-{
-	int i;
-	struct cpu_dbs_info_s *dbs_info;
-	unsigned long flags;
-	int input_event_min_freq = 0;
-
-	if ((dbs_tuners_ins.powersave_bias == POWERSAVE_BIAS_MAXLEVEL) ||
-		(dbs_tuners_ins.powersave_bias == POWERSAVE_BIAS_MINLEVEL)) {
-
-		return;
-	}
-
-	if (type == EV_SYN && code == SYN_REPORT) {
-
-		dbs_tuners_ins.powersave_bias = 0;
-	}
-	else if (type == EV_ABS && code == ABS_MT_TRACKING_ID) {
-
-		if (value != -1) {
-			input_event_counter++;
-			input_event_min_freq = input_event_min_freq_array[num_online_cpus() - 1];
-
-			switch_turbo_mode(0);
-		}
-
-		else {
-			if (likely(input_event_counter > 0))
-				input_event_counter--;
-			else
-				pr_warning("dbs_input_event: Touch isn't paired!\n");
-
-			input_event_min_freq = 0;
-
-			switch_turbo_mode(DBS_SWITCH_MODE_TIMEOUT);
-		}
-	}
-	else if (type == EV_KEY && value == 1 &&
-			(code == KEY_POWER || code == KEY_VOLUMEUP || code == KEY_VOLUMEDOWN))
-	{
-		input_event_min_freq = input_event_min_freq_array[num_online_cpus() - 1];
-
-		switch_turbo_mode(DBS_SWITCH_MODE_TIMEOUT);
-	}
-
-	if (input_event_min_freq > 0) {
-
-		spin_lock_irqsave(&input_boost_lock, flags);
-		input_event_boost = true;
-		input_event_boost_expired = jiffies + usecs_to_jiffies(dbs_tuners_ins.sampling_rate * 4);
-		spin_unlock_irqrestore(&input_boost_lock, flags);
-
-		for_each_online_cpu(i)
-		{
-#ifdef CONFIG_ARCH_MSM_CORTEXMP
-			if (i != CPU0)
-				break;
-#endif
-			dbs_info = &per_cpu(od_cpu_dbs_info, i);
-			 if (dbs_info->cur_policy &&
-				dbs_info->cur_policy->cur < input_event_min_freq) {
-				dbs_info->input_event_freq = input_event_min_freq;
-				wake_up_process(per_cpu(up_task, i));
-			}
-		}
-	}
-}
-
-static int input_dev_filter(const char *input_dev_name)
-{
-	if (strstr(input_dev_name, "touchscreen") ||
-	    strstr(input_dev_name, "keypad")) {
-		return 0;
-	} else {
-		return 1;
-	}
-}
-
-static int dbs_input_connect(struct input_handler *handler,
-		struct input_dev *dev, const struct input_device_id *id)
-{
-	struct input_handle *handle;
-	int error;
-
-
-	if (input_dev_filter(dev->name))
-		return -ENODEV;
-
-	handle = kzalloc(sizeof(struct input_handle), GFP_KERNEL);
-	if (!handle)
-		return -ENOMEM;
-
-	handle->dev = dev;
-	handle->handler = handler;
-	handle->name = "cpufreq";
-
-	error = input_register_handle(handle);
-	if (error)
-		goto err2;
-
-	error = input_open_device(handle);
-	if (error)
-		goto err1;
-
-	return 0;
-err1:
-	input_unregister_handle(handle);
-err2:
-	kfree(handle);
-	return error;
-}
-
-static void dbs_input_disconnect(struct input_handle *handle)
-{
-	input_close_device(handle);
-	input_unregister_handle(handle);
-	kfree(handle);
-}
-
-static const struct input_device_id dbs_ids[] = {
-
-	{
-		.flags = INPUT_DEVICE_ID_MATCH_EVBIT |
-			INPUT_DEVICE_ID_MATCH_ABSBIT,
-		.evbit = { BIT_MASK(EV_ABS) },
-		.absbit = { [BIT_WORD(ABS_MT_POSITION_X)] =
-			BIT_MASK(ABS_MT_POSITION_X) |
-			BIT_MASK(ABS_MT_POSITION_Y) },
-	},
-
-	{
-		.flags = INPUT_DEVICE_ID_MATCH_KEYBIT |
-			INPUT_DEVICE_ID_MATCH_ABSBIT,
-		.keybit = { [BIT_WORD(BTN_TOUCH)] = BIT_MASK(BTN_TOUCH) },
-		.absbit = { [BIT_WORD(ABS_X)] =
-			BIT_MASK(ABS_X) | BIT_MASK(ABS_Y) },
-	},
-
-	{
-		.flags = INPUT_DEVICE_ID_MATCH_EVBIT,
-		.evbit = { BIT_MASK(EV_KEY) },
-	},
-	{ },
-};
-
-static struct input_handler dbs_input_handler = {
-	.event		= dbs_input_event,
-	.connect	= dbs_input_connect,
-	.disconnect	= dbs_input_disconnect,
-	.name		= "cpufreq_ond",
-	.id_table	= dbs_ids,
-};
-
 static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 				   unsigned int event)
 {
@@ -1890,8 +1669,6 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 					&dbs_migration_nb);
 #endif
 		}
-		if (!cpu)
-			rc = input_register_handler(&dbs_input_handler);
 		mutex_unlock(&dbs_mutex);
 
 		if (!ondemand_powersave_bias_setspeed(
@@ -1917,8 +1694,6 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 #endif
 
 		this_dbs_info->cur_policy = NULL;
-		if (!cpu)
-			input_unregister_handler(&dbs_input_handler);
 		if (!dbs_enable) {
 			dbs_deinit_freq_map_table();
 
