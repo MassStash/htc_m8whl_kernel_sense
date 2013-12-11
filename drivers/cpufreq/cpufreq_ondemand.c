@@ -450,36 +450,6 @@ static ssize_t store_io_is_busy(struct kobject *a, struct attribute *b,
 	return count;
 }
 
-static ssize_t store_gboost(struct kobject *a, struct attribute *b,
-				const char *buf, size_t count)
-{
-	unsigned int input;
-	int ret;
-
-	ret = sscanf(buf, "%u", &input);
-	if(ret != 1)
-		return -EINVAL;
-	dbs_tuners_ins.gboost = (input > 0 ? input : 0);
-	return count;
-}
-
-static ssize_t store_shortcut(struct kobject *a, struct attribute *b,
-				   const char *buf, size_t count)
-{
-	unsigned int input;
-	int ret;
-
-	ret = sscanf(buf, "%u", &input);
-	if (ret != 1)
-		return -EINVAL;
-
-	if (dbs_tuners_ins.shortcut != input) {
-		dbs_tuners_ins.shortcut = input;
-	}
-
-	return count;
-}
-
 static ssize_t store_down_differential_multi_core(struct kobject *a,
 			struct attribute *b, const char *buf, size_t count)
 {
