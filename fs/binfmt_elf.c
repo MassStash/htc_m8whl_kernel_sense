@@ -118,22 +118,22 @@ static int padzero(unsigned long elf_bss)
 #endif
 
 /*
- * Use get_random_int() to implement AT_RANDOM while avoiding depletion
- * of the entropy pool.
- */
+* Use get_random_int() to implement AT_RANDOM while avoiding depletion
+* of the entropy pool.
+*/
 static void get_atrandom_bytes(unsigned char *buf, size_t nbytes)
 {
-	unsigned char *p = buf;
+        unsigned char *p = buf;
 
-	while (nbytes) {
-		unsigned int random_variable;
-		size_t chunk = min(nbytes, sizeof(random_variable));
+        while (nbytes) {
+                unsigned int random_variable;
+                size_t chunk = min(nbytes, sizeof(random_variable));
 
-		random_variable = get_random_int();
-		memcpy(p, &random_variable, chunk);
-		p += chunk;
-		nbytes -= chunk;
-	}
+                random_variable = get_random_int();
+                memcpy(p, &random_variable, chunk);
+                p += chunk;
+                nbytes -= chunk;
+        }
 }
 
 static int
