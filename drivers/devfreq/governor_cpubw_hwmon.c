@@ -244,8 +244,9 @@ static void compute_bw(int mbps, unsigned long *freq, unsigned long *ab)
 		new_bw /= 100;
 	}
 
-	*ab = roundup(mbps, bw_step);
-	*freq = roundup((mbps * 100) / io_percent, bw_step);
+	prev_ab = new_bw;
+	*ab = roundup(new_bw, bw_step);
+	*freq = (new_bw * 100) / io_percent;
 }
 
 #define TOO_SOON_US	(1 * USEC_PER_MSEC)
@@ -338,7 +339,6 @@ static int devfreq_cpubw_hwmon_get_freq(struct devfreq *df,
 
 	mbps = measure_bw_and_set_irq();
 	compute_bw(mbps, freq, df->data);
-	prev_ab = *(unsigned long *) df->data;
 
 	return 0;
 }
