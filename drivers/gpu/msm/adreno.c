@@ -2350,6 +2350,13 @@ static int adreno_setproperty(struct kgsl_device_private *dev_priv,
 	return status;
 }
 
+/**
+ * adreno_hw_isidle() - Check if the GPU core is idle
+ * @device: Pointer to the KGSL device structure for the GPU
+ *
+ * Return true if the RBBM status register for the GPU type indicates that the
+ * hardware is idle
+ */
 bool adreno_hw_isidle(struct kgsl_device *device)
 {
 	unsigned int reg_rbbm_status;
@@ -2444,6 +2451,10 @@ bool adreno_isidle(struct kgsl_device *device)
 
 	rptr = adreno_get_rptr(&adreno_dev->ringbuffer);
 
+	/*
+	 * wptr is updated when we add commands to ringbuffer, add a barrier
+	 * to make sure updated wptr is compared to rptr
+	 */
 	smp_mb();
 
 	if (rptr == adreno_dev->ringbuffer.wptr)

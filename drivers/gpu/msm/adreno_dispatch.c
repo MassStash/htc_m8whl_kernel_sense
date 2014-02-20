@@ -66,7 +66,7 @@ static inline bool _isidle(struct kgsl_device *device)
 
 	ts = kgsl_readtimestamp(device, NULL, KGSL_TIMESTAMP_RETIRED);
 
-	
+	/* If GPU HW status is idle return true */
 	if (adreno_hw_isidle(device) ||
 			(ts == adreno_dev->ringbuffer.global_ts))
 		goto ret;
