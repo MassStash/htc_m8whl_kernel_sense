@@ -105,7 +105,7 @@ struct cpu_dbs_info_s {
 
 	atomic_t src_sync_cpu;
 	atomic_t sync_enabled;
-#endif
+
 };
 static DEFINE_PER_CPU(struct cpu_dbs_info_s, od_cpu_dbs_info);
 static DEFINE_PER_CPU(struct task_struct *, sync_thread);
@@ -192,50 +192,11 @@ static struct dbs_tuners {
 	.boostpulse_duration = 250000,
 };
 
-static inline u64 get_cpu_idle_time_jiffy(unsigned int cpu, u64 *wall)
-{
-	u64 idle_time;
-	u64 cur_wall_time;
-	u64 busy_time;
-
-	cur_wall_time = jiffies64_to_cputime64(get_jiffies_64());
-
-	busy_time  = kcpustat_cpu(cpu).cpustat[CPUTIME_USER];
-	busy_time += kcpustat_cpu(cpu).cpustat[CPUTIME_SYSTEM];
-	busy_time += kcpustat_cpu(cpu).cpustat[CPUTIME_IRQ];
-	busy_time += kcpustat_cpu(cpu).cpustat[CPUTIME_SOFTIRQ];
-	busy_time += kcpustat_cpu(cpu).cpustat[CPUTIME_STEAL];
-	busy_time += kcpustat_cpu(cpu).cpustat[CPUTIME_NICE];
-
-	idle_time = cur_wall_time - busy_time;
-	if (wall)
-		*wall = jiffies_to_usecs(cur_wall_time);
-
-	return jiffies_to_usecs(idle_time);
-}
-
-static inline cputime64_t get_cpu_idle_time(unsigned int cpu, cputime64_t *wall)
-{
-	u64 idle_time = get_cpu_idle_time_us(cpu, NULL);
-
-	if (idle_time == -1ULL)
-		return get_cpu_idle_time_jiffy(cpu, wall);
-	else
-		idle_time += get_cpu_iowait_time_us(cpu, wall);
-
-	return idle_time;
-}
-
-static inline cputime64_t get_cpu_iowait_time(unsigned int cpu, cputime64_t *wall)
-{
-	u64 iowait_time = get_cpu_iowait_time_us(cpu, wall);
-
-	if (iowait_time == -1ULL)
-		return 0;
-
-	return iowait_time;
-}
-
+/*
+ * Find right freq to be set now with powersave_bias on.
+ * Returns the freq_hi to be used right now and will set freq_hi_jiffies,
+ * freq_lo, and freq_lo_jiffies in percpu area for averaging freqs.
+ */
 static unsigned int powersave_bias_target(struct cpufreq_policy *policy,
 					  unsigned int freq_next,
 					  unsigned int relation)
@@ -577,7 +538,7 @@ static ssize_t store_ignore_nice_load(struct kobject *a, struct attribute *b,
 		struct cpu_dbs_info_s *dbs_info;
 		dbs_info = &per_cpu(od_cpu_dbs_info, j);
 		dbs_info->prev_cpu_idle = get_cpu_idle_time(j,
-						&dbs_info->prev_cpu_wall);
+						&dbs_info->prev_cpu_wall, true);
 		if (dbs_tuners_ins.ignore_nice)
 			dbs_info->prev_cpu_nice = kcpustat_cpu(j).cpustat[CPUTIME_NICE];
 
@@ -941,12 +902,12 @@ static int adjust_freq_map_table(int freq, int cnt, struct cpufreq_policy *polic
 {
 	int i, upper, lower;
 
-	if (policy && tbl) {
-		upper = policy->cpuinfo.max_freq;
-		lower = policy->cpuinfo.min_freq;
-	}
-	else
-		return freq;
+	for_each_cpu(j, policy->cpus) {
+		struct cpu_dbs_info_s *j_dbs_info;
+		cputime64_t cur_wall_time, cur_idle_time;
+		unsigned int idle_time, wall_time;
+		unsigned int load_freq;
+		int freq_avg;
 
 	for(i = 0; i < cnt; i++)
 	{
@@ -961,8 +922,7 @@ static int adjust_freq_map_table(int freq, int cnt, struct cpufreq_policy *polic
 		}
 	}
 
-	return (freq - lower < upper - freq)?lower:upper;
-}
+		cur_idle_time = get_cpu_idle_time(j, &cur_wall_time, true);
 
 #ifdef CONFIG_CPU_FREQ_GOV_ONDEMAND_2_PHASE
 
@@ -971,20 +931,16 @@ static void reset_freq_map_table(struct cpufreq_policy *policy)
 	unsigned int real_freq;
 	int index;
 
-	if (!tbl)
-		return;
-
+		if (dbs_tuners_ins.ignore_nice) {
+			u64 cur_nice;
+			unsigned long cur_nice_jiffies;
 
 	real_freq = adjust_freq_map_table(dbs_tuners_ins.two_phase_freq, freq_cnt, policy);
 
 	for (index = 0; index < freq_cnt; index++) {
 
-		if (tbl[index].frequency < real_freq)
-			tblmap[0][index] = real_freq;
-
-
-		else if (tbl[index].frequency == real_freq && index != freq_cnt-1)
-			tblmap[0][index] = tbl[index+1].frequency;
+		if (unlikely(!wall_time || wall_time < idle_time))
+			continue;
 
 
 		else
@@ -1541,6 +1497,49 @@ static int should_io_be_busy(void)
 
 #ifndef CONFIG_ARCH_MSM_CORTEXMP
 
+static void dbs_refresh_callback(struct work_struct *work)
+{
+	struct cpufreq_policy *policy;
+	struct cpu_dbs_info_s *this_dbs_info;
+	struct dbs_work_struct *dbs_work;
+	unsigned int cpu;
+
+	dbs_work = container_of(work, struct dbs_work_struct, work);
+	cpu = dbs_work->cpu;
+
+	get_online_cpus();
+
+	if (lock_policy_rwsem_write(cpu) < 0)
+		goto bail_acq_sema_failed;
+
+	this_dbs_info = &per_cpu(od_cpu_dbs_info, cpu);
+	policy = this_dbs_info->cur_policy;
+	if (!policy) {
+		/* CPU not using ondemand governor */
+		goto bail_incorrect_governor;
+	}
+
+	if (policy->cur < policy->max) {
+		/*
+		 * Arch specific cpufreq driver may fail.
+		 * Don't update governor frequency upon failure.
+		 */
+		if (__cpufreq_driver_target(policy, policy->max,
+					CPUFREQ_RELATION_L) >= 0)
+			policy->cur = policy->max;
+
+		this_dbs_info->prev_cpu_idle = get_cpu_idle_time(cpu,
+				&this_dbs_info->prev_cpu_wall, true);
+	}
+
+bail_incorrect_governor:
+	unlock_policy_rwsem_write(cpu);
+
+bail_acq_sema_failed:
+	put_online_cpus();
+	return;
+}
+
 static int dbs_migration_notify(struct notifier_block *nb,
 				unsigned long target_cpu, void *arg)
 {
@@ -1692,7 +1691,7 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 			j_dbs_info->cur_policy = policy;
 
 			j_dbs_info->prev_cpu_idle = get_cpu_idle_time(j,
-						&j_dbs_info->prev_cpu_wall);
+						&j_dbs_info->prev_cpu_wall, true);
 			if (dbs_tuners_ins.ignore_nice)
 				j_dbs_info->prev_cpu_nice =
 						kcpustat_cpu(j).cpustat[CPUTIME_NICE];

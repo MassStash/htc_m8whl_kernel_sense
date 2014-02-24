@@ -45,9 +45,9 @@
 #include <linux/slab.h>
 
 #ifdef CONFIG_HIGHMEM
-	#define _ZONE ZONE_HIGHMEM
+#define _ZONE ZONE_HIGHMEM
 #else
-	#define _ZONE ZONE_NORMAL
+#define _ZONE ZONE_NORMAL
 #endif
 
 
@@ -61,12 +61,13 @@ static int lowmem_adj[6] = {
 };
 static int lowmem_adj_size = 4;
 static int lowmem_minfree[6] = {
-	3 * 512,	
-	2 * 1024,	
-	4 * 1024,	
-	16 * 1024,	
+	3 * 512,	/* 6MB */
+	2 * 1024,	/* 8MB */
+	4 * 1024,	/* 16MB */
+	16 * 1024,	/* 64MB */
 };
 static int lowmem_minfree_size = 4;
+static int lmk_fast_run = 1;
 
 static unsigned long lowmem_deathpending_timeout;
 static uint32_t lowmem_sleep_ms = 1;
