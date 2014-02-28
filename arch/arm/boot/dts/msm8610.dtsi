@@ -467,8 +467,48 @@
 	qcom,acpuclk@f9011050 {
 		compatible = "qcom,acpuclk-a7";
 		reg = <0xf9011050 0x8>;
-		reg-names = "rcg_base";
-		a7_cpu-supply = <&apc_vreg_corner>;
+		reg-names = "rcg-base";
+		clock-names = "clk-4", "clk-5";
+		qcom,speed0-bin-v0 =
+			<         0 0>,
+			< 384000000 1>,
+			< 787200000 2>,
+			<1190400000 3>;
+
+		cpu-vdd-supply = <&apc_vreg_corner>;
+	};
+
+	cpubw: qcom,cpubw {
+		compatible = "qcom,devbw";
+		governor = "cpufreq";
+		qcom,src-dst-ports = <1 512>;
+		qcom,active-only;
+		qcom,bw-tbl =
+			<  762 /* 100 MHz */ >,
+			< 1525 /* 200 MHz */ >,
+			< 2540 /* 333 MHz */ >;
+	};
+
+	devfreq-cpufreq {
+		cpubw-cpufreq {
+			target-dev = <&cpubw>;
+			cpu-to-dev-map =
+				<  384000  762 >,
+				<  787200 1525 >,
+				< 1190400 2540 >;
+		};
+	};
+
+	qcom,msm-cpufreq@0 {
+		reg = <0 4>;
+		compatible = "qcom,msm-cpufreq";
+		qcom,cpufreq-table =
+			<  300000 >,
+			<  384000 >,
+			<  600000 >,
+			<  787200 >,
+			<  998400 >,
+			< 1190400 >;
 	};
 
 	spmi_bus: qcom,spmi@fc4c0000 {

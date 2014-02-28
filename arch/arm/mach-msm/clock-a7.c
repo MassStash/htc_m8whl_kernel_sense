@@ -18,6 +18,7 @@
 #include <linux/io.h>
 #include <linux/err.h>
 #include <linux/clk.h>
+#include <linux/cpu.h>
 #include <linux/mutex.h>
 #include <linux/delay.h>
 #include <linux/platform_device.h>
@@ -158,6 +159,9 @@ static struct mux_div_clk a7ssmux = {
 static struct clk_lookup clock_tbl_a7[] = {
 	CLK_LOOKUP("cpu0_clk",	a7ssmux.c, "0.qcom,msm-cpufreq"),
 	CLK_LOOKUP("cpu0_clk",	a7ssmux.c, "fe805664.qcom,pm-8x60"),
+	CLK_LOOKUP("cpu1_clk",	a7ssmux.c, "0.qcom,msm-cpufreq"),
+	CLK_LOOKUP("cpu2_clk",	a7ssmux.c, "0.qcom,msm-cpufreq"),
+	CLK_LOOKUP("cpu3_clk",	a7ssmux.c, "0.qcom,msm-cpufreq"),
 };
 
 static int of_get_fmax_vdd_class(struct platform_device *pdev, struct clk *c,
@@ -345,7 +349,7 @@ struct platform_device msm8226_device_perf_lock = {
 static int clock_a7_probe(struct platform_device *pdev)
 {
 	struct resource *res;
-	int speed_bin = 0, version = 0, rc;
+	int speed_bin = 0, version = 0, rc, cpu;
 	unsigned long rate, aux_rate;
 	struct clk *aux_clk, *main_pll;
 	char prop_name[] = "qcom,speedX-bin-vX";
@@ -407,22 +411,18 @@ static int clock_a7_probe(struct platform_device *pdev)
 	clk_set_rate(main_pll, clk_round_rate(main_pll, 1));
 	clk_set_rate(&a7ssmux.c, rate);
 
-	WARN(clk_prepare_enable(&a7ssmux.c),
-		"Unable to turn on CPU clock");
-
-#ifdef CONFIG_PERFLOCK
-	
-	if (speed_bin == 1) {
-		msm8226_floor_data.perf_acpu_table = msm8226_perf_acpu_table_1p6;
-		msm8226_cpufreq_ceiling_data.perf_acpu_table = msm8226_perf_acpu_table_1p6;
-	}
-	
-	else if(speed_bin == 2 || speed_bin == 4 || speed_bin == 5 || speed_bin == 7) {
-		msm8226_floor_data.perf_acpu_table = msm8226_perf_acpu_table_1p4;
-		msm8226_cpufreq_ceiling_data.perf_acpu_table = msm8226_perf_acpu_table_1p4;
-	}
-#endif
-
+	/*
+	 * We don't want the CPU clocks to be turned off at late init
+	 * if CPUFREQ or HOTPLUG configs are disabled. So, bump up the
+	 * refcount of these clocks. Any cpufreq/hotplug manager can assume
+	 * that the clocks have already been prepared and enabled by the time
+	 * they take over.
+	 */
+	get_online_cpus();
+	for_each_online_cpu(cpu)
+		WARN(clk_prepare_enable(&a7ssmux.c),
+			"Unable to turn on CPU clock");
+	put_online_cpus();
 	return 0;
 }
 
@@ -443,4 +443,4 @@ static int __init clock_a7_init(void)
 {
 	return platform_driver_probe(&clock_a7_driver, clock_a7_probe);
 }
-device_initcall(clock_a7_init);
+arch_initcall(clock_a7_init);
