@@ -38,11 +38,9 @@
 #define DEFAULT_MIN_TIME_CPU_ONLINE 1
 #define DEFAULT_TIMER 1
 
-#define MIN_CPU_UP_US 1000 * USEC_PER_MSEC;
-#define NUM_POSSIBLE_CPUS num_possible_cpus()
-#define HIGH_LOAD 95
+extern bool boosted;
 
-struct cpu_stats
+static struct cpu_stats
 {
 	unsigned int online_cpus;
 	unsigned int counter[2];
@@ -198,8 +196,26 @@ static void __ref decide_hotplug_func(struct work_struct *work)
 			if (stats.counter[cpu])
 				--stats.counter[cpu];
 
-			if (stats.online_cpus > 2)
-				cpu_smash(stats.online_cpus - 1);
+			if (cpu_online(cpu_nr) && stats.counter[cpu] < t->high_load_counter)
+			{
+				/* 
+				 * offline the cpu only if its freq is lower than
+				 * CPUFREQ_UNPLUG_LIMIT. Else fill the counter so that this cpu
+				 * stays online at least 5 more samples (time depends on the
+				 * sample timer period)
+				 */
+				cpufreq_get_policy(&policy, cpu_nr);
+
+				freq_buf = policy.min;
+
+				if (policy.min > t->cpufreq_unplug_limit)
+					freq_buf = t->cpufreq_unplug_limit;
+
+				if (policy.cur > freq_buf && !boosted)
+					stats.counter[cpu] = t->high_load_counter + 5;
+				else
+					cpu_smash(cpu_nr);
+			}
 		}
 	}
 
