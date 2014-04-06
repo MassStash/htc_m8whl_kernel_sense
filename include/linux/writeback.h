@@ -76,8 +76,6 @@ struct writeback_control {
 	unsigned tagged_writepages:1;	
 	unsigned for_reclaim:1;		
 	unsigned range_cyclic:1;
-	unsigned for_sync:1;	
-
 };
 
 /*
