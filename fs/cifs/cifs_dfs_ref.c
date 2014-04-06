@@ -141,8 +141,8 @@ char *cifs_compose_mount_options(const char *sb_mountdata,
 
 	rc = dns_resolve_server_name_to_ip(*devname, &srvIP);
 	if (rc < 0) {
-		cFYI(1, "%s: Failed to resolve server part of %s to IP: %d",
-			__func__, *devname, rc);
+		cERROR(1, "%s: Failed to resolve server part of %s to IP: %d",
+			  __func__, *devname, rc);
 		goto compose_mount_options_err;
 	}
 
@@ -226,6 +226,8 @@ compose_mount_options_out:
 compose_mount_options_err:
 	kfree(mountdata);
 	mountdata = ERR_PTR(rc);
+	kfree(*devname);
+	*devname = NULL;
 	goto compose_mount_options_out;
 }
 
