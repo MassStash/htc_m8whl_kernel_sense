@@ -169,6 +169,8 @@ static struct dbs_tuners {
 	unsigned int freq_down_step;
 	unsigned int freq_down_step_barriar;
 	int gboost;
+	unsigned int input_boost_freq;
+	unsigned int boostpulse_duration;
 } dbs_tuners_ins = {
 	.up_threshold_multi_core = DEF_FREQUENCY_UP_THRESHOLD,
 	.up_threshold = DEF_FREQUENCY_UP_THRESHOLD,
@@ -178,13 +180,16 @@ static struct dbs_tuners {
 	.up_threshold_any_cpu_load = DEF_FREQUENCY_UP_THRESHOLD,
 	.ignore_nice = 0,
 	.powersave_bias = 0,
-	.sync_freq = 0,
-	.optimal_freq = 0,
 	.shortcut = 0,
 	.two_phase_freq = DEF_TWO_PHASE_FREQUENCY,
 	.freq_down_step = DEF_FREQ_DOWN_STEP,
 	.freq_down_step_barriar = DEF_FREQ_DOWN_STEP_BARRIAR,
 	.gboost = 1,
+	.sync_freq = 960000,
+	.optimal_freq = 960000,
+	.io_is_busy = 1,
+	.input_boost_freq = 1497600,
+	.boostpulse_duration = 250000,
 };
 
 static inline u64 get_cpu_idle_time_jiffy(unsigned int cpu, u64 *wall)
@@ -347,6 +352,8 @@ show_one(sync_freq, sync_freq);
 show_one(freq_down_step, freq_down_step);
 show_one(freq_down_step_barriar, freq_down_step_barriar);
 show_one(gboost, gboost);
+show_one(input_boost_freq, input_boost_freq);
+show_one(boostpulse_duration, boostpulse_duration);
 
 static ssize_t show_powersave_bias
 (struct kobject *kobj, struct attribute *attr, char *buf)
@@ -821,6 +828,32 @@ static ssize_t store_freq_down_step_barriar(struct kobject *a, struct attribute 
 	return count;
 }
 
+static ssize_t store_input_boost_freq(struct kobject *a, struct attribute *b,
+				   const char *buf, size_t count)
+{
+	unsigned int input;
+	int ret;
+
+	ret = sscanf(buf, "%u", &input);
+	if (ret != 1)
+		return -EINVAL;
+	dbs_tuners_ins.input_boost_freq = input;
+	return count;
+}
+
+static ssize_t store_boostpulse_duration(struct kobject *a, struct attribute *b,
+				   const char *buf, size_t count)
+{
+	unsigned int input;
+	int ret;
+
+	ret = sscanf(buf, "%u", &input);
+	if (ret != 1)
+		return -EINVAL;
+	dbs_tuners_ins.boostpulse_duration = input;
+	return count;
+}
+
 define_one_global_rw(sampling_rate);
 define_one_global_rw(io_is_busy);
 define_one_global_rw(shortcut);
@@ -840,6 +873,8 @@ define_one_global_rw(two_phase_freq);
 define_one_global_rw(freq_down_step);
 define_one_global_rw(freq_down_step_barriar);
 define_one_global_rw(gboost);
+define_one_global_rw(input_boost_freq);
+define_one_global_rw(boostpulse_duration);
 
 static struct attribute *dbs_attributes[] = {
 	&sampling_rate_min.attr,
@@ -862,6 +897,8 @@ static struct attribute *dbs_attributes[] = {
 	&freq_down_step.attr,
 	&freq_down_step_barriar.attr,
 	&gboost.attr,
+	&input_boost_freq.attr,
+	&boostpulse_duration.attr,
 	NULL
 };
 
@@ -1310,6 +1347,14 @@ set_freq:
 		} else if (g_count > 2) {
 			--g_count;
 		}
+
+	/*
+	 * Input boost
+	 */
+	if (boosted)
+	{
+		if (policy->cur < dbs_tuners_ins.boostpulse_duration)
+			dbs_freq_increase(policy, dbs_tuners_ins.input_boost_freq);
 
 		if (g_count > 10) {
 			dbs_tuners_ins.shortcut = 1;
