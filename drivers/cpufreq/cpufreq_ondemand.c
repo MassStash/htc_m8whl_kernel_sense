@@ -1178,6 +1178,8 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 	unsigned int j, max_cur_load = 0, prev_load = 0;
 	struct cpu_dbs_info_s *j_dbs_info;
 	unsigned int up_threshold = 85;
+	bool boosted = ktime_to_us(ktime_get()) < 
+		(last_input_time + dbs_tuners_ins.boostpulse_duration);
 
 	this_dbs_info->freq_lo = 0;
 	policy = this_dbs_info->cur_policy;
@@ -1351,9 +1353,8 @@ set_freq:
 	/*
 	 * Input boost
 	 */
-	if (boosted)
-	{
-		if (policy->cur < dbs_tuners_ins.boostpulse_duration)
+	if (boosted) {
+		if (policy->cur < dbs_tuners_ins.input_boost_freq)
 			dbs_freq_increase(policy, dbs_tuners_ins.input_boost_freq);
 
 		if (g_count > 10) {
