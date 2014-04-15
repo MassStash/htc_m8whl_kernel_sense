@@ -179,18 +179,20 @@ static void __ref decide_hotplug_func(struct work_struct *work)
 	if (unlikely(!t->load_threshold && stats.online_cpus == NUM_POSSIBLE_CPUS))
 		goto reschedule;
 
-	for (cpu = 0; cpu < 2; cpu++)
+	for_each_online_cpu(cpu)
 	{
-		cur_load = cpufreq_quick_get_util(cpu);
+		cur_load = get_cpu_load(cpu);
 
 		if (cur_load >= t->load_threshold)
 		{
 			if (stats.counter[cpu] < t->max_load_counter)
 				++stats.counter[cpu];
 
-			if (stats.online_cpus < NUM_POSSIBLE_CPUS)
-				cpu_revive(stats.online_cpus, cur_load);
-		}
+			if (cpu_is_offline(cpu_nr)
+					&& stats.counter[cpu] >= t->high_load_counter)
+				cpu_revive(cpu_nr);
+			}
+
 		else
 		{
 			if (stats.counter[cpu])
@@ -198,7 +200,7 @@ static void __ref decide_hotplug_func(struct work_struct *work)
 
 			if (cpu_online(cpu_nr) && stats.counter[cpu] < t->high_load_counter)
 			{
-				/* 
+				/*
 				 * offline the cpu only if its freq is lower than
 				 * CPUFREQ_UNPLUG_LIMIT. Else fill the counter so that this cpu
 				 * stays online at least 5 more samples (time depends on the
@@ -517,6 +519,8 @@ static int __devinit mako_hotplug_probe(struct platform_device *pdev)
 	INIT_DELAYED_WORK(&decide_hotplug, decide_hotplug_func);
 
 	queue_delayed_work_on(0, wq, &decide_hotplug, HZ * 20);
+
+	return ret;
 
 err:
 	return ret;
