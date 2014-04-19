@@ -1158,6 +1158,7 @@ static void boost_min_freq(int min_freq)
 
 static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 {
+	/* Extrapolated load of this CPU */
 	unsigned int load_at_max_freq = 0;
 	unsigned int max_load_freq;
 	unsigned int max_load_other_cpu = 0;
@@ -1268,6 +1269,9 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 				dbs_tuners_ins.up_threshold_any_cpu_load;
 		}
 	}
+
+	load_at_max_freq = (cur_load * policy->cur) / policy->max;
+	cpufreq_notify_utilization(policy, load_at_max_freq);
 
 	if (dbs_tuners_ins.shortcut)
 		up_threshold = dbs_tuners_ins.up_threshold;
