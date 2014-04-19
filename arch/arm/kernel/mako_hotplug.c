@@ -38,6 +38,9 @@
 #define DEFAULT_MIN_TIME_CPU_ONLINE 1
 #define DEFAULT_TIMER 1
 
+#define MIN_CPU_UP_US 1000 * USEC_PER_MSEC;
+#define NUM_POSSIBLE_CPUS num_possible_cpus()
+
 extern bool boosted;
 
 static struct cpu_stats
@@ -95,26 +98,10 @@ static struct workqueue_struct *wq;
 static struct delayed_work decide_hotplug;
 static struct work_struct suspend, resume;
 
-static void cpu_revive(unsigned int cpu, unsigned int load)
+static void cpu_revive(unsigned int cpu)
 {
-	struct hotplug_tunables *t = &tunables;
-
-	/*
-	 * we should care about a very high load spike and online the
-	 * cpu in question. If the device is under stress for at least 200ms
-	 * online the cpu, no questions asked. 200ms here equals two samples
-	 */
-	if (load >= HIGH_LOAD && stats.counter[cpu - 2] >= 2)
-	{
-		cpu_up(cpu);
-	}
-	else if (stats.counter[cpu - 2] >= t->high_load_counter)
-	{
-		cpu_up(cpu);
-		stats.timestamp[cpu - 2] = ktime_to_us(ktime_get());
-	}
-
-	stats.online_cpus = num_online_cpus();
+	cpu_up(cpu);
+	stats.timestamp[cpu - 2] = ktime_to_us(ktime_get());
 }
 
 static void cpu_smash(unsigned int cpu)
@@ -156,7 +143,7 @@ static void cpu_smash(unsigned int cpu)
 
 static void __ref decide_hotplug_func(struct work_struct *work)
 {
-	unsigned int cpu;
+	unsigned int cpu, cpu_nr;
 	unsigned int cur_load;
 	struct hotplug_tunables *t = &tunables;
 
@@ -176,12 +163,19 @@ static void __ref decide_hotplug_func(struct work_struct *work)
 	/*
 	 * reschedule early when users to run with all cores online
 	 */
-	if (unlikely(!t->load_threshold && stats.online_cpus == NUM_POSSIBLE_CPUS))
+	if (unlikely(!t->load_threshold && nr_online_cpus == NUM_POSSIBLE_CPUS))
 		goto reschedule;
 
-	for_each_online_cpu(cpu)
+	for (cpu = 0, cpu_nr = 2; cpu < 2; cpu++, cpu_nr++)
 	{
-		cur_load = get_cpu_load(cpu);
+		/*
+		 * just in case there's a race between screen on and this thread and
+		 * cpu1 is still waking up
+		 */
+		if (cpu && cpu_is_offline(cpu))
+			goto reschedule;
+
+		cur_load = cpufreq_quick_get_util(cpu);
 
 		if (cur_load >= t->load_threshold)
 		{
@@ -519,8 +513,6 @@ static int __devinit mako_hotplug_probe(struct platform_device *pdev)
 	INIT_DELAYED_WORK(&decide_hotplug, decide_hotplug_func);
 
 	queue_delayed_work_on(0, wq, &decide_hotplug, HZ * 20);
-
-	return ret;
 
 err:
 	return ret;
