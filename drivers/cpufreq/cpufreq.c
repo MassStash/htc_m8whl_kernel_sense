@@ -308,18 +308,6 @@ void cpufreq_notify_utilization(struct cpufreq_policy *policy,
 		policy->util = util;
 }
 
-void trace_cpu_state_frequency(unsigned int cpu, int online)
-{
-	if (online) {
-		struct cpufreq_policy *policy = per_cpu(cpufreq_cpu_data, cpu);
-		if (policy) {
-			trace_cpu_frequency(policy->cur, cpu);
-		}
-	} else {
-		trace_cpu_frequency(0, cpu);
-	}
-}
-
 
 static struct cpufreq_governor *__find_governor(const char *str_governor)
 {
@@ -1198,6 +1186,27 @@ static void cpufreq_out_of_sync(unsigned int cpu, unsigned int old_freq,
 	cpufreq_notify_transition(&freqs, CPUFREQ_PRECHANGE);
 	cpufreq_notify_transition(&freqs, CPUFREQ_POSTCHANGE);
 }
+
+/**
+ * cpufreq_quick_get_util - get the CPU utilization from policy->util
+ * @cpu: CPU number
+ *
+ * This is the last known util, without actually getting it from the driver.
+ * Return value will be same as what is shown in util in sysfs.
+ */
+unsigned int cpufreq_quick_get_util(unsigned int cpu)
+{
+	struct cpufreq_policy *policy = cpufreq_cpu_get(cpu);
+	unsigned int ret_util = 0;
+
+	if (policy) {
+		ret_util = policy->util;
+		cpufreq_cpu_put(policy);
+	}
+
+	return ret_util;
+}
+EXPORT_SYMBOL(cpufreq_quick_get_util);
 
 /**
  * cpufreq_quick_get_util - get the CPU utilization from policy->util
