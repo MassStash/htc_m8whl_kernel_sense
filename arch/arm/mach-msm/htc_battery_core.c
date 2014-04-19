@@ -1245,7 +1245,7 @@ int htc_battery_core_update_changed(void)
 	battery_core_info.update_time = jiffies;
 	mutex_unlock(&battery_core_info.info_lock);
 
-	BATT_EMBEDDED("ID=%d,level=%d,level_raw=%d,vol=%d,temp=%d,current=%d,"
+	/*BATT_EMBEDDED("ID=%d,level=%d,level_raw=%d,vol=%d,temp=%d,current=%d,"
 		"chg_src=%d,chg_en=%d,full_bat=%d,over_vchg=%d,"
 		"batt_state=%d,cable_ready=%d,overload=%d,ui_chg_full=%d,"
 		"usb_temp=%d,usb_overheat=%d",
@@ -1265,6 +1265,7 @@ int htc_battery_core_update_changed(void)
 			battery_core_info.htc_charge_full,
 			battery_core_info.rep.usb_temp,
 			battery_core_info.rep.usb_overheat);
+			battery_core_info.htc_charge_full);*/
 
 
 	
