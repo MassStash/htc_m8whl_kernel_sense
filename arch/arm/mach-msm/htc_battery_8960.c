@@ -2275,8 +2275,8 @@ static void batt_worker(struct work_struct *work)
 			htc_batt_info.rep.charging_enabled =
 										htc_batt_info.rep.charging_source;
 
-		
-		pr_debug("[BATT] prev_chg_src=%d, prev_chg_en=%d,"
+
+		/*pr_info("[BATT] prev_chg_src=%d, prev_chg_en=%d,"
 				" chg_dis_reason/control/active=0x%x/0x%x/0x%x,"
 				" chg_limit_reason=0x%x,"
 				" iusb_limit_reason=0x%x,"
@@ -2291,7 +2291,7 @@ static void batt_worker(struct work_struct *work)
 					iusb_limit_reason,
 					pwrsrc_dis_reason, prev_pwrsrc_enabled,
 					context_state,
-					htc_batt_info.htc_extension);
+					htc_batt_info.htc_extension);*/
 		if (charging_enabled != prev_charging_enabled ||
 				prev_chg_src != htc_batt_info.rep.charging_source ||
 				first ||
@@ -2380,7 +2380,7 @@ static void batt_worker(struct work_struct *work)
 	prev_pwrsrc_enabled = pwrsrc_enabled;
 
 	wake_unlock(&htc_batt_timer.battery_lock);
-	pr_debug("[BATT] %s: done\n", __func__);
+	//pr_info("[BATT] %s: done\n", __func__);
 	return;
 }
 
@@ -2587,7 +2587,7 @@ static int fb_notifier_callback(struct notifier_block *self,
 		switch (*blank) {
 			case FB_BLANK_UNBLANK:
 				htc_batt_info.state &= ~STATE_EARLY_SUSPEND;
-				BATT_LOG("%s-> display is On", __func__);
+				//BATT_LOG("%s-> display is On", __func__);
 				htc_batt_schedule_batt_info_update();
 				break;
 			case FB_BLANK_POWERDOWN:
@@ -2595,7 +2595,7 @@ static int fb_notifier_callback(struct notifier_block *self,
 			case FB_BLANK_VSYNC_SUSPEND:
 			case FB_BLANK_NORMAL:
 				htc_batt_info.state |= STATE_EARLY_SUSPEND;
-				BATT_LOG("%s-> display is Off", __func__);
+				//BATT_LOG("%s-> display is Off", __func__);
 				htc_batt_schedule_batt_info_update();
 				break;
 		}

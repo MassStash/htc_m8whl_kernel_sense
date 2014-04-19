@@ -1984,7 +1984,7 @@ static ssize_t syn_reset(struct device *dev,
 		gpio_direction_output(ts->gpio_reset, 0);
 		msleep(1);
 		gpio_direction_output(ts->gpio_reset, 1);
-		pr_info("[TP] %s: synaptics touch chip reseted.\n", __func__);
+		//pr_info("[TP] %s: synaptics touch chip reseted.\n", __func__);
 	}
 
 	return count;
@@ -4954,7 +4954,7 @@ static int fb_notifier_callback(struct notifier_block *self,
 	struct synaptics_ts_data *ts=
 		container_of(self, struct synaptics_ts_data, fb_notif);
 
-	pr_info("[TP] %s\n", __func__);
+	//pr_info("[TP] %s\n", __func__);
 	if (evdata && evdata->data && event == FB_EVENT_BLANK && ts &&
 			ts->client) {
 		blank = evdata->data;
