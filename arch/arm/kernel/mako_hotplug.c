@@ -179,7 +179,7 @@ static void __ref decide_hotplug_func(struct work_struct *work)
 
 		if (cur_load >= t->load_threshold)
 		{
-			if (stats.counter[cpu] < t->max_load_counter)
+			if (likely(stats.counter[cpu] < t->max_load_counter))
 				++stats.counter[cpu];
 
 			if (cpu_is_offline(cpu_nr)
