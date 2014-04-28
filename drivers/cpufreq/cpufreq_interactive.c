@@ -138,10 +138,19 @@ static int ntimer_slack_vals = ARRAY_SIZE(default_timer_slack_val);
 
 static bool io_is_busy;
 
+/* Round to starting jiffy of next evaluation window */
+static u64 round_to_nw_start(u64 jif)
+{
+	unsigned long step = usecs_to_jiffies(timer_rate);
+
+	do_div(jif, step);
+	return (jif + 1) * step;
+}
+
 static void cpufreq_interactive_timer_resched(
 	struct cpufreq_interactive_cpuinfo *pcpu)
 {
-	unsigned long expires;
+	u64 expires;
 	unsigned long flags;
 	u64 now = ktime_to_us(ktime_get());
 
@@ -151,7 +160,7 @@ static void cpufreq_interactive_timer_resched(
 				     &pcpu->time_in_idle_timestamp);
 	pcpu->cputime_speedadj = 0;
 	pcpu->cputime_speedadj_timestamp = pcpu->time_in_idle_timestamp;
-	expires = jiffies + usecs_to_jiffies(timer_rate);
+	expires = round_to_nw_start(pcpu->last_evaluated_jiffy);
 	mod_timer_pinned(&pcpu->cpu_timer, expires);
 
 	if (timer_slack_val >= 0 && pcpu->target_freq > pcpu->policy->min) {
@@ -169,8 +178,7 @@ static void cpufreq_interactive_timer_resched(
 static void cpufreq_interactive_timer_start(int cpu)
 {
 	struct cpufreq_interactive_cpuinfo *pcpu = &per_cpu(cpuinfo, cpu);
-	unsigned long expires = jiffies +
-		usecs_to_jiffies(timer_rate);
+	u64 expires = round_to_nw_start(pcpu->last_evaluated_jiffy);
 	unsigned long flags;
 
 	pcpu->cpu_timer.expires = expires;
@@ -1303,6 +1311,7 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 			down_write(&pcpu->enable_sem);
 			del_timer_sync(&pcpu->cpu_timer);
 			del_timer_sync(&pcpu->cpu_slack_timer);
+			pcpu->last_evaluated_jiffy = get_jiffies_64();
 			cpufreq_interactive_timer_start(j);
 			pcpu->governor_enabled = 1;
 			up_write(&pcpu->enable_sem);
