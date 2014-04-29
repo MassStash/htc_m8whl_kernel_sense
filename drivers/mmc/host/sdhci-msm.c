@@ -2753,7 +2753,7 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 	writel_relaxed(readl_relaxed(msm_host->core_mem + CORE_POWER) |
 			CORE_SW_RST, msm_host->core_mem + CORE_POWER);
 	ret = readl_poll_timeout(msm_host->core_mem + CORE_POWER,
-			pwr, !(pwr & CORE_SW_RST), 100, 10);
+			pwr, !(pwr & CORE_SW_RST), 10, 1000);
 
 	if (ret) {
 		dev_err(&pdev->dev, "reset failed (%d)\n", ret);
