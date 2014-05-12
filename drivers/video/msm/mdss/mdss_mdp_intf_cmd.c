@@ -26,7 +26,7 @@
 
 #define KOFF_TIMEOUT msecs_to_jiffies(84)
 
-#define STOP_TIMEOUT msecs_to_jiffies(16 * (VSYNC_EXPIRE_TICK + 2))
+#define STOP_TIMEOUT(hz) msecs_to_jiffies((1000 / hz) * (VSYNC_EXPIRE_TICK + 2))
 
 static struct workqueue_struct *post_commit_cmd_wq = NULL;
 
@@ -607,6 +607,7 @@ int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl)
 	struct mdss_mdp_vsync_handler *tmp, *handle;
 	int need_wait = 0;
 	int ret = 0;
+	int hz;
 
 	ctx = (struct mdss_mdp_cmd_ctx *) ctl->priv_data;
 	if (!ctx) {
@@ -627,8 +628,11 @@ int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl)
 	}
 	spin_unlock_irqrestore(&ctx->clk_lock, flags);
 
+	hz = mdss_panel_get_framerate(&ctl->panel_data->panel_info);
+
 	if (need_wait)
-		if (wait_for_completion_timeout(&ctx->stop_comp, STOP_TIMEOUT)
+		if (wait_for_completion_timeout(&ctx->stop_comp,
+					STOP_TIMEOUT(hz))
 		    <= 0) {
 
 				spin_lock_irqsave(&ctx->clk_lock, flags);
