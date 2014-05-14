@@ -54,11 +54,15 @@ static DEFINE_PER_CPU(struct cpu_load_data, cpuload);
 static int update_average_load(unsigned int freq, unsigned int cpu)
 {
 	int ret;
-	unsigned int idle_time, wall_time;
+	unsigned int idle_time, wall_time, iowait_time;
 	unsigned int cur_load, load_at_max_freq;
-	cputime64_t cur_wall_time, cur_idle_time;
+	cputime64_t cur_wall_time, cur_idle_time, cur_iowait_time;
 	struct cpu_load_data *pcpu = &per_cpu(cpuload, cpu);
 	struct cpufreq_policy policy;
+
+        ret = cpufreq_get_policy(&policy, cpu);
+        if (ret)
+                return -EINVAL;
 
         ret = cpufreq_get_policy(&policy, cpu);
         if (ret)
@@ -359,7 +363,7 @@ static int __init msm_rq_stats_init(void)
 		cpufreq_get_policy(&cpu_policy, i);
 		pcpu->policy_max = cpu_policy.max;
 		if (cpu_online(i))
-			pcpu->cur_freq = cpufreq_quick_get(i);
+			pcpu->cur_freq = cpu_policy.cur;
 		cpumask_copy(pcpu->related_cpus, cpu_policy.cpus);
 	}
 	freq_transition.notifier_call = cpufreq_transition_handler;
