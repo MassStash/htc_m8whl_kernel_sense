@@ -145,6 +145,7 @@ static void __ref decide_hotplug_func(struct work_struct *work)
 {
 	unsigned int cpu, cpu_nr;
 	unsigned int cur_load;
+	unsigned int nr_online_cpus = num_online_cpus();
 	struct hotplug_tunables *t = &tunables;
 
 	/*
@@ -200,14 +201,8 @@ static void __ref decide_hotplug_func(struct work_struct *work)
 				 * stays online at least 5 more samples (time depends on the
 				 * sample timer period)
 				 */
-				cpufreq_get_policy(&policy, cpu_nr);
-
-				freq_buf = policy.min;
-
-				if (t->cpufreq_unplug_limit > freq_buf)
-					freq_buf = t->cpufreq_unplug_limit;
-
-				if (policy.cur > freq_buf && !boosted)
+				if (cpufreq_quick_get(cpu_nr) >= t->cpufreq_unplug_limit
+						&& !boosted)
 					stats.counter[cpu] = t->high_load_counter + 5;
 				else
 					cpu_smash(cpu_nr);
