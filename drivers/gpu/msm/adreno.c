@@ -228,6 +228,7 @@ static const struct {
 		512, 0, 2, SZ_128K, 0x3FF037, 0x3FF016 },
 };
 
+/* Nice level for the higher priority GPU start thread */
 static int _wake_nice = -7;
 
 static unsigned int _wake_timeout = 100;
