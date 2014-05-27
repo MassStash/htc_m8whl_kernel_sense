@@ -42,8 +42,6 @@
 #define NUM_POSSIBLE_CPUS num_possible_cpus()
 #define HIGH_LOAD 95
 
-extern bool boosted;
-
 struct cpu_stats
 {
 	unsigned int online_cpus;
@@ -131,8 +129,7 @@ static void cpu_smash(unsigned int cpu)
 	 * CPUFREQ_UNPLUG_LIMIT. Else update the timestamp to now and
 	 * postpone the cpu offline process to at least another second
 	 */
-	if (cpufreq_quick_get(cpu) >= t->cpufreq_unplug_limit
-			&& !boosted)
+	if (cpufreq_quick_get(cpu) >= t->cpufreq_unplug_limit)
 		stats.timestamp[cpu - 2] = ktime_to_us(ktime_get());
 
 	/*
