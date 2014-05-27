@@ -153,7 +153,7 @@ static inline void msm_mpm_send_interrupt(void)
 {
 	__raw_writel(msm_mpm_dev_data.mpm_apps_ipc_val,
 			msm_mpm_dev_data.mpm_apps_ipc_reg);
-	
+
 	wmb();
 }
 
@@ -685,12 +685,12 @@ static int __devinit msm_mpm_dev_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static inline int __init mpm_irq_domain_linear_size(struct irq_domain *d)
+static inline int mpm_irq_domain_linear_size(struct irq_domain *d)
 {
 	return d->revmap_data.linear.size;
 }
 
-static inline int __init mpm_irq_domain_legacy_size(struct irq_domain *d)
+static inline int mpm_irq_domain_legacy_size(struct irq_domain *d)
 {
 	return d->revmap_data.legacy.size;
 }
