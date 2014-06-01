@@ -1358,10 +1358,10 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 			mutex_unlock(&gov_lock);
 			return rc;
 		}
-
+		/*
 		atomic_notifier_chain_register(&migration_notifier_head,
 					&thread_migration_nb);
-
+		*/
 		idle_notifier_register(&cpufreq_interactive_idle_nb);
 		cpufreq_register_notifier(
 			&cpufreq_notifier_block, CPUFREQ_TRANSITION_NOTIFIER);
@@ -1384,11 +1384,11 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 			mutex_unlock(&gov_lock);
 			return 0;
 		}
-
+		/*
 		atomic_notifier_chain_unregister(
 				&migration_notifier_head,
 				&thread_migration_nb);
-
+		*/
 		cpufreq_unregister_notifier(
 			&cpufreq_notifier_block, CPUFREQ_TRANSITION_NOTIFIER);
 		idle_notifier_unregister(&cpufreq_interactive_idle_nb);
