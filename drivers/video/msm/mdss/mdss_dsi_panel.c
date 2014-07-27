@@ -166,6 +166,42 @@ static unsigned char shrink_pwm(int val, int pwm_min, int pwm_default, int pwm_m
 
         return shrink_br;
 }
+static unsigned char linear_pwm(int val, int max_brt, int bl_max)
+{
+	unsigned char bl_pwm  = BRI_SETTING_MAX;
+
+	bl_pwm = val * bl_max / max_brt;
+
+	PR_DISP_INFO("%s:brightness=%d, bl_pwm=%d\n", __func__,val, bl_pwm);
+	return bl_pwm;
+}
+
+
+static unsigned int bl_to_brightness(int val, int brt_dim, int brt_min, int brt_def, int brt_high, int brt_extra, int brt_max)
+{
+        unsigned int  brt_val = 0;
+
+        if (val <= 0) {
+                brt_val = 0;
+        } else if (val > 0 && (val < BRI_SETTING_MIN)) {
+                brt_val = brt_dim;
+        } else if ((val >= BRI_SETTING_MIN) && (val <= BRI_SETTING_DEF)) {
+                brt_val = (val - BRI_SETTING_MIN) * (brt_def - brt_min) /
+                (BRI_SETTING_DEF - BRI_SETTING_MIN) + brt_min;
+        } else if (val > BRI_SETTING_DEF && val <= BRI_SETTING_HIGH) {
+                brt_val = (val - BRI_SETTING_DEF) * (brt_high - brt_def) /
+                (BRI_SETTING_HIGH - BRI_SETTING_DEF) + brt_def;
+        } else if (val > BRI_SETTING_HIGH && val <= BRI_SETTING_EXTRA) {
+                brt_val = (val - BRI_SETTING_HIGH) * (brt_extra - brt_high) /
+                (BRI_SETTING_EXTRA - BRI_SETTING_HIGH) + brt_high;
+        } else if (val > BRI_SETTING_EXTRA && val <= BRI_SETTING_MAX) {
+                brt_val = (val - BRI_SETTING_EXTRA) * (brt_max - brt_extra) /
+                (BRI_SETTING_MAX - BRI_SETTING_EXTRA) + brt_extra;
+        } else if (val > BRI_SETTING_MAX)
+                brt_val = brt_max;
+	PR_DISP_INFO("%s:level=%d, brightness=%d", __func__,val, brt_val);
+	return brt_val;
+}
 
 static char led_pwm1[3] = {0x51, 0x0, 0x0};	
 static struct dsi_cmd_desc backlight_cmd = {

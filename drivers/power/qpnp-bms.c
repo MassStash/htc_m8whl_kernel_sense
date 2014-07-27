@@ -891,7 +891,7 @@ static bool is_battery_present(struct qpnp_bms_chip *chip)
 static int get_battery_insertion_ocv_uv(struct qpnp_bms_chip *chip)
 {
 	union power_supply_propval ret = {0,};
-	int rc, vbat;
+	int rc, vbat = 0;
 
 	if (chip->batt_psy == NULL)
 		chip->batt_psy = power_supply_get_by_name("battery");
@@ -2051,7 +2051,7 @@ static int report_voltage_based_soc(struct qpnp_bms_chip *chip)
 #define REPORT_SOC_WAIT_MS		10000
 static int report_cc_based_soc(struct qpnp_bms_chip *chip)
 {
-	int soc, soc_change;
+	int soc, soc_change = 0;
 	int time_since_last_change_sec, charge_time_sec = 0;
 	unsigned long last_change_sec;
 	struct timespec now;
@@ -2426,7 +2426,7 @@ out:
 
 static int clamp_soc_based_on_voltage(struct qpnp_bms_chip *chip, int soc)
 {
-	int rc, vbat_uv = 0;
+	int rc, vbat_uv = 0, batt_temp;
 
 	rc = get_battery_voltage(chip, &vbat_uv);
 	if (rc < 0) {
@@ -2579,7 +2579,7 @@ static int calculate_state_of_charge(struct qpnp_bms_chip *chip,
 					int batt_temp)
 {
 	struct soc_params params;
-	int soc, previous_soc, shutdown_soc, new_calculated_soc;
+	int soc = 0, previous_soc, shutdown_soc, new_calculated_soc;
 	int remaining_usable_charge_uah;
 
 	calculate_soc_params(chip, raw, &params, batt_temp);
@@ -3372,7 +3372,7 @@ static void batfet_open_work(struct work_struct *work)
 {
 	int i;
 	int rc;
-	int result_ua;
+	int result_ua = 0;
 	u8 orig_delay, sample_delay;
 	struct qpnp_bms_chip *chip = container_of(work,
 				struct qpnp_bms_chip,
@@ -4163,7 +4163,164 @@ static void disable_ocv_update_with_reason(bool disable, int reason)
 	}
 	mutex_unlock(&ocv_update_lock);
 }
-#endif 
+
+static void pm8941_btm_voltage_alarm_notify(enum qpnp_tm_state state, void *ctx)
+{
+	struct qpnp_bms_chip *chip = ctx;
+	int vbat_uv = 0;
+	struct qpnp_vadc_result result;
+
+	qpnp_vadc_read(chip->vadc_dev, VBAT_SNS, &result);
+	pr_debug("vbat = %lld, raw = 0x%x\n", result.physical, result.adc_code);
+
+	get_battery_voltage(chip, &vbat_uv);
+	pr_debug("vbat is at %d, state is at %d\n", vbat_uv, state);
+
+	if (state == ADC_TM_LOW_STATE) {
+		pr_debug("low voltage btm notification triggered\n");
+		if (vbat_uv - VBATT_ERROR_MARGIN
+				< chip->vbat_monitor_params.low_thr) {
+			pm8941_batt_lower_alarm_threshold_set(0);
+			htc_gauge_event_notify(HTC_GAUGE_EVENT_LOW_VOLTAGE_ALARM);
+		} else {
+			pr_debug("faulty btm trigger, discarding\n");
+			qpnp_adc_tm_channel_measure(chip->adc_tm_dev,
+					&chip->vbat_monitor_params);
+		}
+	} else if (state == ADC_TM_HIGH_STATE) {
+		pr_debug("high voltage btm notification triggered\n");
+	} else {
+		pr_debug("unknown voltage notification state: %d\n", state);
+	}
+}
+
+int pm8941_batt_lower_alarm_threshold_set(int threshold_mV)
+{
+	int rc;
+
+	if (!the_chip) {
+		pr_err("called before init\n");
+		return -EINVAL;
+	}
+
+	the_chip->vbat_monitor_params.low_thr = threshold_mV * 1000;
+	the_chip->vbat_monitor_params.high_thr = the_chip->max_voltage_uv * 2;
+	the_chip->vbat_monitor_params.state_request = ADC_TM_LOW_THR_ENABLE;
+	the_chip->vbat_monitor_params.channel = VBAT_SNS;
+	the_chip->vbat_monitor_params.btm_ctx = (void *)the_chip;
+	the_chip->vbat_monitor_params.timer_interval = ADC_MEAS1_INTERVAL_1S;
+	the_chip->vbat_monitor_params.threshold_notification = &pm8941_btm_voltage_alarm_notify;
+	pr_debug("set low thr to %d and high to %d\n",
+			the_chip->vbat_monitor_params.low_thr,
+			the_chip->vbat_monitor_params.high_thr);
+
+	if (!is_battery_present(the_chip)) {
+		pr_debug("no battery inserted, do not enable vbat monitoring\n");
+		the_chip->vbat_monitor_params.state_request =
+			ADC_TM_HIGH_LOW_THR_DISABLE;
+	} else {
+		rc = qpnp_adc_tm_channel_measure(the_chip->adc_tm_dev,
+						&the_chip->vbat_monitor_params);
+		if (rc) {
+			pr_debug("tm setup failed: %d\n", rc);
+		return rc;
+		}
+	}
+
+	pr_debug("setup complete\n");
+
+	return 0;
+}
+
+int pm8941_bms_enter_qb_mode(void)
+{
+	if (!the_chip) {
+		pr_err("called before init\n");
+		return -EINVAL;
+	}
+
+	if(the_chip->qb_mode_cc_criteria_uAh) {
+		qb_mode_enter = true;
+		qb_mode_cc_start = bms_dbg.cc_uah;
+		qb_mode_ocv_start = bms_dbg.last_ocv_raw_uv;
+		qb_mode_cc_accumulation_uah = 0;
+		qb_mode_time_accumulation = 0;
+		qb_mode_prev_cc = 0;
+		qb_mode_over_criteria_count = 0;
+		htc_gauge_event_notify(HTC_GAUGE_EVENT_QB_MODE_ENTER);
+	}
+	return 0;
+}
+
+int pm8941_bms_exit_qb_mode(void)
+{
+	if (!the_chip) {
+		pr_err("called before init\n");
+		return -EINVAL;
+	}
+
+	if(the_chip->qb_mode_cc_criteria_uAh) {
+		qb_mode_enter = false;
+		qb_mode_cc_accumulation_uah = 0;
+		qb_mode_cc_start = 0;
+		qb_mode_ocv_start = 0;
+		qb_mode_time_accumulation = 0;
+		qb_mode_prev_cc = 0;
+		qb_mode_over_criteria_count = 0;
+	}
+	return 0;
+}
+int pm8941_qb_mode_pwr_consumption_check(unsigned long time_since_last_update_ms)
+{
+	if (!the_chip) {
+		pr_err("called before init\n");
+		return -EINVAL;
+	}
+
+	if(qb_mode_enter && the_chip->qb_mode_cc_criteria_uAh) {
+		qb_mode_time_accumulation += time_since_last_update_ms;
+
+		if(qb_mode_ocv_start != bms_dbg.last_ocv_raw_uv) {
+			
+			qb_mode_cc_accumulation_uah += bms_dbg.cc_uah;
+			
+			qb_mode_prev_cc = qb_mode_cc_start = bms_dbg.cc_uah;
+
+			pr_info("ocv update happened OCV_uV/ori=%duV/%duV, cc_value:%d\n",
+				bms_dbg.last_ocv_raw_uv, qb_mode_ocv_start, bms_dbg.cc_uah);
+			qb_mode_ocv_start = bms_dbg.last_ocv_raw_uv;
+		} else {
+			if(!qb_mode_prev_cc)
+				
+				qb_mode_cc_accumulation_uah = (bms_dbg.cc_uah - qb_mode_cc_start);
+			else
+				qb_mode_cc_accumulation_uah += (bms_dbg.cc_uah - qb_mode_prev_cc);
+			qb_mode_prev_cc = bms_dbg.cc_uah;
+		}
+
+		if(qb_mode_time_accumulation > 3600000) {
+			if(qb_mode_cc_accumulation_uah > the_chip->qb_mode_cc_criteria_uAh) {
+				qb_mode_over_criteria_count++;
+				pr_warn("QB mode cc over criteria, cc_accu=%d, time_accu=%lu, count=%d\n",
+					qb_mode_cc_accumulation_uah, qb_mode_time_accumulation,
+					qb_mode_over_criteria_count);
+			} else
+				qb_mode_over_criteria_count = 0;
+
+			qb_mode_time_accumulation = 0;
+			qb_mode_cc_accumulation_uah = 0;
+			qb_mode_cc_start = bms_dbg.cc_uah;
+		}
+
+		if(qb_mode_over_criteria_count >= 3) {
+			pr_info("Force device shutdown due to over QB mode CC criteria!\n");
+			htc_gauge_event_notify(HTC_GAUGE_EVENT_QB_MODE_DO_REAL_POWEROFF);
+		}
+	} else {
+		
+	}
+	return 0;
+}
 
 #define OCV_USE_LIMIT_EN		BIT(7)
 static int set_ocv_voltage_thresholds(struct qpnp_bms_chip *chip,
