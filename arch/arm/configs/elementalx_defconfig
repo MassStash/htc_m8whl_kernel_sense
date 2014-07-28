@@ -43,10 +43,14 @@ CONFIG_EXPERIMENTAL=y
 CONFIG_INIT_ENV_ARG_LIMIT=32
 CONFIG_CROSS_COMPILE=""
 <<<<<<< HEAD
+<<<<<<< HEAD
 CONFIG_LOCALVERSION="-MassStashedX-1.0.1"
 =======
 CONFIG_LOCALVERSION="-ElementalX-m8-1.00"
 >>>>>>> elementalx_defconfig
+=======
+CONFIG_LOCALVERSION="-MassStashedX-1.0.1"
+>>>>>>> 67248fa... Bump things, fix defconifg for whl
 # CONFIG_LOCALVERSION_AUTO is not set
 CONFIG_HAVE_KERNEL_GZIP=y
 CONFIG_HAVE_KERNEL_LZMA=y
@@ -554,6 +558,7 @@ CONFIG_MSM_XPU_ERR_FATAL=y
 CONFIG_KRAIT_REGULATOR=y
 CONFIG_HTC_POWER_DEBUG=y
 <<<<<<< HEAD
+<<<<<<< HEAD
 # CONFIG_MACH_M8 is not set
 CONFIG_PROJECT_NAME=""
 CONFIG_MACH_M8_WHL=y
@@ -562,6 +567,11 @@ CONFIG_MACH_M8=y
 CONFIG_PROJECT_NAME=""
 # CONFIG_MACH_M8_WHL is not set
 >>>>>>> elementalx_defconfig
+=======
+# CONFIG_MACH_M8 is not set
+CONFIG_PROJECT_NAME=""
+CONFIG_MACH_M8_WHL=y
+>>>>>>> 67248fa... Bump things, fix defconifg for whl
 CONFIG_PERFLOCK=y
 CONFIG_MSM_SLEEPER=y
 
