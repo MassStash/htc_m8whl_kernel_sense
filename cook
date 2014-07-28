@@ -5,15 +5,15 @@
 #Config Section below is where you set your paths-
 
 #Kernel path
-kernelDir1="/home/zaichron-lin/AndroidDev/m8whl_kernel" #( Example /home/user/path )
-kernelDir2="Path to kernel 2" #( Example /home/user/path )
+kernelDir1="/home/zaichron-lin/AndroidDev/htc_m8whl_kernel_sense" #( Example /home/user/path )
+kernelDir2="/home/zaichron-lin/AndroidDev/htc_m8whl_kernel_sense" #( Example /home/user/path )
 kernelDir3="Path to kernel 3" #( Example /home/user/path )
 #Toolchain path
 toolchainDir="/home/zaichron-lin/AndroidDev/AAtoolchains/linaro_toolchains_2014/arm-cortex_a15-linux-gnueabihf-linaro_4.9.1-2014.07" #( Example /home/user/path )
 #Path where you would like the kernel to be outputed
 exportDir="/home/zaichron-lin/Desktop/Copy/AndroidDev/Kernz/m8whl/out" #( Example /home/user/Desktop )
 #Change default to what ever you like
-kernel1name="MassStashedX-m8whl-v0.2.0-alcor"
+kernel1name="MassStashedX-m8whl-v1.0.4-alcor"
 kernel2name="MassStashedX-m8whl-v0.19.3"
 kernel3name="Default-3"
 #Do not edit
@@ -105,31 +105,31 @@ echo
 echo
 echo
 echo " Moved zImage "
-cp arch/arm/boot/zImage ~/AndroidDev/AAmkbootimg_tools/venom
+cp arch/arm/boot/zImage ~/AndroidDev/AAmkbootimg_tools/badboys
 #cp arch/arm/boot/dt.img zip2/kernel/
 
 echo
 echo
 echo " Moved dt.img "
-cp arch/arm/boot/dt.img ~/AndroidDev/AAmkbootimg_tools/venom
+cp arch/arm/boot/dt.img ~/AndroidDev/AAmkbootimg_tools/badboys
 
 echo
 echo
 echo " Moving modules "
-find -iname *.ko | xargs cp -t /home/zaichron-lin/Desktop/Copy/AndroidDev/Kernz/m8whl/MassStashedX_v0.19.1/system/lib/modules
+find -iname *.ko | xargs cp -t /home/zaichron-lin/Desktop/Copy/AndroidDev/Kernz/m8whl/MassStashedX_Sense_4.4.3/system/lib/modules
 cd ~/AndroidDev/AAmkbootimg_tools
 
 echo
 echo
 echo " Making a boot.img ya'll "
-./mkboot venom boot.img
+./mkboot badboys boot.img
 
 echo
 echo
 echo " Moved boot.img "
-cp boot.img /home/zaichron-lin/Desktop/Copy/AndroidDev/Kernz/m8whl/MassStashedX_v0.19.1/boot
+cp boot.img /home/zaichron-lin/Desktop/Copy/AndroidDev/Kernz/m8whl/MassStashedX_Sense_4.4.3/boot
 
-cd /home/zaichron-lin/Desktop/Copy/AndroidDev/Kernz/m8whl/MassStashedX_v0.19.1
+cd /home/zaichron-lin/Desktop/Copy/AndroidDev/Kernz/m8whl/MassStashedX_Sense_4.4.3
 
 echo
 echo
@@ -137,7 +137,7 @@ echo " I a make a da zip now, then move that ish to copy out dir "
 zip -r $kernelName-$now.zip *
 mv $kernelName-$now.zip $exportDir
 #cd ..
-cd ~/AndroidDev/m8whl_kernel
+cd ~/AndroidDev/htc_m8whl_kernel_sense
 #rm -r zip2
 cd $DIR
 echo
