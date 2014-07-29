@@ -216,6 +216,7 @@ int isWDresetInProgress(void);
 #include <mach/perflock.h>
 
 static int htc_wlan_perf_lock = 0;
+void bam_wifihotspot_speedmode (int);
 
 //HTC_CSP_START
 /* traffic indicate parameters */
