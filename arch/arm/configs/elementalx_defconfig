@@ -1587,6 +1587,17 @@ CONFIG_WCNSS_REGISTER_DUMP_ON_BITE=y
 # CONFIG_LIBERTAS is not set
 # CONFIG_MWIFIEX is not set
 
+# Qualcomm Atheros Prima WLAN module
+#
+# CONFIG_PRIMA_WLAN is not set
+CONFIG_PRONTO_WLAN=m
+# CONFIG_PRIMA_WLAN_BTAMP is not set
+CONFIG_PRIMA_WLAN_LFR=y
+# CONFIG_PRIMA_WLAN_OKC is not set
+# CONFIG_PRIMA_WLAN_11AC_HIGH_TP is not set
+# CONFIG_WLAN_FEATURE_11W is not set
+# CONFIG_QCOM_VOWIFI_11R is not set
+
 #
 # Enable WiMAX (Networking options) to see the WiMAX drivers
 #
