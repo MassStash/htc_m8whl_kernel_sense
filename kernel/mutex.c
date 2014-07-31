@@ -43,9 +43,6 @@ __mutex_init(struct mutex *lock, const char *name, struct lock_class_key *key)
 	spin_lock_init(&lock->wait_lock);
 	INIT_LIST_HEAD(&lock->wait_list);
 	mutex_clear_owner(lock);
-#ifdef CONFIG_MUTEX_SPIN_ON_OWNER
-	lock->spin_mlock = NULL;
-#endif
 
 	debug_mutex_init(lock, name, key);
 }
@@ -95,52 +92,6 @@ void __sched mutex_lock(struct mutex *lock)
 }
 
 EXPORT_SYMBOL(mutex_lock);
-#endif
-
-#ifdef CONFIG_MUTEX_SPIN_ON_OWNER
-/*
- * Mutex spinning code migrated from kernel/sched/core.c
- */
-
-static inline bool owner_running(struct mutex *lock, struct task_struct *owner)
-{
-	if (lock->owner != owner)
-		return false;
-
-	/*
-	 * Ensure we emit the owner->on_cpu, dereference _after_ checking
-	 * lock->owner still matches owner, if that fails, owner might
-	 * point to free()d memory, if it still matches, the rcu_read_lock()
-	 * ensures the memory stays valid.
-	 */
-	barrier();
-
-	return owner->on_cpu;
-}
-
-/*
- * Look out! "owner" is an entirely speculative pointer
- * access and not reliable.
- */
-static noinline
-int mutex_spin_on_owner(struct mutex *lock, struct task_struct *owner)
-{
-	rcu_read_lock();
-	while (owner_running(lock, owner)) {
-		if (need_resched())
-			break;
-
-		arch_mutex_cpu_relax();
-	}
-	rcu_read_unlock();
-
-	/*
-	 * We break out the loop above on need_resched() and when the
-	 * owner changed, which is a sign for heavy contention. Return
-	 * success only when lock->owner is NULL.
-	 */
-	return lock->owner == NULL;
-}
 #endif
 
 static __used noinline void __sched __mutex_unlock_slowpath(atomic_t *lock_count);
@@ -206,38 +157,25 @@ __mutex_lock_common(struct mutex *lock, long state, unsigned int subclass,
 	 *
 	 * We can't do this for DEBUG_MUTEXES because that relies on wait_lock
 	 * to serialize everything.
-	 *
-	 * The mutex spinners are queued up using MCS lock so that only one
-	 * spinner can compete for the mutex. However, if mutex spinning isn't
-	 * going to happen, there is no point in going through the lock/unlock
-	 * overhead.
 	 */
-	if (!mutex_can_spin_on_owner(lock))
-		goto slowpath;
 
 	for (;;) {
 		struct task_struct *owner;
-		mspin_node_t	    node;
 
 		/*
 		 * If there's an owner, wait for it to either
 		 * release the lock or go to sleep.
 		 */
-		mspin_lock(MLOCK(lock), &node);
 		owner = ACCESS_ONCE(lock->owner);
-		if (owner && !mutex_spin_on_owner(lock, owner)) {
-			mspin_unlock(MLOCK(lock), &node);
+		if (owner && !mutex_spin_on_owner(lock, owner))
 			break;
-		}
 
 		if (atomic_cmpxchg(&lock->count, 1, 0) == 1) {
 			lock_acquired(&lock->dep_map, ip);
 			mutex_set_owner(lock);
-			mspin_unlock(MLOCK(lock), &node);
 			preempt_enable();
 			return 0;
 		}
-		mspin_unlock(MLOCK(lock), &node);
 
 		/*
 		 * When there's no owner, we might have preempted between the
@@ -256,7 +194,6 @@ __mutex_lock_common(struct mutex *lock, long state, unsigned int subclass,
 		 */
 		arch_mutex_cpu_relax();
 	}
-slowpath:
 #endif
 	spin_lock_mutex(&lock->wait_lock, flags);
 
