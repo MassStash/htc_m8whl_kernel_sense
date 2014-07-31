@@ -105,31 +105,31 @@ echo
 echo
 echo
 echo " Moved zImage "
-cp arch/arm/boot/zImage ~/AndroidDev/AAmkbootimg_tools/badboys
+cp arch/arm/boot/zImage ~/AndroidDev/AAmkbootimg_tools/stock_cptb
 #cp arch/arm/boot/dt.img zip2/kernel/
 
 echo
 echo
 echo " Moved dt.img "
-cp arch/arm/boot/dt.img ~/AndroidDev/AAmkbootimg_tools/badboys
+cp arch/arm/boot/dt.img ~/AndroidDev/AAmkbootimg_tools/stock_cptb
 
 echo
 echo
 echo " Moving modules "
-find -iname *.ko | xargs cp -t /home/zaichron-lin/Desktop/Copy/AndroidDev/Kernz/m8whl/MassStashedX_Sense_4.4.3/system/lib/modules
+find -iname *.ko | xargs cp -t /home/zaichron-lin/Desktop/Copy/AndroidDev/Kernz/m8whl/MassStashedX-AA-Sense-4.4.3/system/lib/modules
 cd ~/AndroidDev/AAmkbootimg_tools
 
 echo
 echo
 echo " Making a boot.img ya'll "
-./mkboot badboys boot.img
+./mkboot stock_cptb boot.img
 
 echo
 echo
 echo " Moved boot.img "
-cp boot.img /home/zaichron-lin/Desktop/Copy/AndroidDev/Kernz/m8whl/MassStashedX_Sense_4.4.3/boot
+cp boot.img /home/zaichron-lin/Desktop/Copy/AndroidDev/Kernz/m8whl/MassStashedX-AA-Sense-4.4.3/boot
 
-cd /home/zaichron-lin/Desktop/Copy/AndroidDev/Kernz/m8whl/MassStashedX_Sense_4.4.3
+cd /home/zaichron-lin/Desktop/Copy/AndroidDev/Kernz/m8whl/MassStashedX-AA-Sense-4.4.3
 
 echo
 echo
