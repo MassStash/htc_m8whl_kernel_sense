@@ -9,12 +9,12 @@ kernelDir1="/home/zaichron-lin/AndroidDev/htc_m8whl_kernel_sense" #( Example /ho
 kernelDir2="/home/zaichron-lin/AndroidDev/htc_m8whl_kernel_sense" #( Example /home/user/path )
 kernelDir3="Path to kernel 3" #( Example /home/user/path )
 #Toolchain path
-toolchainDir="/home/zaichron-lin/AndroidDev/AAtoolchains/linaro_toolchains_2014/arm-cortex_a15-linux-gnueabihf-linaro_4.9.1-2014.07" #( Example /home/user/path )
+toolchainDir="/home/zaichron-lin/AndroidDev/AAtoolchains/linaro_toolchains_2014/arm-cortex_a15-linux-gnueabihf-linaro_4.9.2-2014.08" #( Example /home/user/path )
 #Path where you would like the kernel to be outputed
-exportDir="/home/zaichron-lin/Desktop/Copy/AndroidDev/Kernz/m8whl/out" #( Example /home/user/Desktop )
+exportDir="/home/zaichron-lin/Desktop/Copy/AndroidDev/Kernz/m8wl/out" #( Example /home/user/Desktop )
 #Change default to what ever you like
-kernel1name="MassStashedX-m8whl-v1.1.0-alcor"
-kernel2name="MassStashedX-m8whl-v0.19.3"
+kernel1name="MassStashedX-m8wl-Stockish"
+kernel2name="MassStashedX-m8wl-v0.19.3"
 kernel3name="Default-3"
 #Do not edit
 now=$(date +"%m-%d-%Y-%H-%M")
@@ -64,13 +64,13 @@ select opt in $OPTIONS; do
 done
 
 #Setup proper path to rid missing gcc warning
-PATH=$PATH:/home/zaichron-lin/AndroidDev/AAtoolchains/linaro_toolchains_2014/arm-cortex_a15-linux-gnueabihf-linaro_4.9.1-2014.07/bin
+PATH=$PATH:/home/zaichron-lin/AndroidDev/AAtoolchains/linaro_toolchains_2014/arm-cortex_a15-linux-gnueabihf-linaro_4.9.2-2014.08/bin
 
 #xxx= Your config name
 echo
 echo
 echo " Run defconfig "
-make ARCH=arm hypernova_defconfig
+make ARCH=arm m8wl_defconfig
 #Keep thangs sqeaky
 echo
 echo
@@ -116,8 +116,7 @@ cp arch/arm/boot/dt.img ~/AndroidDev/AAmkbootimg_tools/virus
 echo
 echo
 echo " Moving modules "
-find -iname *.ko | xargs cp -t /home/zaichron-lin/Desktop/Copy/AndroidDev/Kernz/m8whl/MassStashedX-FlarPort-Sense-4.4.3-vzw/system/lib/modules
-cd ~/AndroidDev/AAmkbootimg_tools
+find -iname *.ko | xargs cp -t /home/zaichron-lin/Desktop/Copy/AndroidDev/Kernz/m8wl/MassStashedX-Stockish-Sense-4.4.2-vzw/system/lib/modules
 
 echo
 echo
@@ -127,9 +126,9 @@ echo " Making a boot.img ya'll "
 echo
 echo
 echo " Moved boot.img "
-cp boot.img /home/zaichron-lin/Desktop/Copy/AndroidDev/Kernz/m8whl/MassStashedX-FlarPort-Sense-4.4.3-vzw/boot
+cp boot.img /home/zaichron-lin/Desktop/Copy/AndroidDev/Kernz/m8wl/MassStashedX-Stockish-Sense-4.4.2-vzw/boot
 
-cd /home/zaichron-lin/Desktop/Copy/AndroidDev/Kernz/m8whl/MassStashedX-FlarPort-Sense-4.4.3-vzw
+cd /home/zaichron-lin/Desktop/Copy/AndroidDev/Kernz/m8wl/MassStashedX-Stockish-Sense-4.4.2-vzw
 
 echo
 echo
