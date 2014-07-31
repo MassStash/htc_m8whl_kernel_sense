@@ -42,15 +42,7 @@ CONFIG_IRQ_WORK=y
 CONFIG_EXPERIMENTAL=y
 CONFIG_INIT_ENV_ARG_LIMIT=32
 CONFIG_CROSS_COMPILE=""
-<<<<<<< HEAD
-<<<<<<< HEAD
-CONFIG_LOCALVERSION="-MassStashedX-1.0.1"
-=======
-CONFIG_LOCALVERSION="-ElementalX-m8-1.00"
->>>>>>> elementalx_defconfig
-=======
-CONFIG_LOCALVERSION="-MassStashedX-1.0.1"
->>>>>>> 67248fa... Bump things, fix defconifg for whl
+CONFIG_LOCALVERSION="-MassStashedX-Stockish"
 # CONFIG_LOCALVERSION_AUTO is not set
 CONFIG_HAVE_KERNEL_GZIP=y
 CONFIG_HAVE_KERNEL_LZMA=y
@@ -557,21 +549,9 @@ CONFIG_MSM_XPU_ERR_FATAL=y
 # CONFIG_MSM_CPR_REGULATOR is not set
 CONFIG_KRAIT_REGULATOR=y
 CONFIG_HTC_POWER_DEBUG=y
-<<<<<<< HEAD
-<<<<<<< HEAD
 # CONFIG_MACH_M8 is not set
 CONFIG_PROJECT_NAME=""
 CONFIG_MACH_M8_WHL=y
-=======
-CONFIG_MACH_M8=y
-CONFIG_PROJECT_NAME=""
-# CONFIG_MACH_M8_WHL is not set
->>>>>>> elementalx_defconfig
-=======
-# CONFIG_MACH_M8 is not set
-CONFIG_PROJECT_NAME=""
-CONFIG_MACH_M8_WHL=y
->>>>>>> 67248fa... Bump things, fix defconifg for whl
 CONFIG_PERFLOCK=y
 CONFIG_MSM_SLEEPER=y
 
@@ -1731,10 +1711,6 @@ CONFIG_INPUT_TOUCHSCREEN=y
 # CONFIG_TOUCHSCREEN_MK712 is not set
 # CONFIG_TOUCHSCREEN_PENMOUNT is not set
 CONFIG_TOUCHSCREEN_SYNAPTICS_3K=y
-<<<<<<< HEAD
-CONFIG_TOUCHSCREEN_SYNAPTICS_WAKE_GESTURES=y
-=======
->>>>>>> elementalx_defconfig
 # CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_RMI is not set
 # CONFIG_TOUCHSCREEN_SYNAPTICS_RMI4_I2C is not set
 # CONFIG_TOUCHSCREEN_HIMAX is not set
@@ -3381,10 +3357,6 @@ CONFIG_ANDROID_LOW_MEMORY_KILLER_AUTODETECT_OOM_ADJ_VALUES=y
 # CONFIG_ANDROID_INTF_ALARM_DEV is not set
 # CONFIG_PHONE is not set
 # CONFIG_USB_WPAN_HCD is not set
-<<<<<<< HEAD
-CONFIG_CPUPOWER=y
-=======
->>>>>>> elementalx_defconfig
 
 #
 # Qualcomm MSM specific device drivers
@@ -3550,19 +3522,7 @@ CONFIG_NETWORK_FILESYSTEMS=y
 # CONFIG_NFS_FS is not set
 # CONFIG_NFSD is not set
 # CONFIG_CEPH_FS is not set
-<<<<<<< HEAD
-CONFIG_CIFS=y
-# CONFIG_CIFS_STATS is not set
-# CONFIG_CIFS_WEAK_PW_HASH is not set
-# CONFIG_CIFS_UPCALL is not set
-CONFIG_CIFS_XATTR=y
-CONFIG_CIFS_POSIX=y
-# CONFIG_CIFS_DEBUG2 is not set
-# CONFIG_CIFS_DFS_UPCALL is not set
-# CONFIG_CIFS_ACL is not set
-=======
 # CONFIG_CIFS is not set
->>>>>>> elementalx_defconfig
 # CONFIG_NCP_FS is not set
 # CONFIG_CODA_FS is not set
 # CONFIG_AFS_FS is not set
