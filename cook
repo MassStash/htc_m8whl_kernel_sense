@@ -13,15 +13,7 @@ toolchainDir="/home/zaichron-lin/AndroidDev/AAtoolchains/linaro_toolchains_2014/
 #Path where you would like the kernel to be outputed
 exportDir="/home/zaichron-lin/Desktop/Copy/AndroidDev/Kernz/m8whl/out" #( Example /home/user/Desktop )
 #Change default to what ever you like
-<<<<<<< HEAD
-<<<<<<< HEAD
-kernel1name="MassStashedX-m8whl-v1.0.4-alcor"
-=======
-kernel1name="MassStashedX-m8whl-v0.2.0-alcor"
->>>>>>> 6b93ac9... Add shit
-=======
-kernel1name="MassStashedX-m8whl-v1.0.4-alcor"
->>>>>>> 67248fa... Bump things, fix defconifg for whl
+kernel1name="MassStashedX-Stockish-m8whl"
 kernel2name="MassStashedX-m8whl-v0.19.3"
 kernel3name="Default-3"
 #Do not edit
@@ -78,7 +70,7 @@ PATH=$PATH:/home/zaichron-lin/AndroidDev/AAtoolchains/linaro_toolchains_2014/arm
 echo
 echo
 echo " Run defconfig "
-make ARCH=arm elementalx_defconfig
+make ARCH=arm m8whl_defconfig
 #Keep thangs sqeaky
 echo
 echo
@@ -113,31 +105,31 @@ echo
 echo
 echo
 echo " Moved zImage "
-cp arch/arm/boot/zImage ~/AndroidDev/AAmkbootimg_tools/badboys
+cp arch/arm/boot/zImage ~/AndroidDev/AAmkbootimg_tools/stock_cptb
 #cp arch/arm/boot/dt.img zip2/kernel/
 
 echo
 echo
 echo " Moved dt.img "
-cp arch/arm/boot/dt.img ~/AndroidDev/AAmkbootimg_tools/badboys
+cp arch/arm/boot/dt.img ~/AndroidDev/AAmkbootimg_tools/stock_cptb
 
 echo
 echo
 echo " Moving modules "
-find -iname *.ko | xargs cp -t /home/zaichron-lin/Desktop/Copy/AndroidDev/Kernz/m8whl/MassStashedX_Sense_4.4.3/system/lib/modules
+find -iname *.ko | xargs cp -t /home/zaichron-lin/Desktop/Copy/AndroidDev/Kernz/m8whl/MassStashedX-Stockish-4.4.3/system/lib/modules
 cd ~/AndroidDev/AAmkbootimg_tools
 
 echo
 echo
 echo " Making a boot.img ya'll "
-./mkboot badboys boot.img
+./mkboot stock_cptb boot.img
 
 echo
 echo
 echo " Moved boot.img "
-cp boot.img /home/zaichron-lin/Desktop/Copy/AndroidDev/Kernz/m8whl/MassStashedX_Sense_4.4.3/boot
+cp boot.img /home/zaichron-lin/Desktop/Copy/AndroidDev/Kernz/m8whl/MassStashedX-Stockish-4.4.3/boot
 
-cd /home/zaichron-lin/Desktop/Copy/AndroidDev/Kernz/m8whl/MassStashedX_Sense_4.4.3
+cd /home/zaichron-lin/Desktop/Copy/AndroidDev/Kernz/m8whl/MassStashedX-Stockish-4.4.3
 
 echo
 echo
