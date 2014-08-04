@@ -1090,8 +1090,6 @@ next_mm:
 	return NULL;
 }
 
-<<<<<<< HEAD
-=======
 static inline int is_page_scanned(struct page *page)
 {
 #ifdef CONFIG_KSM_CHECK_PAGE
@@ -1121,7 +1119,6 @@ static inline int is_page_scanned(struct page *page)
  * ksm_do_scan  - the ksm scanner main worker function.
  * @scan_npages - number of pages we want to scan before we return.
  */
->>>>>>> ksm: check and skip page, if it is already scanned
 static void ksm_do_scan(unsigned int scan_npages)
 {
 	struct rmap_item *rmap_item;
