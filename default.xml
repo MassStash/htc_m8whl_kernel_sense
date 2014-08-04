@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest>
+
+  <remote  name="main"
+           fetch="https://github.com/MassStash"
+           sync-j="4" />
+
+  <project path="." name="htc_m8whl_kernel_sense" remote="main" revision="alcor" groups="pdk" />
+
+</manifest>
