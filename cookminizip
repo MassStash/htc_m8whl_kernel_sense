@@ -111,7 +111,7 @@ cd /home/zaichron-lin/Desktop/Copy/AndroidDev/Kernz/m8whl/MassStashedX-AA-Sense-
 echo
 echo
 echo " I a make a da zip now, then move that ish to copy out dir "
-zip -r $kernelName-$now.zip *
+zip -r $kernelName-$now.zip * -x /*~
 mv $kernelName-$now.zip $exportDir
 #cd ..
 cd ~/AndroidDev/htc_m8whl_kernel_sense
