@@ -5,13 +5,13 @@
 #Config Section below is where you set your paths-
 
 #Kernel path
-kernelDir1="/home/zaichron-lin/AndroidDev/htc_m8whl_kernel_sense" #( Example /home/user/path )
-kernelDir2="/home/zaichron-lin/AndroidDev/htc_m8whl_kernel_sense" #( Example /home/user/path )
+kernelDir1="~/AndroidDev/htc_m8whl_kernel_sense" #( Example /home/user/path )
+kernelDir2="~/AndroidDev/htc_m8whl_kernel_sense" #( Example /home/user/path )
 kernelDir3="Path to kernel 3" #( Example /home/user/path )
 #Toolchain path
-toolchainDir="/home/zaichron-lin/AndroidDev/AAtoolchains/linaro_toolchains_2014/arm-cortex_a15-linux-gnueabihf-linaro_4.9.1-2014.07" #( Example /home/user/path )
+toolchainDir="~/AndroidDev/AAtoolchains/linaro_toolchains_2014/arm-cortex_a15-linux-gnueabihf-linaro_4.9.1-2014.07" #( Example /home/user/path )
 #Path where you would like the kernel to be outputed
-exportDir="/home/zaichron-lin/Desktop/Copy/AndroidDev/Kernz/m8whl/out" #( Example /home/user/Desktop )
+exportDir="~/Desktop/Copy/AndroidDev/Kernz/m8whl/out" #( Example /home/user/Desktop )
 #Change default to what ever you like
 kernel1name="MassStashedX-FlarPort-1.02.2-Sense-4.4.3"
 kernel2name="MassStashedX-FlarPort-1.02.2-Sense-4.4.3"
@@ -93,7 +93,7 @@ cp arch/arm/boot/dt.img ~/AndroidDev/AAmkbootimg_tools/venom
 echo
 echo
 echo " Moving modules "
-find -iname *.ko | xargs cp -t /home/zaichron-lin/Desktop/Copy/AndroidDev/Kernz/m8whl/MassStashedX-FlarPort-Sense-4.4.3/system/lib/modules
+find -iname *.ko | xargs cp -t ~/Desktop/Copy/AndroidDev/Kernz/m8whl/MassStashedX-FlarPort-Sense-4.4.3/system/lib/modules
 cd ~/AndroidDev/AAmkbootimg_tools
 
 echo
@@ -104,9 +104,9 @@ echo " Making a boot.img ya'll "
 echo
 echo
 echo " Moved boot.img "
-cp boot.img /home/zaichron-lin/Desktop/Copy/AndroidDev/Kernz/m8whl/MassStashedX-FlarPort-Sense-4.4.3/boot
+cp boot.img ~/Desktop/Copy/AndroidDev/Kernz/m8whl/MassStashedX-FlarPort-Sense-4.4.3/boot
 
-cd /home/zaichron-lin/Desktop/Copy/AndroidDev/Kernz/m8whl/MassStashedX-FlarPort-Sense-4.4.3
+cd ~/Desktop/Copy/AndroidDev/Kernz/m8whl/MassStashedX-FlarPort-Sense-4.4.3
 
 echo
 echo

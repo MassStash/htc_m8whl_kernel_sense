@@ -1,7 +1,7 @@
 #!/bin/bash          
 
 #Setup proper path to rid missing gcc warning
-PATH=$PATH:/home/zaichron-lin/AndroidDev/AAtoolchains/linaro_toolchains_2014/arm-cortex_a15-linux-gnueabihf-linaro_4.9.1-2014.07/bin
+PATH=$PATH:~/AndroidDev/AAtoolchains/linaro_toolchains_2014/arm-cortex_a15-linux-gnueabihf-linaro_4.9.1-2014.07/bin
 
 #xxx= Your config name
 echo
@@ -17,4 +17,4 @@ make clean
 echo
 echo
 echo " Set to arm at 375, for about 20 to 40 minutes "
-make ARCH=arm CROSS_COMPILE=/home/zaichron-lin/AndroidDev/AAtoolchains/linaro_toolchains_2014/arm-cortex_a15-linux-gnueabihf-linaro_4.9.1-2014.07/bin/arm-cortex_a15-linux-gnueabihf- -j4
+make ARCH=arm CROSS_COMPILE=~/AndroidDev/AAtoolchains/linaro_toolchains_2014/arm-cortex_a15-linux-gnueabihf-linaro_4.9.1-2014.07/bin/arm-cortex_a15-linux-gnueabihf- -j4
