@@ -7,7 +7,7 @@ PATH=$PATH:/home/zaichron-lin/AndroidDev/AAtoolchains/linaro_toolchains_2014/arm
 echo
 echo
 echo " Run defconfig "
-make ARCH=arm elementalx_defconfig
+make ARCH=arm hypernova_defconfig
 #Keep thangs sqeaky
 echo
 echo
