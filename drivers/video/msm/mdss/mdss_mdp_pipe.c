@@ -547,8 +547,6 @@ static int mdss_mdp_pipe_free(struct mdss_mdp_pipe *pipe)
 	pipe->flags = 0;
 	pipe->bwc_mode = 0;
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
-	pipe->mfd = NULL;
-	memset(&pipe->scale, 0, sizeof(struct mdp_scale_data));
 
 	return 0;
 }
