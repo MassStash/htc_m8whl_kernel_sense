@@ -11,10 +11,10 @@ kernelDir3="Path to kernel 3" #( Example /home/user/path )
 #Toolchain path
 toolchainDir="/home/zaichron-lin/AndroidDev/AAtoolchains/linaro_toolchains_2014/arm-cortex_a15-linux-gnueabihf-linaro_4.9.1-2014.07" #( Example /home/user/path )
 #Path where you would like the kernel to be outputed
-exportDir="/home/zaichron-lin/Desktop/Copy/AndroidDev/Kernz/m8whl/out" #( Example /home/user/Desktop )
+exportDir="/home/zaichron-lin/Desktop/Copy/AndroidDev/Kernz/m8wl/out" #( Example /home/user/Desktop )
 #Change default to what ever you like
-kernel1name="MassStashedX-FlarPort-0.19.5-Sense-4.4.3"
-kernel2name="MassStashedX-FlarPort-0.19.5-Sense-4.4.3"
+kernel1name="MassStashedX-FlarPort-VZW-0.19.5-Sense-4.4.3"
+kernel2name="MassStashedX-FlarPort-VZW-0.19.5-Sense-4.4.3"
 kernel3name="Default-3"
 #Do not edit
 now=$(date +"%m-%d-%Y-%H-%M")
@@ -116,7 +116,7 @@ cp arch/arm/boot/dt.img ~/AndroidDev/AAmkbootimg_tools/virus
 echo
 echo
 echo " Moving modules "
-find -iname *.ko | xargs cp -t /home/zaichron-lin/Desktop/Copy/AndroidDev/Kernz/m8whl/MassStashedX-FlarPort-Sense-4.4.3-vzw/system/lib/modules
+find -iname *.ko | xargs cp -t /home/zaichron-lin/Desktop/Copy/AndroidDev/Kernz/m8wl/MassStashedX-FlarPort-Sense-4.4.3-vzw/system/lib/modules
 cd ~/AndroidDev/AAmkbootimg_tools
 
 echo
@@ -127,9 +127,9 @@ echo " Making a boot.img ya'll "
 echo
 echo
 echo " Moved boot.img "
-cp boot.img /home/zaichron-lin/Desktop/Copy/AndroidDev/Kernz/m8whl/MassStashedX-FlarPort-Sense-4.4.3-vzw/boot
+cp boot.img /home/zaichron-lin/Desktop/Copy/AndroidDev/Kernz/m8wl/MassStashedX-FlarPort-Sense-4.4.3-vzw/boot
 
-cd /home/zaichron-lin/Desktop/Copy/AndroidDev/Kernz/m8whl/MassStashedX-FlarPort-Sense-4.4.3-vzw
+cd /home/zaichron-lin/Desktop/Copy/AndroidDev/Kernz/m8wl/MassStashedX-FlarPort-Sense-4.4.3-vzw
 
 echo
 echo
