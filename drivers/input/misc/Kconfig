@@ -730,12 +730,6 @@ config POWER_VOLUP_RESET
 	help
 	  Say Y here if you want to support power key LED.
 
-config KPDPWR_S2_DVDD_RESET
-	tristate "Power key stage 2 reset while SW gets stuck"
-	depends on POWER_VOLUP_RESET
-	help
-	  Say Y here if you would like to support power key stage 2 dVdd reset when SW gets stuck.
-
 config PWRKEY_WAKESRC_LOG
 	tristate "Power key wake up source log"
 	default n

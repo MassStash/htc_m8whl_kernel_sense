@@ -3,27 +3,6 @@
 #include <mach/devices_dtb.h>
 #include <linux/module.h>
 
-#define RESET_MSG_LENGTH 512
-static unsigned char google_boot_reason[RESET_MSG_LENGTH];
-int __init google_boot_reason_init(char *s)
-{
-	snprintf(google_boot_reason, sizeof(google_boot_reason) - 1,
-		"Boot info:\nLast boot reason: %s\n\n", s);
-
-        return 1;
-}
-__setup("bootreason=", google_boot_reason_init);
-
-unsigned char *board_get_google_boot_reason(void)
-{
-        return google_boot_reason;
-}
-EXPORT_SYMBOL(board_get_google_boot_reason);
-
-#if defined(CONFIG_LCD_KCAL)
-#include <mach/htc_lcd_kcal.h>
-#endif
-
 static unsigned long boot_powerkey_debounce_ms;
 int __init boot_powerkey_debounce_time_init(char *s)
 {
@@ -61,15 +40,6 @@ int board_get_usb_ats(void)
 		return usb_ats;
 }
 EXPORT_SYMBOL(board_get_usb_ats);
-
-void board_set_usb_ats(int type)
-{
-	if (type == 0)
-		usb_ats = 0;
-	else
-		usb_ats = 1;
-}
-EXPORT_SYMBOL(board_set_usb_ats);
 
 #define RAW_SN_LEN	4
 static int tamper_sf;
@@ -158,28 +128,6 @@ int board_mfg_mode(void)
 
 EXPORT_SYMBOL(board_mfg_mode);
 
-static int ftm_mode = 0;
-static int __init board_ftm_mode_init(char *s)
-{
-	if (!strcmp(s, "0"))
-		ftm_mode = 0;
-	else if (!strcmp(s, "1"))
-		ftm_mode = 1;
-	else if (!strcmp(s, "2"))
-		ftm_mode = 2;
-	else
-		printk(KERN_INFO "%s: ftm_mode(%s) not define\n", __func__, s);
-
-	return 1;
-}
-__setup("androidboot.ftm=", board_ftm_mode_init);
-
-int board_ftm_mode(void)
-{
-	return ftm_mode;
-}
-EXPORT_SYMBOL(board_ftm_mode);
-
 int is_9kramdump_mode(void)
 {
 	return recovery_9k_ramdump;
@@ -223,61 +171,11 @@ static int __init board_bootloader_setup(char *str)
 }
 __setup("androidboot.bootloader=", board_bootloader_setup);
 
-#if defined(CONFIG_LCD_KCAL)
-int g_kcal_r = 255;
-int g_kcal_g = 255;
-int g_kcal_b = 255;
-
-extern int kcal_set_values(int kcal_r, int kcal_g, int kcal_b);
-static int __init display_kcal_setup(char *kcal)
-{
-	char vaild_k = 0;
-	int kcal_r = 255;
-	int kcal_g = 255;
-	int kcal_b = 255;
-
-	sscanf(kcal, "%d|%d|%d|%c", &kcal_r, &kcal_g, &kcal_b, &vaild_k );
-	pr_info("kcal is %d|%d|%d|%c\n", kcal_r, kcal_g, kcal_b, vaild_k);
-
-	if (vaild_k != 'K') {
-		pr_info("kcal not calibrated yet : %d\n", vaild_k);
-		kcal_r = kcal_g = kcal_b = 255;
-	}
-
-	kcal_set_values(kcal_r, kcal_g, kcal_b);
-	return 1;
-}
-__setup("htc.kcal=", display_kcal_setup);
-#endif
-
 int board_build_flag(void)
 {
 	return build_flag;
 }
 EXPORT_SYMBOL(board_build_flag);
-
-#define FULL_CID_LEN 8
-static char *cid_tag = NULL;
-static int __init board_set_cid_tag(char *get_hboot_cid)
-{
-	if(strlen(get_hboot_cid))
-		cid_tag = get_hboot_cid;
-	else
-		cid_tag = NULL;
-	return 1;
-}
-__setup("androidboot.cid=", board_set_cid_tag);
-
-int board_is_super_cid(void)
-{
-	if (cid_tag == NULL)
-		return 0;
-	else if (!strncmp(cid_tag, "11111111", FULL_CID_LEN))
-		return 1;
-	else
-		return 0;
-}
-EXPORT_SYMBOL(board_is_super_cid);
 
 BLOCKING_NOTIFIER_HEAD(psensor_notifier_list);
 int register_notifier_by_psensor(struct notifier_block *nb)
@@ -315,17 +213,3 @@ unsigned int get_tamper_sf(void)
 	return tamper_sf;
 }
 EXPORT_SYMBOL(get_tamper_sf);
-
-static int atsdebug = 0;
-int __init check_atsdebug(char *s)
-{
-	atsdebug = simple_strtoul(s, 0, 10);
-	return 1;
-}
-__setup("ro.atsdebug=", check_atsdebug);
-
-unsigned int get_atsdebug(void)
-{
-	return atsdebug;
-}
-

@@ -269,15 +269,6 @@ struct mdss_panel_info {
 	int panel_id;
 	int first_power_on;
 	u32 mdss_pp_hue;
-
-	uint32_t pcc_r;
-	uint32_t pcc_g;
-	uint32_t pcc_b;
-
-	int max_brt;
-	int act_max_brt;
-	bool act_brt;
-	bool even_roi;
 };
 
 struct mdss_panel_data {

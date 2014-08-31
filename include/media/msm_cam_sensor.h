@@ -40,13 +40,9 @@
 #define MAX_ACTUATOR_REGION 5
 #define MAX_ACTUATOR_INIT_SET 12
 #define MAX_ACTUATOR_REG_TBL_SIZE 8
-#define MAX_ACTUATOR_AF_TOTAL_STEPS 1024
 
 #define MOVE_NEAR 0
 #define MOVE_FAR  1
-
-#define MSM_ACTUATOR_MOVE_SIGNED_FAR -1
-#define MSM_ACTUATOR_MOVE_SIGNED_NEAR  1
 
 #define MAX_EEPROM_NAME 32
 
@@ -399,13 +395,11 @@ typedef struct{
 	uint8_t VCM_VENDOR_ID_VERSION;
 	uint8_t VCM_VENDOR;
 	uint8_t ACT_ID;
-	uint32_t MODULE_ID_AB;
 }af_value_t;
 
 struct sensorb_cfg_data {
 	int cfgtype;
 	int8_t sensor_ver;
-	int8_t lens_id;
 	af_value_t af_value;
 	union {
 		struct msm_sensor_info_t      sensor_info;
@@ -547,9 +541,6 @@ enum msm_actuator_cfg_type_t {
 	CFG_SET_OIS_MODE,
 	CFG_UPDATE_OIS_TBL,
 	CFG_IAF_MOVE_FOCUS,
-	CFG_GET_VCM_SORTING,
-	CFG_GET_VCM_LOOP_GAIN_SORTING,
-	CFG_GET_ACT_STABLE_INFO, 
 };
 
 enum actuator_type {
@@ -588,7 +579,6 @@ struct msm_actuator_move_params_t {
 	int8_t sign_dir;
 	int16_t dest_step_pos;
 	int32_t num_steps;
-	uint16_t curr_lens_pos;
 	struct damping_params_t *ringing_params;
 };
 
@@ -667,7 +657,6 @@ struct msm_actuator_af_OTP_info_t {
 	uint8_t VCM_Vendor;
 	uint8_t act_id;
 	char act_name[MAX_SENSOR_NAME];
-	uint32_t MODULE_ID_AB;
 };
 
 struct msm_actuator_get_ois_info_t {
@@ -725,13 +714,10 @@ struct msm_actuator_cfg_data {
 	uint8_t is_af_supported;
 	int is_ois_supported;
 	char act_name[MAX_ACT_NAME_SIZE];
-	
 	uint8_t small_step_damping;
 	uint8_t medium_step_damping;
 	uint8_t big_step_damping;
 	uint8_t is_af_infinity_supported;
-	int32_t is_act_unstable;
-	
 	union {
 		struct msm_actuator_move_params_t move;
 		struct msm_actuator_set_info_t set_info;
@@ -745,13 +731,6 @@ struct msm_actuator_cfg_data {
 		struct sensor_actuator_info_t sensor_actuator_info;
 	
 	} cfg;
-    
-	int16_t max_diff;
-	uint32_t gain_G1[5];
-	uint32_t gain_G2[5];
-	uint8_t vcm_freq;
-	uint16_t vcm_freq_ms22e;
-	
 };
 
 enum msm_actuator_write_type {

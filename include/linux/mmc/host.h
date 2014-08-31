@@ -188,7 +188,7 @@ struct mmc_host {
 #define MMC_VDD_35_36		0x00800000	
 
 	unsigned long		caps;		
-	unsigned long		caps_uhs;	
+	unsigned long		caps_uhs;       
 
 #define MMC_CAP_4_BIT_DATA	(1 << 0)	
 #define MMC_CAP_MMC_HIGHSPEED	(1 << 1)	
@@ -305,7 +305,6 @@ struct mmc_host {
 	int			claim_cnt;	
 
 	struct delayed_work	detect;
-	struct delayed_work	enable_detect;
 	struct delayed_work     remove;
 	struct delayed_work	stats_work;
 	struct wake_lock	detect_wake_lock;
@@ -379,9 +378,6 @@ struct mmc_host {
 		unsigned long erase_blks;	
 		ktime_t erase_time;			
 		ktime_t start;
-		
-		unsigned long wkbytes_drv;
-		ktime_t workload_time;
 	} perf;
 	bool perf_enable;
 
@@ -400,7 +396,6 @@ struct mmc_host {
 		struct delayed_work work;
 		enum mmc_load	state;
 	} clk_scaling;
-	unsigned int crc_count;
 	unsigned long		private[0] ____cacheline_aligned;
 };
 

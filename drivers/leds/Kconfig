@@ -50,14 +50,6 @@ config LEDS_LM3530
 	  controlled manually or using PWM input or using ambient
 	  light automatically.
 
-config LEDS_LM3697
-	tristate "LCD Backlight driver for LM3697"
-	depends on LEDS_CLASS
-	depends on I2C
-	help
-	  This option enables support for the LCD backlight using
-	  LM3697 chip.
-
 config LEDS_LOCOMO
 	tristate "LED Support for Locomo device"
 	depends on LEDS_CLASS

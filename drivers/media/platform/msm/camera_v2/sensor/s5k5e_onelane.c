@@ -16,7 +16,7 @@ DEFINE_MSM_MUTEX(s5k5e_onelane_mut);
 
 static struct msm_sensor_ctrl_t s5k5e_onelane_s_ctrl;
 
-struct msm_sensor_power_setting s5k5e_onelane_power_setting[] = {
+static struct msm_sensor_power_setting s5k5e_onelane_power_setting[] = {
 
 	{
 		.seq_type = SENSOR_GPIO,
@@ -60,54 +60,7 @@ struct msm_sensor_power_setting s5k5e_onelane_power_setting[] = {
 		.config_val = 0,
 		.delay = 0,
 	},
-
-};
-
-struct msm_sensor_power_setting s5k5e_onelane_power_down_setting[] = {
-
-	{
-		.seq_type = SENSOR_GPIO,
-		.seq_val = SENSOR_GPIO_RESET,
-		.config_val = GPIO_OUT_HIGH,
-		.delay = 20,
-	},
-	{
-		.seq_type = SENSOR_VREG_NCP6924,
-		.seq_val = NCP6924_VANA,
-		.config_val = 1,
-		.delay = 1,
-	},
-	{
-		.seq_type = SENSOR_VREG_NCP6924,
-		.seq_val = NCP6924_VIO,
-		.config_val = 1,
-		.delay = 1,
-	},
-	{
-		.seq_type = SENSOR_VREG_NCP6924,
-		.seq_val = NCP6924_VDIG,
-		.config_val = 1,
-		.delay = 1,
-	},
-	{
-		.seq_type = SENSOR_CLK,
-		.seq_val = SENSOR_CAM_MCLK,
-		.config_val = 0,
-		.delay = 5,
-	},
-	{
-		.seq_type = SENSOR_GPIO,
-		.seq_val = SENSOR_GPIO_RESET,
-		.config_val = GPIO_OUT_HIGH,
-		.delay = 80,
-	},
-	{
-		.seq_type = SENSOR_I2C_MUX,
-		.seq_val = 0,
-		.config_val = 0,
-		.delay = 0,
-	},
-
+	
 };
 
 static struct v4l2_subdev_info s5k5e_onelane_subdev_info[] = {
@@ -233,110 +186,6 @@ static void __exit s5k5e_onelane_exit_module(void)
 	return;
 }
 
-int32_t s5k5e_onelane_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
-{
-    int32_t status;
-    pr_info("%s: +\n", __func__);
-    s_ctrl->power_setting_array.power_setting = s5k5e_onelane_power_setting;
-    s_ctrl->power_setting_array.size = ARRAY_SIZE(s5k5e_onelane_power_setting);
-    status = msm_sensor_power_up(s_ctrl);
-    pr_info("%s: -\n", __func__);
-    return status;
-}
-
-int32_t s5k5e_onelane_sensor_power_down(struct msm_sensor_ctrl_t *s_ctrl)
-{
-    int32_t status;
-    int i = 0;
-    int j = 0;
-    int data_size;
-    pr_info("%s: +\n", __func__);
-    s_ctrl->power_setting_array.power_setting = s5k5e_onelane_power_down_setting;
-    s_ctrl->power_setting_array.size = ARRAY_SIZE(s5k5e_onelane_power_down_setting);
-
-    
-    for(i = 0; i < s_ctrl->power_setting_array.size;  i++)
-    {
-        data_size = sizeof(s5k5e_onelane_power_setting[i].data)/sizeof(void *);
-        for (j =0; j < data_size; j++ )
-        s5k5e_onelane_power_down_setting[i].data[j] = s5k5e_onelane_power_setting[i].data[j];
-    }
-    status = msm_sensor_power_down(s_ctrl);
-    pr_info("%s: -\n", __func__);
-    return status;
-}
-
-static int s5k5e_onelane_read_fuseid(struct sensorb_cfg_data *cdata,
-	struct msm_sensor_ctrl_t *s_ctrl)
-{
-	int32_t rc = 0;
-	int i,j;
-	uint16_t read_data = 0;
-	uint16_t id_addr[6] = {0x0A04,0x0A05,0x0A06,0x0A07,0x0A08,0x0A09};
-	static uint16_t id_data[6] = {0,0,0,0,0,0};
-	static int first = true;
-	static int32_t valid_page=-1;
-
-	pr_info("%s called\n", __func__);
-	if(first){
-		first = false;
-		for(j=4;j>=2;j--){
-				rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->i2c_write(s_ctrl->sensor_i2c_client, 0x0A00, 0x04, MSM_CAMERA_I2C_BYTE_DATA);
-				if (rc < 0)
-					pr_err("%s: i2c_write failed\n", __func__);
-				rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->i2c_write(s_ctrl->sensor_i2c_client, 0x0A02, j, MSM_CAMERA_I2C_BYTE_DATA);
-				if (rc < 0)
-					pr_info("%s: i2c_write failed\n", __func__);
-				rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->i2c_write(s_ctrl->sensor_i2c_client, 0x0A00, 0x01, MSM_CAMERA_I2C_BYTE_DATA);
-				if (rc < 0)
-					pr_info("%s: i2c_write failed\n", __func__);
-				msleep(10);
-				for (i=0; i<6; i++) {
-					rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->i2c_read(s_ctrl->sensor_i2c_client, id_addr[i], &read_data, MSM_CAMERA_I2C_BYTE_DATA);
-
-					if (rc < 0)
-						pr_err("%s: i2c_read 0x%x failed\n", __func__, i);
-
-					id_data[i] = read_data & 0xff;
-				}
-				if (read_data)
-					valid_page = j;
-				if (valid_page!=-1)
-					break;
-		}
-	}
-	rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->i2c_write(s_ctrl->sensor_i2c_client, 0x0A00, 0x04, MSM_CAMERA_I2C_BYTE_DATA);
-	if (rc < 0)
-		pr_err("%s: i2c_write failed\n", __func__);
-	rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->i2c_write(s_ctrl->sensor_i2c_client, 0x0A00, 0x00, MSM_CAMERA_I2C_BYTE_DATA);
-	if (rc < 0)
-		pr_err("%s: i2c_write failed\n", __func__);
-
-	cdata->cfg.fuse.fuse_id_word1 = 0;
-	cdata->cfg.fuse.fuse_id_word2 = id_data[3];
-	cdata->cfg.fuse.fuse_id_word3 = id_data[4];
-	cdata->cfg.fuse.fuse_id_word4 = id_data[5];
-
-	pr_info("s5k5e_onelane: fuse->fuse_id : 0x%x 0x%x 0x%x 0x%x\n",
-		cdata->cfg.fuse.fuse_id_word1,
-		cdata->cfg.fuse.fuse_id_word2,
-		cdata->cfg.fuse.fuse_id_word3,
-		cdata->cfg.fuse.fuse_id_word4);
-	pr_info("%s: OTP Module vendor = 0x%x\n", __func__,id_data[0]);
-	pr_info("%s: OTP LENS = 0x%x\n",          __func__,id_data[1]);
-	pr_info("%s: OTP Sensor Version = 0x%x\n",__func__,id_data[2]);
-
-	return rc;
-}
-
-static struct msm_sensor_fn_t s5k5e_onelane_sensor_func_tbl = {
-	.sensor_config = msm_sensor_config,
-	.sensor_power_up = s5k5e_onelane_sensor_power_up,
-	.sensor_power_down = s5k5e_onelane_sensor_power_down,
-	.sensor_match_id = msm_sensor_match_id,
-	.sensor_i2c_read_fuseid = s5k5e_onelane_read_fuseid,
-};
-
 static struct msm_sensor_ctrl_t s5k5e_onelane_s_ctrl = {
 	.sensor_i2c_client = &s5k5e_onelane_sensor_i2c_client,
 	.power_setting_array.power_setting = s5k5e_onelane_power_setting,
@@ -344,7 +193,6 @@ static struct msm_sensor_ctrl_t s5k5e_onelane_s_ctrl = {
 	.msm_sensor_mutex = &s5k5e_onelane_mut,
 	.sensor_v4l2_subdev_info = s5k5e_onelane_subdev_info,
 	.sensor_v4l2_subdev_info_size = ARRAY_SIZE(s5k5e_onelane_subdev_info),
-	.func_tbl = &s5k5e_onelane_sensor_func_tbl,
 };
 
 module_init(s5k5e_onelane_init_module);

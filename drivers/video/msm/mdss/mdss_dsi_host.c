@@ -87,8 +87,6 @@ void mdss_dsi_ctrl_init(struct mdss_dsi_ctrl_pdata *ctrl)
 		ctrl->ndx = DSI_CTRL_1;
 	}
 
-	ctrl->panel_mode = ctrl->panel_data.panel_info.mipi.mode;
-
 	ctrl_list[ctrl->ndx] = ctrl;	
 
 	if (mdss_register_irq(ctrl->dsi_hw))
@@ -766,6 +764,8 @@ void mdss_dsi_host_init(struct mipi_panel_info *pinfo,
 				panel_data);
 
 	pinfo->rgb_swap = DSI_RGB_SWAP_RGB;
+
+	ctrl_pdata->panel_mode = pinfo->mode;
 
 	if (pinfo->mode == DSI_VIDEO_MODE) {
 		data = 0;
@@ -1657,29 +1657,6 @@ void mdss_dsi_cmdlist_rx(struct mdss_dsi_ctrl_pdata *ctrl,
 
 	if (req->cb)
 		req->cb(len);
-}
-
-void mdss_dsi_read_commit(struct mdss_dsi_ctrl_pdata *ctrl,
-				struct dcs_cmd_req *req)
-{
-	if (!(req->flags & CMD_REQ_RX))
-		return;
-
-	mutex_lock(&ctrl->cmd_mutex);
-
-	
-	mdss_dsi_cmd_mdp_busy(ctrl);
-
-	mdss_bus_bandwidth_ctrl(1);
-
-	mdss_dsi_clk_ctrl(ctrl, 1);
-
-	mdss_dsi_cmdlist_rx(ctrl, req);
-
-	mdss_dsi_clk_ctrl(ctrl, 0);
-	mdss_bus_bandwidth_ctrl(0);
-
-	mutex_unlock(&ctrl->cmd_mutex);
 }
 
 void mdss_dsi_cmdlist_commit(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp)

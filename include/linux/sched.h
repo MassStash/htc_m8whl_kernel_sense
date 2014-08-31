@@ -98,10 +98,10 @@ extern void get_avenrun(unsigned long *loads, unsigned long offset, int shift);
 
 #define FSHIFT		11		
 #define FIXED_1		(1<<FSHIFT)	
-#define LOAD_FREQ  (4*HZ+61)  
-#define EXP_1    1896    
-#define EXP_5    2017    
-#define EXP_15    2038   			
+#define LOAD_FREQ	(5*HZ+1)	
+#define EXP_1		1884		
+#define EXP_5		2014		
+#define EXP_15		2037		
 
 #define CALC_LOAD(load,exp,n) \
 	load *= exp; \
@@ -157,10 +157,9 @@ print_cfs_rq(struct seq_file *m, int cpu, struct cfs_rq *cfs_rq)
 #define TASK_DEAD		64
 #define TASK_WAKEKILL		128
 #define TASK_WAKING		256
-#define TASK_PARKED		512
-#define TASK_STATE_MAX		1024
+#define TASK_STATE_MAX		512
 
-#define TASK_STATE_TO_CHAR_STR "RSDTtZXxKWP"
+#define TASK_STATE_TO_CHAR_STR "RSDTtZXxKW"
 
 extern char ___assert_task_state[1 - 2*!!(
 		sizeof(TASK_STATE_TO_CHAR_STR)-1 != ilog2(TASK_STATE_MAX)+1)];

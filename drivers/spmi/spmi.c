@@ -21,7 +21,6 @@
 #include <linux/spmi.h>
 #include <linux/module.h>
 #include <linux/pm_runtime.h>
-#include <mach/devices_cmdline.h>
 
 #include "spmi-dbgfs.h"
 
@@ -688,7 +687,7 @@ char *poff_reason2[POFF_REASON2_BIT_MAX] = {
 	"Stage3"
   };
 
-void htc_print_reset_reason(int type, uint8_t value)
+void htc_get_reset_reason(int type, uint8_t value)
 {
 	int bit_idx = 0;
 	int start_bit = 0;
@@ -730,7 +729,7 @@ void htc_print_reset_reason(int type, uint8_t value)
 	}
 }
 
-int htc_spmi_read_data(struct spmi_controller *ctrl, uint8_t *buf, int offset, int cnt)
+static int htc_spmi_read_data(struct spmi_controller *ctrl, uint8_t *buf, int offset, int cnt)
 {
 	int ret = 0;
 	int len;
@@ -757,65 +756,41 @@ done:
 	return ret;
 }
 
-uint8_t reason_1 = 0xFF;
-uint8_t warm_reset_reason_1 = 0xFF;
-uint8_t warm_reset_reason_2 = 0xFF;
-uint8_t soft_reset_reason_1 = 0xFF;
-uint8_t soft_reset_reason_2 = 0xFF;
-uint8_t poff_reason_1 = 0xFF;
-uint8_t poff_reason_2 = 0xFF;
-
-void htc_get_pon_boot_reason(struct spmi_controller *ctrl)
+static void htc_get_pon_boot_reason(struct spmi_controller *ctrl)
 {
-	
-	if (reason_1 == 0xFF)
-		htc_spmi_read_data(ctrl, &reason_1, PON_PON_REASON1, 1);
+	uint8_t val = 0;
 
-	
-	if (warm_reset_reason_1 == 0xFF)
-		htc_spmi_read_data(ctrl, &warm_reset_reason_1, PON_WARM_RESET_REASON1, 1);
-	if (warm_reset_reason_2 == 0xFF)
-		htc_spmi_read_data(ctrl, &warm_reset_reason_2, PON_WARM_RESET_REASON2, 1);
-
-	
-	if (soft_reset_reason_1 == 0xFF)
-		htc_spmi_read_data(ctrl, &soft_reset_reason_1, PON_SOFT_RESET_REASON1, 1);
-
-	if (soft_reset_reason_2 == 0xFF)
-		htc_spmi_read_data(ctrl, &soft_reset_reason_2, PON_SOFT_RESET_REASON2, 1);
-
-	
-	if (poff_reason_1 == 0xFF)
-		htc_spmi_read_data(ctrl, &poff_reason_1, PON_POFF_REASON1, 1);
-	if (poff_reason_2 == 0xFF)
-		htc_spmi_read_data(ctrl, &poff_reason_2, PON_POFF_REASON2, 1);
-}
-
-void htc_print_pon_boot_reason(void)
-{
 	printk(KERN_INFO "------ Reset Reason ------\n");
+
+	
+	htc_spmi_read_data(ctrl, &val, PON_PON_REASON1, 1);
 	printk(KERN_INFO "[PON_PON_REASON]");
-	htc_print_reset_reason(PON_PON_REASON1, reason_1);
+	htc_get_reset_reason(PON_PON_REASON1, val);
 
 	
+	htc_spmi_read_data(ctrl, &val, PON_WARM_RESET_REASON1, 1);
 	printk(KERN_INFO "[PON_WARM_RESET_REASON]");
-	htc_print_reset_reason(PON_WARM_RESET_REASON1, warm_reset_reason_1);
-	htc_print_reset_reason(PON_WARM_RESET_REASON2, warm_reset_reason_2);
-
-	printk(KERN_INFO "[PON_SOFT_RESET_REASON]");
-	htc_print_reset_reason(PON_SOFT_RESET_REASON1, soft_reset_reason_1);
-
-	htc_print_reset_reason(PON_SOFT_RESET_REASON2, soft_reset_reason_2);
+	htc_get_reset_reason(PON_WARM_RESET_REASON1, val);
+	htc_spmi_read_data(ctrl, &val, PON_WARM_RESET_REASON2, 1);
+	htc_get_reset_reason(PON_WARM_RESET_REASON2, val);
 
 	
+	htc_spmi_read_data(ctrl, &val, PON_SOFT_RESET_REASON1, 1);
+	printk(KERN_INFO "[PON_SOFT_RESET_REASON]");
+	htc_get_reset_reason(PON_SOFT_RESET_REASON1, val);
+
+	htc_spmi_read_data(ctrl, &val, PON_SOFT_RESET_REASON2, 1);
+	htc_get_reset_reason(PON_SOFT_RESET_REASON2, val);
+
+	
+	htc_spmi_read_data(ctrl, &val, PON_POFF_REASON1, 1);
 	printk(KERN_INFO "[PON_POFF_REASON]");
-	htc_print_reset_reason(PON_POFF_REASON1, poff_reason_1);
-	htc_print_reset_reason(PON_POFF_REASON2, poff_reason_2);
+	htc_get_reset_reason(PON_POFF_REASON1, val);
+	htc_spmi_read_data(ctrl, &val, PON_POFF_REASON2, 1);
+	htc_get_reset_reason(PON_POFF_REASON2, val);
 
 	printk(KERN_INFO "-------------------------\n");
 }
-
-EXPORT_SYMBOL_GPL(htc_print_pon_boot_reason);
 #endif
 static int spmi_register_controller(struct spmi_controller *ctrl)
 {
@@ -837,14 +812,11 @@ static int spmi_register_controller(struct spmi_controller *ctrl)
 	dev_dbg(&ctrl->dev, "Bus spmi-%d registered: dev:%x\n",
 					ctrl->nr, (u32)&ctrl->dev);
 
-	
-	if (get_tamper_sf() == 0 && board_is_super_cid())
-		spmi_dfs_add_controller(ctrl);
+	spmi_dfs_add_controller(ctrl);
 
 #ifdef CONFIG_HTC_POWER_DEBUG
 	
 	htc_get_pon_boot_reason(ctrl);
-	htc_print_pon_boot_reason();
 #endif
 	return 0;
 

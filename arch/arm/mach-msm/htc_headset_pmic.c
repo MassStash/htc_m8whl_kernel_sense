@@ -654,16 +654,12 @@ static int htc_headset_pmic_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	dtinfo = kzalloc(sizeof(*dtinfo), GFP_KERNEL);
-	if (!dtinfo) {
-		kfree(hi);
+	if (!dtinfo)
 		return -ENOMEM;
-	}
 
 	if (pdev->dev.of_node) {
 		pdata = kzalloc(sizeof(*pdata), GFP_KERNEL);
 		if (!pdata) {
-			kfree(hi);
-			kfree(dtinfo);
 			return -ENOMEM;
 		}
 
@@ -815,8 +811,6 @@ static int htc_headset_pmic_probe(struct platform_device *pdev)
 #endif
 	HS_LOG("--------------------");
 
-	kfree(dtinfo);
-	kfree(pdata);
 	return 0;
 
 err_request_button_irq:
@@ -834,8 +828,6 @@ err_create_button_work_queue:
 err_create_detect_work_queue:
 	wake_lock_destroy(&hi->hs_wake_lock);
 	kfree(hi);
-	kfree(pdata);
-	kfree(dtinfo);
 
 	HS_ERR("Failed to register %s driver", DRIVER_NAME);
 

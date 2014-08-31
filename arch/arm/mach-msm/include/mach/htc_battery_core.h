@@ -23,7 +23,7 @@ struct timespec ts; \
 struct rtc_time tm; \
 getnstimeofday(&ts); \
 rtc_time_to_tm(ts.tv_sec, &tm); \
-printk(KERN_DEBUG "[BATT] " x); \
+printk(KERN_INFO "[BATT] " x); \
 printk(" at %lld (%d-%02d-%02d %02d:%02d:%02d.%09lu UTC)\n", \
 ktime_to_ns(ktime_get()), tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, \
 tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec); \
@@ -61,17 +61,13 @@ enum {
 	FULL_BAT,
 	OVER_VCHG,
 	BATT_STATE,
-	BATT_CABLEIN,
-	USB_TEMP,
-	USB_OVERHEAT,
+	OVERLOAD,
 };
 
 enum htc_batt_rt_attr {
 	HTC_BATT_RT_VOLTAGE = 0,
 	HTC_BATT_RT_CURRENT,
 	HTC_BATT_RT_TEMPERATURE,
-	HTC_BATT_RT_VOLTAGE_UV,
-	HTC_USB_RT_TEMPERATURE,
 };
 
 struct battery_info_reply {
@@ -92,8 +88,6 @@ struct battery_info_reply {
 	u32 batt_state;
 	u32 overload;
 	u32 cable_ready;
-	s32 usb_temp;
-	u32 usb_overheat;
 };
 
 struct htc_battery_core {
@@ -111,7 +105,6 @@ struct htc_battery_core {
 	int (*func_get_chg_status)(enum power_supply_property);
 	int (*func_set_chg_property)(enum power_supply_property, int val);
 	void (*func_trigger_store_battery_data)(int trigger_flag);
-	void (*func_qb_mode_shutdown_status)(int trigger_flag);
 };
 #ifdef CONFIG_HTC_BATT_CORE
 void htc_battery_update_batt_uevent(void);

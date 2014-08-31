@@ -115,8 +115,6 @@ struct dss_gpio cec_gpio_config[] = {
 	{0, 1, COMPATIBLE_NAME "-cec"}
 };
 
-struct hdmi_tx_ctrl *hdmi_ctrl_ext;
-
 const char *hdmi_pm_name(enum hdmi_tx_power_module_type module)
 {
 	switch (module) {
@@ -138,13 +136,13 @@ static u8 hdmi_tx_avi_iframe_lut[][NUM_MODES_AVI] = {
 	{0x10,	0x10,	0x10,	0x10,	0x10,	0x10,	0x10,	0x10,	0x10,
 	 0x10,	0x10,	0x10,	0x10,	0x10,	0x10,	0x10,	0x10,	0x10,
 	 0x10,	0x10}, 
-	{0x18,	0x28,	0x28,	0x28,	0x28,	0x28,	0x28,	0x28,	0x28,
+	{0x18,	0x18,	0x28,	0x28,	0x28,	0x28,	0x28,	0x28,	0x28,
 	 0x28,	0x28,	0x28,	0x28,	0x18,	0x28,	0x18,	0x28,	0x28,
 	 0x28,	0x28}, 
 	{0x00,	0x00,	0x00,	0x00,	0x00,	0x00,	0x00,	0x00,	0x00,
 	 0x00,	0x00,	0x00,	0x00,	0x00,	0x00,	0x00,	0x00,	0x00,
 	 0x00,	0x00}, 
-	{0x02,	0x07,	0x12,	0x16,	0x04,	0x13,	0x10,	0x05,	0x1F,
+	{0x02,	0x06,	0x11,	0x15,	0x04,	0x13,	0x10,	0x05,	0x1F,
 	 0x14,	0x20,	0x22,	0x21,	0x01,	0x03,	0x11,	0x00,	0x00,
 	 0x00,	0x00}, 
 	{0x00,	0x01,	0x00,	0x01,	0x00,	0x00,	0x00,	0x00,	0x00,
@@ -841,11 +839,6 @@ void hdmi_tx_hdcp_cb(void *ptr, enum hdmi_hdcp_state status)
 		}
 		break;
 	case HDCP_STATE_AUTH_FAIL:
-		if (hdmi_ctrl->pdata.drm_workaround) {
-			pr_info("%s: skip AUTH FAIL handling\n", __func__);
-			break;
-		}
-
 		hdmi_tx_set_audio_switch_node(hdmi_ctrl, 0, false);
 
 		if (hdmi_ctrl->hpd_state) {
@@ -2420,10 +2413,8 @@ static void hdmi_tx_power_off_work(struct work_struct *work)
 	if (hdmi_ctrl->hdcp_feature_on && hdmi_ctrl->present_hdcp) {
 		DEV_DBG("%s: Turning off HDCP\n", __func__);
 		hdmi_hdcp_off(hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP]);
-	} else if (hdmi_ctrl->pdata.drm_workaround) {
-		DEV_INFO("%s: Turning off HDCP\n", __func__);
-		hdmi_hdcp_off(hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP]);
 	}
+
 	if (!hdmi_tx_is_dvi_mode(hdmi_ctrl))
 		hdmi_tx_audio_off(hdmi_ctrl);
 
@@ -2657,12 +2648,6 @@ static int hdmi_tx_hpd_on(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 	return rc;
 } 
-
-int hdmi_hpd_status(void)
-{
-	return hdmi_ctrl_ext->hpd_state;
-}
-EXPORT_SYMBOL(hdmi_hpd_status);
 
 static int hdmi_tx_sysfs_enable_hpd(struct hdmi_tx_ctrl *hdmi_ctrl, int on)
 {
@@ -2968,12 +2953,6 @@ static int hdmi_tx_panel_event_handler(struct mdss_panel_data *panel_data,
 		break;
 
 	case MDSS_EVENT_RESET:
-		if (!hdmi_ctrl->hpd_initialized) {
-			DEV_INFO("%s: Cable removed during suspend\n",__func__);
-			hdmi_tx_set_audio_switch_node(hdmi_ctrl, 0, false);
-			hdmi_tx_wait_for_audio_engine(hdmi_ctrl);
-			hdmi_tx_send_cable_notification(hdmi_ctrl, 0);
-		}
 		if (hdmi_ctrl->panel_suspend) {
 			u32 timeout;
 			hdmi_ctrl->panel_suspend = false;
@@ -3631,7 +3610,6 @@ static int hdmi_tx_get_dt_data(struct platform_device *pdev,
 	} else {
 		pdata->ddc_ref_clk = (19 << 0);
 	}
-	pdata->drm_workaround = true;
 
 	return rc;
 
@@ -3702,7 +3680,6 @@ static int __devinit hdmi_tx_probe(struct platform_device *pdev)
 			hdmi_ctrl->pdata.io[HDMI_TX_CORE_IO].len))
 		DEV_WARN("%s: hdmi_tx debugfs register failed\n", __func__);
 
-	hdmi_ctrl_ext = hdmi_ctrl;
 	return rc;
 
 failed_reg_panel:

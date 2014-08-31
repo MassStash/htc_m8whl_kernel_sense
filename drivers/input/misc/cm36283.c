@@ -640,6 +640,12 @@ static const struct file_operations psensor_fops = {
 	.unlocked_ioctl = psensor_ioctl
 };
 
+struct miscdevice psensor_misc = {
+	.minor = MISC_DYNAMIC_MINOR,
+	.name = "proximity",
+	.fops = &psensor_fops
+};
+
 void lightsensor_set_kvalue(struct cm36283_info *lpi)
 {
 	if (!lpi) {
@@ -787,6 +793,13 @@ static const struct file_operations lightsensor_fops = {
 	.unlocked_ioctl = lightsensor_ioctl
 };
 
+static struct miscdevice lightsensor_misc = {
+	.minor = MISC_DYNAMIC_MINOR,
+	.name = "lightsensor",
+	.fops = &lightsensor_fops
+};
+
+
 static ssize_t ps_adc_show(struct device *dev,
 			struct device_attribute *attr, char *buf)
 {
@@ -831,6 +844,7 @@ static ssize_t ps_enable_store(struct device *dev,
 	return count;
 }
 
+static DEVICE_ATTR(ps_adc, 0664, ps_adc_show, ps_enable_store);
 
 static ssize_t ps_parameters_show(struct device *dev,
 			struct device_attribute *attr, char *buf)
@@ -874,6 +888,10 @@ static ssize_t ps_parameters_store(struct device *dev,
 	return count;
 }
 
+static DEVICE_ATTR(ps_parameters, 0664,
+	ps_parameters_show, ps_parameters_store);
+
+
 static ssize_t ps_conf_show(struct device *dev,
 			struct device_attribute *attr, char *buf)
 {
@@ -899,6 +917,7 @@ static ssize_t ps_conf_store(struct device *dev,
 
 	return count;
 }
+static DEVICE_ATTR(ps_conf, 0664, ps_conf_show, ps_conf_store);
 
 static ssize_t ps_thd_show(struct device *dev,
 			struct device_attribute *attr, char *buf)
@@ -927,6 +946,7 @@ static ssize_t ps_thd_store(struct device *dev,
 
 	return count;
 }
+static DEVICE_ATTR(ps_thd, 0664, ps_thd_show, ps_thd_store);
 
 static ssize_t ps_hw_show(struct device *dev,
 			struct device_attribute *attr, char *buf)
@@ -949,6 +969,7 @@ static ssize_t ps_hw_store(struct device *dev,
 
 	return count;
 }
+static DEVICE_ATTR(ps_hw, 0664, ps_hw_show, ps_hw_store);
 
 static ssize_t ls_adc_show(struct device *dev,
 				  struct device_attribute *attr, char *buf)
@@ -961,6 +982,8 @@ static ssize_t ls_adc_show(struct device *dev,
 
 	return ret;
 }
+
+static DEVICE_ATTR(ls_adc, 0664, ls_adc_show, NULL);
 
 static ssize_t ls_enable_show(struct device *dev,
 				  struct device_attribute *attr, char *buf)
@@ -1010,6 +1033,8 @@ static ssize_t ls_enable_store(struct device *dev,
 	return count;
 }
 
+static DEVICE_ATTR(ls_auto, 0664,
+	ls_enable_show, ls_enable_store);
 
 static ssize_t ls_kadc_show(struct device *dev,
 				  struct device_attribute *attr, char *buf)
@@ -1052,6 +1077,7 @@ static ssize_t ls_kadc_store(struct device *dev,
 	return count;
 }
 
+static DEVICE_ATTR(ls_kadc, 0664, ls_kadc_show, ls_kadc_store);
 
 static ssize_t ls_gadc_show(struct device *dev,
 				  struct device_attribute *attr, char *buf)
@@ -1091,6 +1117,7 @@ static ssize_t ls_gadc_store(struct device *dev,
 	return count;
 }
 
+static DEVICE_ATTR(ls_gadc, 0664, ls_gadc_show, ls_gadc_store);
 
 static ssize_t ls_adc_table_show(struct device *dev,
 			struct device_attribute *attr, char *buf)
@@ -1141,6 +1168,9 @@ static ssize_t ls_adc_table_store(struct device *dev,
 	return count;
 }
 
+static DEVICE_ATTR(ls_adc_table, 0664,
+	ls_adc_table_show, ls_adc_table_store);
+
 static ssize_t ls_conf_show(struct device *dev,
 				  struct device_attribute *attr, char *buf)
 {
@@ -1162,6 +1192,7 @@ static ssize_t ls_conf_store(struct device *dev,
 	_cm36283_I2C_Write_Word(lpi->slave_addr, ALS_CONF, lpi->ls_cmd);
 	return count;
 }
+static DEVICE_ATTR(ls_conf, 0664, ls_conf_show, ls_conf_store);
 
 static ssize_t ls_poll_delay_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -1188,6 +1219,9 @@ static ssize_t ls_poll_delay_store(struct device *dev,
 	return count;
 }
 
+static DEVICE_ATTR(ls_poll_delay, 0664, ls_poll_delay_show,
+		ls_poll_delay_store);
+
 static ssize_t ps_poll_delay_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -1213,6 +1247,9 @@ static ssize_t ps_poll_delay_store(struct device *dev,
 	return count;
 }
 
+static DEVICE_ATTR(ps_poll_delay, 0664, ps_poll_delay_show,
+		ps_poll_delay_store);
+
 static ssize_t ls_fLevel_show(struct device *dev,
 				  struct device_attribute *attr, char *buf)
 {
@@ -1234,6 +1271,7 @@ static ssize_t ls_fLevel_store(struct device *dev,
 	fLevel=-1;
 	return count;
 }
+static DEVICE_ATTR(ls_flevel, 0664, ls_fLevel_show, ls_fLevel_store);
 
 static int lightsensor_setup(struct cm36283_info *lpi)
 {
@@ -1248,7 +1286,6 @@ static int lightsensor_setup(struct cm36283_info *lpi)
 		return -ENOMEM;
 	}
 	lpi->ls_input_dev->name = "cm36283-ls";
-	lpi->ls_input_dev->id.bustype = BUS_I2C;
 	set_bit(EV_ABS, lpi->ls_input_dev->evbit);
 
 	range = get_als_range();
@@ -1261,8 +1298,17 @@ static int lightsensor_setup(struct cm36283_info *lpi)
 		goto err_free_ls_input_device;
 	}
 
+	ret = misc_register(&lightsensor_misc);
+	if (ret < 0) {
+		pr_err("[LS][CM36283 error]%s: can not register ls misc device\n",
+				__func__);
+		goto err_unregister_ls_input_device;
+	}
+
 	return ret;
 
+err_unregister_ls_input_device:
+	input_unregister_device(lpi->ls_input_dev);
 err_free_ls_input_device:
 	input_free_device(lpi->ls_input_dev);
 	return ret;
@@ -1280,7 +1326,6 @@ static int psensor_setup(struct cm36283_info *lpi)
 		return -ENOMEM;
 	}
 	lpi->ps_input_dev->name = "cm36283-ps";
-	lpi->ps_input_dev->id.bustype = BUS_I2C;
 	set_bit(EV_ABS, lpi->ps_input_dev->evbit);
 	input_set_abs_params(lpi->ps_input_dev, ABS_DISTANCE, 0, 1, 0, 0);
 
@@ -1292,8 +1337,18 @@ static int psensor_setup(struct cm36283_info *lpi)
 		goto err_free_ps_input_device;
 	}
 
+	ret = misc_register(&psensor_misc);
+	if (ret < 0) {
+		pr_err(
+			"[PS][CM36283 error]%s: could not register ps misc device\n",
+			__func__);
+		goto err_unregister_ps_input_device;
+	}
+
 	return ret;
 
+err_unregister_ps_input_device:
+	input_unregister_device(lpi->ps_input_dev);
 err_free_ps_input_device:
 	input_free_device(lpi->ps_input_dev);
 	return ret;
@@ -1441,59 +1496,6 @@ static int cm36283_parse_dt(struct device *dev,
 	return 0;
 }
 
-static int create_sysfs_interfaces(struct device *dev,
-		struct device_attribute *attributes, int len)
-{
-	int i;
-	int err;
-	for (i = 0; i < len; i++) {
-		err = device_create_file(dev, attributes + i);
-		if (err)
-			goto error;
-	}
-	return 0;
-
-error:
-	for (; i >= 0; i--)
-		device_remove_file(dev, attributes + i);
-	dev_err(dev, "%s:Unable to create interface\n", __func__);
-	return err;
-}
-
-static int remove_sysfs_interfaces(struct device *dev,
-		struct device_attribute *attributes, int len)
-{
-	int i;
-	for (i = 0; i < len; i++)
-		device_remove_file(dev, attributes + i);
-	return 0;
-}
-
-static struct device_attribute light_attr[] = {
-	__ATTR(ls_adc, 0664, ls_adc_show, NULL),
-	__ATTR(ls_kadc, 0664, ls_kadc_show, ls_kadc_store),
-	__ATTR(ls_gadc, 0664, ls_gadc_show, ls_gadc_store),
-	__ATTR(ls_conf, 0664, ls_conf_show, ls_conf_store),
-	__ATTR(ls_adc_table, 0664,
-			ls_adc_table_show, ls_adc_table_store),
-	__ATTR(poll_delay, 0664, ls_poll_delay_show,
-			ls_poll_delay_store),
-	__ATTR(enable, 0664,
-			ls_enable_show, ls_enable_store),
-};
-
-static struct device_attribute proximity_attr[] = {
-	__ATTR(enable, 0664, ps_adc_show, ps_enable_store),
-	__ATTR(ps_parameters, 0664,
-			ps_parameters_show, ps_parameters_store),
-	__ATTR(ps_conf, 0664, ps_conf_show, ps_conf_store),
-	__ATTR(ps_hw, 0664, ps_hw_show, ps_hw_store),
-	__ATTR(ps_thd, 0664, ps_thd_show, ps_thd_store),
-	__ATTR(poll_delay, 0664, ps_poll_delay_show,
-			ps_poll_delay_store),
-	__ATTR(ls_flevel, 0664, ls_fLevel_show, ls_fLevel_store),
-};
-
 static int cm36283_probe(struct i2c_client *client,
 	const struct i2c_device_id *id)
 {
@@ -1631,24 +1633,95 @@ static int cm36283_probe(struct i2c_client *client,
 		goto err_psensor_setup;
 	}
 
-	ret = create_sysfs_interfaces(&lpi->ls_input_dev->dev, light_attr,
-			ARRAY_SIZE(light_attr));
-	if (ret < 0) {
-		dev_err(&client->dev, "failed to create sysfs\n");
-		goto err_input_cleanup;
+	lpi->cm36283_class = class_create(THIS_MODULE, "optical_sensors");
+	if (IS_ERR(lpi->cm36283_class)) {
+		ret = PTR_ERR(lpi->cm36283_class);
+		lpi->cm36283_class = NULL;
+		goto err_create_class;
 	}
 
-	ret = create_sysfs_interfaces(&lpi->ps_input_dev->dev, proximity_attr,
-			ARRAY_SIZE(proximity_attr));
-	if (ret < 0) {
-		dev_err(&client->dev, "failed to create sysfs\n");
-		goto err_light_sysfs_cleanup;
+	lpi->ls_dev = device_create(lpi->cm36283_class,
+				NULL, 0, "%s", "lightsensor");
+	if (unlikely(IS_ERR(lpi->ls_dev))) {
+		ret = PTR_ERR(lpi->ls_dev);
+		lpi->ls_dev = NULL;
+		goto err_create_ls_device;
 	}
 
+	/* register the attributes */
+	ret = device_create_file(lpi->ls_dev, &dev_attr_ls_adc);
+	if (ret)
+		goto err_create_ls_device_file;
+
+	/* register the attributes */
+	ret = device_create_file(lpi->ls_dev, &dev_attr_ls_auto);
+	if (ret)
+		goto err_create_ls_device_file;
+
+	/* register the attributes */
+	ret = device_create_file(lpi->ls_dev, &dev_attr_ls_kadc);
+	if (ret)
+		goto err_create_ls_device_file;
+
+	ret = device_create_file(lpi->ls_dev, &dev_attr_ls_gadc);
+	if (ret)
+		goto err_create_ls_device_file;
+
+	ret = device_create_file(lpi->ls_dev, &dev_attr_ls_adc_table);
+	if (ret)
+		goto err_create_ls_device_file;
+
+	ret = device_create_file(lpi->ls_dev, &dev_attr_ls_conf);
+	if (ret)
+		goto err_create_ls_device_file;
+
+	ret = device_create_file(lpi->ls_dev, &dev_attr_ls_flevel);
+	if (ret)
+		goto err_create_ls_device_file;
+
+	ret = device_create_file(lpi->ls_dev, &dev_attr_ls_poll_delay);
+	if (ret)
+		goto err_create_ls_device_file;
+
+	lpi->ps_dev = device_create(lpi->cm36283_class,
+				NULL, 0, "%s", "proximity");
+	if (unlikely(IS_ERR(lpi->ps_dev))) {
+		ret = PTR_ERR(lpi->ps_dev);
+		lpi->ps_dev = NULL;
+		goto err_create_ps_device;
+	}
+
+	/* register the attributes */
+	ret = device_create_file(lpi->ps_dev, &dev_attr_ps_adc);
+	if (ret)
+		goto err_create_ps_device_file;
+
+	ret = device_create_file(lpi->ps_dev,
+		&dev_attr_ps_parameters);
+	if (ret)
+		goto err_create_ps_device_file;
+
+	/* register the attributes */
+	ret = device_create_file(lpi->ps_dev, &dev_attr_ps_conf);
+	if (ret)
+		goto err_create_ps_device_file;
+
+	/* register the attributes */
+	ret = device_create_file(lpi->ps_dev, &dev_attr_ps_thd);
+	if (ret)
+		goto err_create_ps_device_file;
+
+	ret = device_create_file(lpi->ps_dev, &dev_attr_ps_hw);
+	if (ret)
+		goto err_create_ps_device_file;
+
+	ret = device_create_file(lpi->ps_dev, &dev_attr_ps_poll_delay);
+	if (ret)
+		goto err_create_ps_device_file;
 
 	ret = sensors_classdev_register(&client->dev, &sensors_light_cdev);
 	if (ret)
-		goto err_proximity_sysfs_cleanup;
+		goto err_create_ps_device_file;
 
 	ret = sensors_classdev_register(&client->dev, &sensors_proximity_cdev);
 	if (ret)
@@ -1662,16 +1735,19 @@ static int cm36283_probe(struct i2c_client *client,
 	return ret;
 err_create_class_sysfs:
 	sensors_classdev_unregister(&sensors_light_cdev);
-err_proximity_sysfs_cleanup:
-	remove_sysfs_interfaces(&lpi->ps_input_dev->dev, proximity_attr,
-			ARRAY_SIZE(proximity_attr));
-err_light_sysfs_cleanup:
-	remove_sysfs_interfaces(&lpi->ls_input_dev->dev, light_attr,
-			ARRAY_SIZE(light_attr));
-err_input_cleanup:
+err_create_ps_device_file:
+	device_unregister(lpi->ps_dev);
+err_create_ps_device:
+err_create_ls_device_file:
+	device_unregister(lpi->ls_dev);
+err_create_ls_device:
+	class_destroy(lpi->cm36283_class);
+err_create_class:
+	misc_deregister(&psensor_misc);
 	input_unregister_device(lpi->ps_input_dev);
 	input_free_device(lpi->ps_input_dev);
 err_psensor_setup:
+	misc_deregister(&lightsensor_misc);
 	input_unregister_device(lpi->ls_input_dev);
 	input_free_device(lpi->ls_input_dev);
 err_lightsensor_setup:

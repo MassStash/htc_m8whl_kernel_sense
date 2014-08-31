@@ -21,7 +21,6 @@
 #include <linux/ktime.h>
 #include <linux/smp.h>
 #include <linux/tick.h>
-#include <linux/console.h>
 #include <linux/delay.h>
 #include <linux/platform_device.h>
 #include <linux/of_platform.h>
@@ -58,8 +57,6 @@
 #include "rpm_stats.h"
 extern int htc_vregs_dump(char *vreg_buffer, int curr_len);
 #endif
-
-#include "msm_watchdog.h"
 
 #define SCM_CMD_TERMINATE_PC	(0x2)
 #define SCM_CMD_CORE_HOTPLUGGED (0x10)
@@ -416,24 +413,7 @@ static bool msm_pm_is_L1_writeback(void)
 
 static enum msm_pm_time_stats_id msm_pm_swfi(bool from_idle)
 {
-	if (!from_idle && smp_processor_id() == 0) {
-
-		if (suspend_console_deferred)
-			suspend_console();
-
-		msm_watchdog_suspend_deferred();
-	}
-
 	msm_arch_idle();
-
-	if (!from_idle && smp_processor_id() == 0) {
-
-		msm_watchdog_resume_deferred();
-
-		if (suspend_console_deferred)
-			resume_console();
-	}
-
 	return MSM_PM_STAT_IDLE_WFI;
 }
 
@@ -694,11 +674,6 @@ static bool __ref msm_pm_spm_power_collapse(
 		}
 #endif
 		pr_info("[R] suspend end\n");
-
-		if (suspend_console_deferred)
-			suspend_console();
-
-		msm_watchdog_suspend_deferred();
 	}
 
 	collapsed = save_cpu_regs ?
@@ -714,14 +689,8 @@ static bool __ref msm_pm_spm_power_collapse(
 #ifdef CONFIG_HTC_DEBUG_FOOTPRINT
 	set_cpu_foot_print(cpu, 0xb);
 #endif
-	if (!from_idle && smp_processor_id() == 0) {
-
-		msm_watchdog_resume_deferred();
-
-		if (suspend_console_deferred)
-			resume_console();
-		pr_info("[R] resume start\n");
-	}
+        if (!from_idle && smp_processor_id() == 0)
+            pr_info("[R] resume start\n");
 
 	if (collapsed) {
 		cpu_init();
@@ -814,10 +783,6 @@ static int ramp_up_first_cpu(int cpu, int saved_rate)
 	return rc;
 }
 
-#ifdef CONFIG_ARCH_DUMMY
-extern int pming;
-#endif
-
 static enum msm_pm_time_stats_id msm_pm_power_collapse(bool from_idle)
 {
 	unsigned int cpu = smp_processor_id();
@@ -835,10 +800,7 @@ static enum msm_pm_time_stats_id msm_pm_power_collapse(bool from_idle)
 			clock_blocked_print();
 #endif
 	}
-#ifdef CONFIG_ARCH_DUMMY
-	if (!cpu && !from_idle)
-		pming = 1;
-#endif
+
 	if (!cpu && !from_idle)
 		keep_dig_voltage_low_in_idle(false);
 
@@ -902,10 +864,6 @@ static enum msm_pm_time_stats_id msm_pm_power_collapse(bool from_idle)
 	if (!cpu && !from_idle)
 		keep_dig_voltage_low_in_idle(true);
 
-#ifdef CONFIG_ARCH_DUMMY
-	if (!cpu && !from_idle)
-		pming = 0;
-#endif
 	return collapsed ? MSM_PM_STAT_IDLE_POWER_COLLAPSE :
 			MSM_PM_STAT_IDLE_FAILED_POWER_COLLAPSE;
 }
@@ -1013,9 +971,8 @@ int msm_cpu_pm_enter_sleep(enum msm_pm_sleep_mode mode, bool from_idle)
 
 #ifdef CONFIG_HTC_POWER_DEBUG
 	if(from_idle){
-		if((get_kernel_flag() & KERNEL_FLAG_PM_MONITOR) || !(get_kernel_flag() & KERNEL_FLAG_TEST_PWR_SUPPLY)){
+		if(get_kernel_flag() & KERNEL_FLAG_PM_MONITOR)
 			htc_idle_stat_add(mode, (u32)time);
-		}
 	}
 #endif
 
@@ -1048,7 +1005,6 @@ int msm_pm_wait_cpu_shutdown(unsigned int cpu)
 			return 0;
 		}
 		udelay(100);
-		WARN(++timeout == 20, "CPU%u didn't collapse in 2 ms\n", cpu);
 	}
 
 	cpu_shutdown_retry_max[cpu] = MAX_CPU_SHUTDOWN_TIMEOUT;
@@ -1257,8 +1213,6 @@ static int msm_pm_init(void)
 
 	keep_dig_voltage_low_in_idle(true);
 
-	suspend_console_deferred = 1;
-
 	return 0;
 }
 
@@ -1328,7 +1282,7 @@ static int msm_pc_debug_counters_file_read(struct file *file,
 	if (!data)
 		return -EINVAL;
 
-	if (!bufu)
+	if (!bufu || count < 0)
 		return -EINVAL;
 
 	if (!access_ok(VERIFY_WRITE, bufu, count))
@@ -1418,6 +1372,7 @@ static int msm_pm_clk_init(struct platform_device *pdev)
 		return 0;
 
 	l2_clk = devm_clk_get(&pdev->dev, "l2_clk");
+
 	return PTR_RET(l2_clk);
 }
 

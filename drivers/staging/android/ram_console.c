@@ -27,8 +27,6 @@
 static struct persistent_ram_zone *ram_console_zone;
 static const char *bootinfo;
 static size_t bootinfo_size;
-static char *rst_msg_buf;
-static unsigned long rst_msg_buf_size = 0;
 
 #if defined(CONFIG_HTC_DEBUG_RAMCONSOLE)
 #include <mach/devices_cmdline.h>
@@ -236,9 +234,6 @@ static int __devinit ram_console_probe(struct platform_device *pdev)
 	}
 #endif
 
-	rst_msg_buf = board_get_google_boot_reason();
-	rst_msg_buf_size = strlen(rst_msg_buf);
-
 	prz = persistent_ram_init_ringbuffer_by_name("ram_console", false);
 	if (IS_ERR(prz))
 		return PTR_ERR(prz);
@@ -304,7 +299,6 @@ static ssize_t ram_console_read_old(struct file *file, char __user *buf,
 			return -EFAULT;
 		goto out;
 	}
-
 	pos -= bl_old_log_buf_size;
 #endif
 
@@ -334,15 +328,6 @@ static ssize_t ram_console_read_old(struct file *file, char __user *buf,
 
 	
 	pos -= count;
-	if (pos < rst_msg_buf_size) {
-		count = min(len, (size_t)(rst_msg_buf_size - pos));
-		if (copy_to_user(buf, rst_msg_buf + pos, count))
-			return -EFAULT;
-		goto out;
-	}
-
-	
-	pos -= rst_msg_buf_size;
 	if (pos < bootinfo_size) {
 		count = min(len, (size_t)(bootinfo_size - pos));
 		if (copy_to_user(buf, bootinfo + pos, count))

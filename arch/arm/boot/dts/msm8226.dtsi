@@ -162,8 +162,8 @@
 		interrupts = <0 44 0>;
 		vdd-supply = <&gdsc_venus>;
 		qcom,load-freq-tbl = <352800 160000000>,
-			<215999 133330000>,
-			<108000  66700000>; /* HTC_VIDEO: 215999 is to let 720p@60 run at 160 MHz */
+			<244800 133330000>,
+			<108000  66700000>;
 		qcom,hfi = "venus";
 		qcom,bus-ports = <1>;
 		qcom,reg-presets = <0xE0024 0x0>,
@@ -1047,40 +1047,30 @@
 		clock-names = "clk-4", "clk-5";
 		qcom,speed0-bin-v0 =
 			<         0 0>,
-/*			< 384000000 2>, */
-			< 300000000 2>,
-			< 787200000 4>,
-			<1190400000 7>;
+			< 384000000 1>,
+			< 787200000 2>,
+			<1190400000 3>;
 
 		cpu-vdd-supply = <&apc_vreg_corner>;
-	};
-
-	qcom,cpubw {
-		compatible = "qcom,cpubw";
-		qcom,cpu-mem-ports = <1 512>;
-		qcom,bw-tbl =
-			< 1525 /* 200 MHz */ >,
-			< 2441 /* 320 MHz */ >,
-			< 3051 /* 400 MHz */ >,
-			< 4066 /* 533 MHz */ >;
 	};
 
 	qcom,msm-cpufreq@0 {
 		reg = <0 4>;
 		compatible = "qcom,msm-cpufreq";
+		qcom,cpu-mem-ports = <1 512>;
 		qcom,cpufreq-table =
-			<  300000 1525 >,
-/*			<  384000 1525 >, */
-			<  600000 1525 >,
-			<  787200 3051 >,
-			<  998400 4066 >,
-			< 1094400 4066 >,
-			< 1190400 4066 >,
-			< 1305600 4066 >,
-			< 1344000 4066 >,
-			< 1401600 4066 >,
-			< 1497600 4066 >,
-			< 1593600 4066 >;
+			<  300000 1600 /* 200 MHz */ >,
+			<  384000 1600 /* 200 MHz */ >,
+			<  600000 1600 /* 200 MHz */ >,
+			<  787200 3200 /* 400 MHz */ >,
+			<  998400 4264 /* 533 MHz */ >,
+			< 1094400 4264 /* 533 MHz */ >,
+			< 1190400 4264 /* 533 MHz */ >,
+			< 1305600 4264 /* 533 MHz */ >,
+			< 1344000 4264 /* 533 MHz */ >,
+			< 1401600 4264 /* 533 MHz */ >,
+			< 1497600 4264 /* 533 MHz */ >,
+			< 1593600 4264 /* 533 MHz */ >;
 	};
 
 	qcom,ocmem@fdd00000 {
@@ -1219,8 +1209,8 @@
 		qcom,core-limit-temp = <80>;
 		qcom,core-temp-hysteresis = <10>;
 		qcom,core-control-mask = <0xe>;
-		qcom,hotplug-temp = <95>;
-		qcom,hotplug-temp-hysteresis = <5>;
+		qcom,hotplug-temp = <110>;
+		qcom,hotplug-temp-hysteresis = <20>;
 		qcom,cpu-sensors = "tsens_tz_sensor5", "tsens_tz_sensor5",
 				"tsens_tz_sensor2", "tsens_tz_sensor2";
 		qcom,vdd-restriction-temp = <5>;
@@ -1277,20 +1267,6 @@
                 reg-names = "msm_rtb_res", "htc_debug_rtb_res";
         };
 
-	qcom,smlog-20M {
-		compatible = "qcom,smlog";
-		reg = <0x4700000 0x1400000>;
-		reg-names = "htc_smlog_res";
-		status = "disabled";
-	};
-
-	qcom,smlog-8M {
-                compatible = "qcom,smlog";
-                reg = <0x5300000 0x800000>;
-                reg-names = "htc_smlog_res";
-                status = "disabled";
-        };
-
         qcom,msm-contig-mem {
                 compatible = "qcom,msm-contig-mem";
 		qcom,memory-reservation-type = "EBI1";
@@ -1305,8 +1281,8 @@
                 qcom,msm-bus,num-cases = <2>;
                 qcom,msm-bus,num-paths = <1>;
                 qcom,msm-bus,vectors-KBps =
-                                <54 618 0 0>,
-                                <54 618 0 800>;
+                                <1 618 0 0>,
+                                <1 618 0 800>;
 	};
 
 	qcom,tz-log@fe805720 {
@@ -1563,7 +1539,6 @@
 		qcom,hw-settle-time = <2>;
 		qcom,fast-avg-setup = <3>;
 		qcom,btm-channel-number = <0x48>;
-		qcom,meas-interval-timer-idx = <2>;
 	};
 
 	chan@8 {

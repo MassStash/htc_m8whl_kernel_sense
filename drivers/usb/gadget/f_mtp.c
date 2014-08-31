@@ -1517,9 +1517,7 @@ static void mtp_function_disable(struct usb_function *f)
 
 	
 	wake_up(&dev->read_wq);
-#ifdef CONFIG_HTC_USB_DEBUG_FLAG
-	printk("[USB]%s\n",__func__);
-#endif
+
 	VDBG(cdev, "%s disabled\n", dev->function.name);
 }
 

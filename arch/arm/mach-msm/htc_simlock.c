@@ -114,9 +114,6 @@ static int __init simlock_init(void)
 	device_create(simlock_class, NULL, MKDEV(simlock_major , 0), NULL, DEVICE_NAME);
 
 	printk(KERN_INFO "simlock_init: register module ok\n");
-
-	secure_read_simlock_mask();
-
 	return 0;
 }
 

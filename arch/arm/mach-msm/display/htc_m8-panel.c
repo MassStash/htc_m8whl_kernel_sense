@@ -469,7 +469,7 @@ static int htc_m8_panel_power_on(struct mdss_panel_data *pdata, int enable)
 			}
 		}
 		
-		usleep_range(20000,20500);
+		usleep_range(15000,20000);
 	}
 	PR_DISP_INFO("%s: en=%d done\n", __func__, enable);
 

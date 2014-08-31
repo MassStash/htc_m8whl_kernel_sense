@@ -17,56 +17,7 @@ DEFINE_MSM_MUTEX(s5k5e_mut);
 static struct msm_sensor_ctrl_t s5k5e_s_ctrl;
 
 struct msm_sensor_power_setting s5k5e_power_setting[] = {
-#ifdef CONFIG_REGULATOR_NCP6924
-	{
-		.seq_type = SENSOR_GPIO,
-		.seq_val = SENSOR_GPIO_RESET,
-		.config_val = GPIO_OUT_LOW,
-		.delay = 20,
-	},
-	{
-		.seq_type = SENSOR_GPIO,
-		.seq_val = SENSOR_GPIO_STANDBY,
-		.config_val = GPIO_OUT_HIGH,
-		.delay = 1,
-	},
-	{
-		.seq_type = SENSOR_VREG_NCP6924,
-		.seq_val = NCP6924_VANA,
-		.config_val = 1,
-		.delay = 1,
-	},
-	{
-		.seq_type = SENSOR_VREG_NCP6924,
-		.seq_val = NCP6924_VIO,
-		.config_val = 1,
-		.delay = 1,
-	},
-	{
-		.seq_type = SENSOR_VREG_NCP6924,
-		.seq_val = NCP6924_VDIG,
-		.config_val = 1,
-		.delay = 1,
-	},
-	{
-		.seq_type = SENSOR_CLK,
-		.seq_val = SENSOR_CAM_MCLK,
-		.config_val = 0,
-		.delay = 5,
-	},
-	{
-		.seq_type = SENSOR_GPIO,
-		.seq_val = SENSOR_GPIO_RESET,
-		.config_val = GPIO_OUT_HIGH,
-		.delay = 80,
-	},
-	{
-		.seq_type = SENSOR_I2C_MUX,
-		.seq_val = 0,
-		.config_val = 0,
-		.delay = 0,
-	},
-#else
+    
 	{
 		.seq_type = SENSOR_GPIO,
 		.seq_val = SENSOR_GPIO_RESET,
@@ -109,60 +60,10 @@ struct msm_sensor_power_setting s5k5e_power_setting[] = {
 		.config_val = 0,
 		.delay = 0,
 	},
-#endif
+	
 };
 
 struct msm_sensor_power_setting s5k5e_power_down_setting[] = {
-#ifdef CONFIG_REGULATOR_NCP6924
-	{
-		.seq_type = SENSOR_GPIO,
-		.seq_val = SENSOR_GPIO_RESET,
-		.config_val = GPIO_OUT_HIGH,
-		.delay = 20,
-	},
-	{
-		.seq_type = SENSOR_GPIO,
-		.seq_val = SENSOR_GPIO_STANDBY,
-		.config_val = GPIO_OUT_HIGH,
-		.delay = 1,
-	},
-	{
-		.seq_type = SENSOR_VREG_NCP6924,
-		.seq_val = NCP6924_VANA,
-		.config_val = 1,
-		.delay = 1,
-	},
-	{
-		.seq_type = SENSOR_VREG_NCP6924,
-		.seq_val = NCP6924_VIO,
-		.config_val = 1,
-		.delay = 1,
-	},
-	{
-		.seq_type = SENSOR_VREG_NCP6924,
-		.seq_val = NCP6924_VDIG,
-		.config_val = 1,
-		.delay = 1,
-	},
-	{
-		.seq_type = SENSOR_CLK,
-		.seq_val = SENSOR_CAM_MCLK,
-		.config_val = 0,
-		.delay = 5,
-	},
-	{
-		.seq_type = SENSOR_GPIO,
-		.seq_val = SENSOR_GPIO_RESET,
-		.config_val = GPIO_OUT_HIGH,
-		.delay = 80,
-	},
-	{
-		.seq_type = SENSOR_I2C_MUX,
-		.seq_val = 0,
-		.config_val = 0,
-		.delay = 0,
-	},
-#else
 	{
 		.seq_type = SENSOR_GPIO,
 		.seq_val = SENSOR_GPIO_RESET,
@@ -205,7 +106,6 @@ struct msm_sensor_power_setting s5k5e_power_down_setting[] = {
 		.config_val = 0,
 		.delay = 0,
 	},
-#endif
 };
 
 static struct v4l2_subdev_info s5k5e_subdev_info[] = {
@@ -301,14 +201,6 @@ static int32_t s5k5e_platform_probe(struct platform_device *pdev)
 	int32_t rc = 0;
 	const struct of_device_id *match;
 	match = of_match_device(s5k5e_dt_match, &pdev->dev);
-
-	
-	if (match == NULL) {
-		pr_err("%s: match is NULL\n", __func__);
-		return -ENODEV;
-	}
-	
-
 	rc = msm_sensor_platform_probe(pdev, match->data);
 	return rc;
 }
@@ -421,8 +313,6 @@ static int s5k5e_read_fuseid(struct sensorb_cfg_data *cdata,
 	cdata->cfg.fuse.fuse_id_word2 = id_data[3];
 	cdata->cfg.fuse.fuse_id_word3 = id_data[4];
 	cdata->cfg.fuse.fuse_id_word4 = id_data[5];
-
-	cdata->lens_id = id_data[1];
 
 	pr_info("s5k5e: fuse->fuse_id : 0x%x 0x%x 0x%x 0x%x\n",
 		cdata->cfg.fuse.fuse_id_word1,

@@ -49,8 +49,9 @@ void write_backup_cc_uah(int cc_reading)
 	cur_batt_magic = MNEMOSYNE_GET(batt_magic);
 	cur_cc_backup_uah = MNEMOSYNE_GET(cc_backup_uah);
 
-	pr_info("%s: ori cc_backup_uah=%d, cc_reading=%d, magic_num=%x\n",
+	pr_info("%s: ori cc_backup_uah= %d, cc_reading=%d, magic_num=%x\n",
 		__func__, cur_cc_backup_uah, cc_reading, cur_batt_magic);
+
 	if ((cur_batt_magic & ~BATT_SAVE_MASK) != MAGIC_NUM_FOR_BATT_SAVE)
 		cur_batt_magic = MAGIC_NUM_FOR_BATT_SAVE;
 
@@ -86,8 +87,10 @@ void write_backup_ocv_uv(int ocv_backup)
 
 	cur_batt_magic = MNEMOSYNE_GET(batt_magic);
 	cur_ocv_backup_uv = MNEMOSYNE_GET(ocv_backup_uv);
+
 	pr_info("%s: ori ocv_backup_uv=%d, ocv_backup=%d, magic_num=%x\n",
 		__func__, cur_ocv_backup_uv, ocv_backup, cur_batt_magic);
+
 	if((cur_batt_magic & ~BATT_SAVE_MASK) != MAGIC_NUM_FOR_BATT_SAVE)
 		cur_batt_magic = MAGIC_NUM_FOR_BATT_SAVE;
 
@@ -104,30 +107,18 @@ void set_msm_watchdog_en_footprint(int enable)
 	mb();
 }
 
-void set_msm_watchdog_pet_time_utc(void)
-{
-	struct timespec ts;
-
-	getnstimeofday(&ts);
-
-	MNEMOSYNE_SET(apps_watchdog_pet_utc, ts.tv_sec);
-
-	mb();
-}
-
 void set_msm_watchdog_pet_footprint(unsigned int sleep_clk_base)
 {
 	uint32_t sleep_clk = __raw_readl(sleep_clk_base);
 	unsigned long long timestamp_ms = sched_clock();
+	struct timespec ts;
 
 	do_div(timestamp_ms, NSEC_PER_MSEC);
-
-	if (likely(!timekeeping_suspended)) {
-		set_msm_watchdog_pet_time_utc();
-	}
+	getnstimeofday(&ts);
 
 	MNEMOSYNE_SET(apps_watchdog_pet, sleep_clk);
 	MNEMOSYNE_SET(apps_watchdog_pet_schedclk, (unsigned long)timestamp_ms);
+	MNEMOSYNE_SET(apps_watchdog_pet_utc, ts.tv_sec);
 	mb();
 }
 

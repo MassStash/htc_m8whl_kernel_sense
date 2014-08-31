@@ -26,7 +26,35 @@ extern int proc_net_init(void);
 static inline int proc_net_init(void) { return 0; }
 #endif
 
+struct vmalloc_info {
+	unsigned long	used;
+	unsigned long	ioremap;
+	unsigned long	alloc;
+	unsigned long	map;
+	unsigned long	usermap;
+	unsigned long	vpages;
+	unsigned long	largest_chunk;
+};
+
 extern struct mm_struct *mm_for_maps(struct task_struct *);
+
+#ifdef CONFIG_MMU
+#define VMALLOC_TOTAL (VMALLOC_END - VMALLOC_START)
+extern void get_vmalloc_info(struct vmalloc_info *vmi);
+#else
+
+#define VMALLOC_TOTAL 0UL
+#define get_vmalloc_info(vmi)			\
+do {						\
+	(vmi)->used = 0;			\
+	(vmi)->ioremap = 0;		\
+	(vmi)->alloc = 0;		\
+	(vmi)->map = 0;		\
+	(vmi)->usermap = 0;		\
+	(vmi)->vpages = 0;		\
+	(vmi)->largest_chunk = 0;		\
+} while(0)
+#endif
 
 extern int proc_tid_stat(struct seq_file *m, struct pid_namespace *ns,
 				struct pid *pid, struct task_struct *task);

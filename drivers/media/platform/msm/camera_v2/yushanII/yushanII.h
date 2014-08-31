@@ -57,7 +57,6 @@ struct YushanII_ctrl {
 	struct device *sensor_dev;
 	
 	void (*raw2_restart_stream)(void);
-	void (*raw2_stop_restart_stream)(void);
 };
 
 struct YushanII_sensor_data {

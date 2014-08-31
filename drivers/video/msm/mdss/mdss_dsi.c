@@ -844,7 +844,6 @@ static struct device_node *mdss_dsi_find_panel_of_node(
 	struct device_node *dsi_pan_node = NULL, *mdss_node = NULL;
 
 	l = strlen(panel_cfg);
-
 	if (!l) {
 		
 		pr_debug("%s:%d: no cmd line cfg present\n",
@@ -871,7 +870,7 @@ static struct device_node *mdss_dsi_find_panel_of_node(
 			return NULL;
 		}
 		panel_name = panel_cfg + 2;
-		pr_err("%s:%d:%s:%s\n", __func__, __LINE__,
+		pr_debug("%s:%d:%s:%s\n", __func__, __LINE__,
 			 panel_cfg, panel_name);
 
 		mdss_node = of_parse_phandle(pdev->dev.of_node,

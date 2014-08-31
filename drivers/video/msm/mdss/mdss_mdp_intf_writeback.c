@@ -13,12 +13,9 @@
 
 #define pr_fmt(fmt)	"%s: " fmt, __func__
 
+#include "mdss_fb.h"
 #include "mdss_mdp.h"
 #include "mdss_mdp_rotator.h"
-#include "mdss_panel.h"
-
-#define VBIF_WR_LIM_CONF    0xC0
-#define MDSS_DEFAULT_OT_SETTING    0x10
 
 enum mdss_mdp_writeback_type {
 	MDSS_MDP_WRITEBACK_TYPE_ROTATOR,
@@ -37,9 +34,6 @@ struct mdss_mdp_writeback_ctx {
 	u32 intr_type;
 	u32 intf_num;
 
-	u32 xin_id;
-	u32 wr_lim;
-
 	u32 opmode;
 	struct mdss_mdp_format_params *dst_fmt;
 	u16 width;
@@ -52,6 +46,8 @@ struct mdss_mdp_writeback_ctx {
 
 	struct mdss_mdp_plane_sizes dst_planes;
 
+	void (*callback_fnc) (void *arg);
+	void *callback_arg;
 	spinlock_t wb_lock;
 	struct list_head vsync_handlers;
 };
@@ -61,31 +57,26 @@ static struct mdss_mdp_writeback_ctx wb_ctx_list[MDSS_MDP_MAX_WRITEBACK] = {
 		.type = MDSS_MDP_WRITEBACK_TYPE_ROTATOR,
 		.intr_type = MDSS_MDP_IRQ_WB_ROT_COMP,
 		.intf_num = 0,
-		.xin_id = 3,
 	},
 	{
 		.type = MDSS_MDP_WRITEBACK_TYPE_ROTATOR,
 		.intr_type = MDSS_MDP_IRQ_WB_ROT_COMP,
 		.intf_num = 1,
-		.xin_id = 11,
 	},
 	{
 		.type = MDSS_MDP_WRITEBACK_TYPE_LINE,
 		.intr_type = MDSS_MDP_IRQ_WB_ROT_COMP,
 		.intf_num = 0,
-		.xin_id = 3,
 	},
 	{
 		.type = MDSS_MDP_WRITEBACK_TYPE_LINE,
 		.intr_type = MDSS_MDP_IRQ_WB_ROT_COMP,
 		.intf_num = 1,
-		.xin_id = 11,
 	},
 	{
 		.type = MDSS_MDP_WRITEBACK_TYPE_WFD,
 		.intr_type = MDSS_MDP_IRQ_WB_WFD,
 		.intf_num = 0,
-		.xin_id = 6,
 	},
 };
 
@@ -374,8 +365,6 @@ static int mdss_mdp_writeback_stop(struct mdss_mdp_ctl *ctl)
 		mdss_mdp_set_intr_callback(ctx->intr_type, ctx->intf_num,
 				NULL, NULL);
 
-		complete_all(&ctx->wb_comp);
-
 		ctl->priv_data = NULL;
 		ctx->ref_cnt--;
 	}
@@ -399,6 +388,9 @@ static void mdss_mdp_writeback_intr_done(void *arg)
 	pr_debug("intr wb_num=%d\n", ctx->wb_num);
 
 	mdss_mdp_irq_disable_nosync(ctx->intr_type, ctx->intf_num);
+
+	if (ctx->callback_fnc)
+		ctx->callback_fnc(ctx->callback_arg);
 
 	spin_lock(&ctx->wb_lock);
 	list_for_each_entry(tmp, &ctx->vsync_handlers, list) {
@@ -429,12 +421,10 @@ static int mdss_mdp_wb_wait4comp(struct mdss_mdp_ctl *ctl, void *arg)
 		NULL, NULL);
 
 	if (rc == 0) {
-		mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_TIMEOUT);
 		rc = -ENODEV;
 		WARN(1, "writeback kickoff timed out (%d) ctl=%d\n",
 						rc, ctl->num);
 	} else {
-		mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_DONE);
 		rc = 0;
 	}
 
@@ -449,11 +439,8 @@ static int mdss_mdp_writeback_display(struct mdss_mdp_ctl *ctl, void *arg)
 {
 	struct mdss_mdp_writeback_ctx *ctx;
 	struct mdss_mdp_writeback_arg *wb_args;
-	u32 flush_bits, val, off;
+	u32 flush_bits;
 	int ret;
-
-	if (!ctl || !ctl->mdata)
-		return -ENODEV;
 
 	ctx = (struct mdss_mdp_writeback_ctx *) ctl->priv_data;
 	if (!ctx)
@@ -463,18 +450,6 @@ static int mdss_mdp_writeback_display(struct mdss_mdp_ctl *ctl, void *arg)
 		pr_err("previous kickoff not completed yet, ctl=%d\n",
 					ctl->num);
 		return -EPERM;
-	}
-
-	if (ctl->mdata->rotator_ot_limit) {
-		if (ctx->type == MDSS_MDP_WRITEBACK_TYPE_ROTATOR)
-			ctx->wr_lim = ctl->mdata->rotator_ot_limit;
-		else
-			ctx->wr_lim = MDSS_DEFAULT_OT_SETTING;
-		off = (ctx->xin_id % 4) * 8;
-		val = readl_relaxed(ctl->mdata->vbif_base + VBIF_WR_LIM_CONF);
-		val &= ~(0xFF << off);
-		val |= (ctx->wr_lim) << off;
-		writel_relaxed(val, ctl->mdata->vbif_base + VBIF_WR_LIM_CONF);
 	}
 
 	wb_args = (struct mdss_mdp_writeback_arg *) arg;
@@ -489,6 +464,9 @@ static int mdss_mdp_writeback_display(struct mdss_mdp_ctl *ctl, void *arg)
 
 	mdss_mdp_set_intr_callback(ctx->intr_type, ctx->intf_num,
 		   mdss_mdp_writeback_intr_done, ctl);
+
+	ctx->callback_fnc = wb_args->callback_fnc;
+	ctx->callback_arg = wb_args->priv_data;
 
 	flush_bits = BIT(16); 
 	mdp_wb_write(ctx, MDSS_MDP_REG_WB_DST_ADDR_SW_STATUS, ctl->is_secure);
@@ -549,8 +527,6 @@ int mdss_mdp_writeback_start(struct mdss_mdp_ctl *ctl)
 
 int mdss_mdp_writeback_display_commit(struct mdss_mdp_ctl *ctl, void *arg)
 {
-	int ret = 0;
-
 	if (ctl->shared_lock && !mutex_is_locked(ctl->shared_lock)) {
 		pr_err("shared mutex is not locked before commit on ctl=%d\n",
 			ctl->num);
@@ -564,10 +540,5 @@ int mdss_mdp_writeback_display_commit(struct mdss_mdp_ctl *ctl, void *arg)
 			ctl->mixer_right->params_changed++;
 	}
 
-	ret = mdss_mdp_display_commit(ctl, arg);
-
-	if (!IS_ERR_VALUE(ret))
-		mdss_mdp_display_wait4comp(ctl);
-
-	return ret;
+	return mdss_mdp_display_commit(ctl, arg);
 }

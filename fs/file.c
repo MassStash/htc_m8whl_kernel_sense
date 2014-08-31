@@ -22,7 +22,6 @@
 #include <linux/rcupdate.h>
 #include <linux/workqueue.h>
 #include <linux/crc32c.h>
-#include <linux/rtc.h>
 
 struct fdtable_defer {
 	spinlock_t lock;
@@ -368,10 +367,8 @@ struct files_struct init_files = {
 
 static void fdtable_usage_dump(struct fdtable *fdt)
 {
-	int i;
+	int i, last_crc = 0, repeats = 0;
 	char* buf;
-	struct timespec ts;
-	struct rtc_time tm;
 
 	buf = (char*) kmalloc(PATH_MAX, GFP_ATOMIC);
 	if (!buf) {
@@ -383,7 +380,7 @@ static void fdtable_usage_dump(struct fdtable *fdt)
 	for (i = 0; i < fdt->max_fds; i++) {
 		struct file* file;
 		struct task_struct* user = NULL;
-		int pid;
+		int this_crc, pid;
 		char* path;
 
 		file = fdt->fd[i];
@@ -391,8 +388,6 @@ static void fdtable_usage_dump(struct fdtable *fdt)
 			continue;
 
 		pid = fdt->user[i].installer;
-		ts = fdt->user[i].open_time;
-		rtc_time_to_tm(ts.tv_sec - (sys_tz.tz_minuteswest * 60), &tm);
 
 		user = find_task_by_vpid(pid);
 		if (user)
@@ -407,12 +402,21 @@ static void fdtable_usage_dump(struct fdtable *fdt)
 			if (spath) spath[0] = '\0';
 		}
 
-		pr_warn("%d->fd[%d] file: %s, user: %d (%s %d:%d), (%02d-%02d %02d:%02d:%02d)\n",
-				current->tgid, i, path, pid,
-				user ? user->comm : "<unknown>",
-				user ? user->tgid : -1,
-				user ? user->pid  : -1,
-				tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
+		this_crc = crc32c(pid, path, strlen(path));
+		if (this_crc != last_crc || i == fdt->max_fds - 1) {
+			if (repeats)
+				pr_warn("  < ... repeats %d time%s ... >\n",
+						repeats, repeats > 1 ? "s" : "");
+			pr_warn("%d->fd[%d] file: %s, user: %d (%s %d:%d)\n",
+					current->tgid, i, path, pid,
+					user ? user->comm : "<unknown>",
+					user ? user->tgid : -1,
+					user ? user->pid  : -1);
+
+			last_crc = this_crc;
+			repeats = 0;
+		} else
+			repeats++;
 
 		if (user)
 			put_task_struct(user);

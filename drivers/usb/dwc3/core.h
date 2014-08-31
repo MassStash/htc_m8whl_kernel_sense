@@ -646,7 +646,6 @@ struct dwc3 {
 	struct delayed_work chg_stop;
 	int			tx_fifo_size;
 	bool			tx_fifo_reduced;
-	bool		err_evt_seen;
 };
 
 

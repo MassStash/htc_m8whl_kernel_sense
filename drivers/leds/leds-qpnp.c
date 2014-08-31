@@ -689,7 +689,7 @@ static int qpnp_mpp_set(struct qpnp_led_data *led)
 	int rc, val;
 	int duty_us, pwm_period;
 
-	//LED_INFO("%s, name:%s, brightness = %d\n", __func__, led->cdev.name, led->cdev.brightness);
+	LED_INFO("%s, name:%s, brightness = %d\n", __func__, led->cdev.name, led->cdev.brightness);
 	if (led->cdev.brightness) {
 		if (led->cdev.brightness < led->mpp_cfg->min_brightness) {
 			dev_warn(&led->spmi_dev->dev,
@@ -846,7 +846,7 @@ static int qpnp_mpp_set(struct qpnp_led_data *led)
 		}
 		
 		if (led->mpp_cfg->blink_mode == 5) {
-			//LED_INFO("MPP LED breath\n");
+			LED_INFO("MPP LED breath\n");
 			rc = qpnp_led_masked_write(led,
 						LED_LPG_CHAN_LPG_MODE_CTRL(led->mpp_cfg->pwm_cfg->pwm_channel),
 						LED_LPG_CHAN_MODE_MASK,
@@ -1484,7 +1484,7 @@ static void led_blink_do_work(struct work_struct *work)
 static int qpnp_rgb_set(struct qpnp_led_data *led)
 {
 	int rc;
-	//LED_INFO("%s, name:%s, brightness = %d status: %d\n", __func__, led->cdev.name, led->cdev.brightness, led->status);
+	LED_INFO("%s, name:%s, brightness = %d status: %d\n", __func__, led->cdev.name, led->cdev.brightness, led->status);
 
 	if (led->rgb_cfg->pwm_cfg->mode == RGB_MODE_LPG) {
 		cancel_delayed_work(&led->fade_delayed_work);
@@ -1571,7 +1571,6 @@ static void qpnp_led_set(struct led_classdev *led_cdev,
 	struct qpnp_led_data *led;
 
 	led = container_of(led_cdev, struct qpnp_led_data, cdev);
-	LED_INFO("[%s] %s value:%d", led->cdev.name, __func__, value);
 	if (value < LED_OFF || value > led->cdev.max_brightness) {
 		dev_err(&led->spmi_dev->dev, "Invalid brightness value\n");
 		return;
@@ -3383,7 +3382,7 @@ static int lpg_blink(struct led_classdev *led_cdev, int val)
 
 	led = container_of(led_cdev, struct qpnp_led_data, cdev);
 
-	//LED_INFO("%s: bank %d blink %d status %d\n", __func__, led->rgb_cfg->pwm_cfg->pwm_channel, val, led->status);
+	LED_INFO("%s: bank %d blink %d status %d\n", __func__, led->rgb_cfg->pwm_cfg->pwm_channel, val, led->status);
 
 	switch (val) {
 	case BLINK_STOP:
@@ -3511,10 +3510,10 @@ static void led_blink_work_func(struct work_struct *work)
 {
 	struct qpnp_led_data *ldata;
 
-	//LED_INFO("%s +++\n", __func__);
+	LED_INFO("%s +++\n", __func__);
 	ldata = container_of(work, struct qpnp_led_data, led_blink_work);
 	lpg_blink(&ldata->cdev, ldata->mode);
-	//LED_INFO("%s ---\n", __func__);
+	LED_INFO("%s ---\n", __func__);
 }
 
 static void led_off_work_func(struct work_struct *work)
@@ -3522,7 +3521,7 @@ static void led_off_work_func(struct work_struct *work)
 	struct qpnp_led_data *ldata;
 
 	ldata = container_of(work, struct qpnp_led_data, led_off_work);
-	//LED_INFO("%s: bank %d\n", __func__, ldata->id);
+	LED_INFO("%s: bank %d\n", __func__, ldata->id);
 	qpnp_led_turn_off(ldata);
 }
 
@@ -3557,7 +3556,7 @@ static ssize_t led_off_timer_store(struct device *dev,
 	led_cdev = (struct led_classdev *) dev_get_drvdata(dev);
 	led = container_of(led_cdev, struct qpnp_led_data, cdev);
 
-	//LED_INFO("Setting %s off_timer to %d min %d sec \n", led_cdev->name, min, sec);
+	LED_INFO("Setting %s off_timer to %d min %d sec \n", led_cdev->name, min, sec);
 	off_timer = min * 60 + sec;
 
 	alarm_cancel(&led->led_alarm);
@@ -3586,20 +3585,18 @@ static ssize_t pm8xxx_led_blink_store(struct device *dev,
 	struct qpnp_led_data *led;
 	struct led_classdev *led_cdev;
 	int val;
-	led_cdev = (struct led_classdev *) dev_get_drvdata(dev);
-	led = container_of(led_cdev, struct qpnp_led_data, cdev);
-
 	val = -1;
 	sscanf(buf, "%u", &val);
-	LED_INFO("[%s] %s: blink: %d\n", led_cdev->name,  __func__, val);
-	if (val < 0 || val > 255)
+	if (val < -1 || val > 255)
 			return -EINVAL;
+	led_cdev = (struct led_classdev *) dev_get_drvdata(dev);
+	led = container_of(led_cdev, struct qpnp_led_data, cdev);
 	led->mode = val;
 	mutex_lock(&led->lock);
 	current_blink = val;
 	switch(led->id) {
-		case QPNP_ID_LED_MPP:
-			led->mpp_cfg->blink_mode = val;
+	case QPNP_ID_LED_MPP:
+		led->mpp_cfg->blink_mode = val;
 			mpp_blink(led, led->mpp_cfg->pwm_cfg);
 			break;
 		case QPNP_ID_RGB_RED:
@@ -3610,7 +3607,7 @@ static ssize_t pm8xxx_led_blink_store(struct device *dev,
 		case QPNP_ID_KPDBL:
 			break;
 		default:
-				return -EINVAL;
+			return -EINVAL;
 	}
 	mutex_unlock(&led->lock);
 
@@ -4050,15 +4047,10 @@ static int __devexit qpnp_leds_remove(struct spmi_device *spmi)
 
 	return 0;
 }
-
-#ifdef CONFIG_OF
 static struct of_device_id spmi_match_table[] = {
-	{ .compatible = "qcom,leds-qpnp",},
-	{ },
+	{	.compatible = "qcom,leds-qpnp",
+	}
 };
-#else
-#define spmi_match_table NULL
-#endif
 
 static struct spmi_driver qpnp_leds_driver = {
 	.driver		= {

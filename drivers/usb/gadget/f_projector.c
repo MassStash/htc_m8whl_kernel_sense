@@ -81,9 +81,6 @@ static int keypad_code[] = {KEY_WAKEUP, 0, 0, 0, KEY_HOME, 0, KEY_BACK};
 static const char cand_shortname[] = "htc_cand";
 static const char htcmode_shortname[] = "htcmode";
 static ktime_t start;
-static int touch_init = 0;
-static int keypad_init = 0;
-
 extern int htc_battery_set_max_input_current(int target_ma);
 
 struct projector_dev {
@@ -226,8 +223,7 @@ static DECLARE_WORK(conf_usb_work, usb_setup_android_projector);
 
 static void usb_setup_android_projector(struct work_struct *work)
 {
-    msleep(100);
-    android_switch_htc_mode();
+	android_switch_htc_mode();
 	htc_mode_enable(1);
 
 	if (projector_dev) {
@@ -1069,10 +1065,6 @@ static int projector_touch_init(struct projector_dev *dev)
 	int y = TOUCH_HEIGHT;
 	int ret = 0;
 	struct input_dev *tdev = dev->touch_input;
-	if (touch_init) {
-		pr_info("%s already initial\n", __func__);
-		return 0;
-	}
 
 	printk(KERN_INFO "%s: x=%d y=%d\n", __func__, x, y);
 	dev->touch_input  = input_allocate_device();
@@ -1115,7 +1107,6 @@ static int projector_touch_init(struct projector_dev *dev)
 		input_free_device(tdev);
 		return -1;
 	}
-	touch_init = 1;
 	printk(KERN_INFO "%s OK \n", __func__);
 	return 0;
 }
@@ -1123,10 +1114,6 @@ static int projector_touch_init(struct projector_dev *dev)
 static int projector_keypad_init(struct projector_dev *dev)
 {
 	struct input_dev *kdev;
-	if (keypad_init) {
-		pr_info("%s already initial\n", __func__);
-		return 0;
-	}
 	
 	dev->keypad_input = input_allocate_device();
 	if (dev->keypad_input == NULL) {
@@ -1175,7 +1162,6 @@ static int projector_keypad_init(struct projector_dev *dev)
 		return -1;
 	}
 	printk(KERN_INFO "%s OK \n", __func__);
-	keypad_init = 1;
 	return 0;
 }
 
@@ -1316,6 +1302,15 @@ projector_function_unbind(struct usb_configuration *c, struct usb_function *f)
 	if (dev->htcmode_proto)
 		dev->htcmode_proto->auth_in_progress = 0;
 
+	if (dev->touch_input) {
+		input_unregister_device(dev->touch_input);
+		input_free_device(dev->touch_input);
+	}
+	if (dev->keypad_input) {
+		input_unregister_device(dev->keypad_input);
+		input_free_device(dev->keypad_input);
+	}
+
 }
 
 
@@ -1442,20 +1437,9 @@ static void projector_cleanup(void)
 	struct projector_dev *dev;
 
 	dev = projector_dev;
-	touch_init = 0;
-	keypad_init = 0;
 
 	switch_dev_unregister(&dev->cand_sdev);
 	switch_dev_unregister(&dev->htcmode_sdev);
-
-	if (dev->touch_input) {
-		input_unregister_device(dev->touch_input);
-		input_free_device(dev->touch_input);
-	}
-	if (dev->keypad_input) {
-		input_unregister_device(dev->keypad_input);
-		input_free_device(dev->keypad_input);
-	}
 
 	kfree(dev);
 }
@@ -1600,7 +1584,6 @@ static int projector_ctrlrequest(struct usb_composite_dev *cdev,
 				break;
 			case HSML_06_REQ_SET_MAX_CHARGING_CURRENT:
 				
-				htc_battery_set_max_input_current((int)w_value);
 				value = 0;
 				break;
 

@@ -50,13 +50,6 @@ config HTC_DEBUG_VMALLOC_DUMP
 	  This option enables the dump for vmalloc info when vmalloc failed.
 	  The same information could also be get under /proc/vmallocinfo
 
-config HTC_DEBUG_DSP
-	bool "HTC debug feature for trigger ramdump whne lpass related timeout"
-	depends on HTC_DEBUG
-	default n
-	help
-	  This option enables the trigger ramdump when lpass command timeout.
-
 config HTC_DEBUG_RAMCONSOLE
 	bool "HTC style ram console debug features"
 	depends on ANDROID_RAM_CONSOLE

@@ -42,7 +42,6 @@
 #endif
 
 #define MAX_TUNING_LOOP 40
-#define MAX_CRCERR_COUNT 2
 
 static unsigned int debug_quirks = 0;
 static unsigned int debug_quirks2;
@@ -2217,32 +2216,27 @@ static void sdhci_tuning_timer(unsigned long data)
 
 static void sdhci_underclocking(struct sdhci_host *host)
 {
-	if (host->mmc->crc_count++ < MAX_CRCERR_COUNT) {
-		pr_err("%s: %s: error count : %d\n", mmc_hostname(host->mmc),
-			__func__, host->mmc->crc_count);
-		return;
-	}
 	switch (host->mmc->ios.timing) {
-	case MMC_TIMING_UHS_SDR12:
-		host->mmc->caps &= ~MMC_CAP_UHS_SDR12;
-	case MMC_TIMING_UHS_SDR25:
-		host->mmc->caps &= ~MMC_CAP_UHS_SDR25;
-	case MMC_TIMING_UHS_SDR50:
-		host->mmc->caps &= ~MMC_CAP_UHS_SDR50;
-	case MMC_TIMING_UHS_DDR50:
-		host->mmc->caps &= ~MMC_CAP_UHS_DDR50;
-	case MMC_TIMING_UHS_SDR104:
-		host->mmc->caps &= ~MMC_CAP_UHS_SDR104;
-		break;
-	default:
-		pr_err("%s: %s: unknow timing : %d\n", mmc_hostname(host->mmc),
-			__func__, host->mmc->ios.timing);
-		break;
+		case MMC_TIMING_UHS_SDR12:
+			host->mmc->caps &= ~MMC_CAP_UHS_SDR12;
+		case MMC_TIMING_UHS_SDR25:
+			host->mmc->caps &= ~MMC_CAP_UHS_SDR25;
+		case MMC_TIMING_UHS_SDR50:
+			host->mmc->caps &= ~MMC_CAP_UHS_SDR50;
+		case MMC_TIMING_UHS_DDR50:
+			host->mmc->caps &= ~MMC_CAP_UHS_DDR50;
+		case MMC_TIMING_UHS_SDR104:
+			host->mmc->caps &= ~MMC_CAP_UHS_SDR104;
+			break;
+		default:
+			pr_err("%s: %s: unknow timing : %d\n", mmc_hostname(host->mmc),
+					__func__, host->mmc->ios.timing);
+			break;
 	}
-	host->mmc->crc_count = 0;
 	pr_err("%s: %s: disable clock : %d\n", mmc_hostname(host->mmc),
-		__func__, host->mmc->ios.timing);
+		   __func__, host->mmc->ios.timing);
 }
+
 
 static void sdhci_cmd_irq(struct sdhci_host *host, u32 intmask)
 {
@@ -2975,28 +2969,25 @@ int sdhci_add_host(struct sdhci_host *host)
 		mmc->caps |= MMC_CAP_NEEDS_POLL;
 
 	
-	if (!host->disable_sdcard_uhs) {
-		
-		if (caps[1] & (SDHCI_SUPPORT_SDR104 | SDHCI_SUPPORT_SDR50 |
-			       SDHCI_SUPPORT_DDR50))
-			mmc->caps |= MMC_CAP_UHS_SDR12 | MMC_CAP_UHS_SDR25;
+	if (caps[1] & (SDHCI_SUPPORT_SDR104 | SDHCI_SUPPORT_SDR50 |
+		       SDHCI_SUPPORT_DDR50))
+		mmc->caps |= MMC_CAP_UHS_SDR12 | MMC_CAP_UHS_SDR25;
 
-		
-		if (caps[1] & SDHCI_SUPPORT_SDR104)
-			mmc->caps |= MMC_CAP_UHS_SDR104 | MMC_CAP_UHS_SDR50;
-		else if (caps[1] & SDHCI_SUPPORT_SDR50)
-			mmc->caps |= MMC_CAP_UHS_SDR50;
+	
+	if (caps[1] & SDHCI_SUPPORT_SDR104)
+		mmc->caps |= MMC_CAP_UHS_SDR104 | MMC_CAP_UHS_SDR50;
+	else if (caps[1] & SDHCI_SUPPORT_SDR50)
+		mmc->caps |= MMC_CAP_UHS_SDR50;
 
-		if (caps[1] & SDHCI_SUPPORT_DDR50)
-			mmc->caps |= MMC_CAP_UHS_DDR50;
+	if (caps[1] & SDHCI_SUPPORT_DDR50)
+		mmc->caps |= MMC_CAP_UHS_DDR50;
 
-		
-		if (caps[1] & SDHCI_USE_SDR50_TUNING)
-			host->flags |= SDHCI_SDR50_NEEDS_TUNING;
+	
+	if (caps[1] & SDHCI_USE_SDR50_TUNING)
+		host->flags |= SDHCI_SDR50_NEEDS_TUNING;
 
-		
-		mmc->caps_uhs = mmc->caps;
-	}
+	
+	mmc->caps_uhs = mmc->caps;
 
 	
 	if (mmc->caps2 & MMC_CAP2_HS200)

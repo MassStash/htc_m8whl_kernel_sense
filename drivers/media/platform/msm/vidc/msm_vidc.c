@@ -706,29 +706,30 @@ int msm_vidc_release_buffers(void *instance, int buffer_type)
 					buffer_info.m.planes[i].length);
 			}
 			buffer_info.length = bi->num_planes;
-			release_buf = true;
-		}
-		mutex_unlock(&inst->lock);
-		if (!release_buf)
-			continue;
-		if (inst->session_type == MSM_VIDC_DECODER)
-			rc = msm_vdec_release_buf(instance,
-				&buffer_info);
-		if (inst->session_type == MSM_VIDC_ENCODER)
-			rc = msm_venc_release_buf(instance,
-				&buffer_info);
-		if (rc)
-			dprintk(VIDC_ERR,
-				"Failed Release buffer: %d, %d, %d\n",
-				buffer_info.m.planes[0].reserved[0],
-				buffer_info.m.planes[0].reserved[1],
-				buffer_info.m.planes[0].length);
-	}
-	mutex_lock(&inst->lock);
-	list_for_each_safe(ptr, next, &inst->registered_bufs) {
-		bi = list_entry(ptr, struct buffer_info, list);
-		if (bi->type == buffer_type) {
-			list_del(&bi->list);
+           release_buf = true;
+       }
+       mutex_unlock(&inst->lock);
+       if (!release_buf)
+           continue;
+       release_buf = false;
+       if (inst->session_type == MSM_VIDC_DECODER)
+           rc = msm_vdec_release_buf(instance,
+               &buffer_info);
+       if (inst->session_type == MSM_VIDC_ENCODER)
+           rc = msm_venc_release_buf(instance,
+               &buffer_info);
+       if (rc)
+           dprintk(VIDC_ERR,
+               "Failed Release buffer: %d, %d, %d\n",
+               buffer_info.m.planes[0].reserved[0],
+               buffer_info.m.planes[0].reserved[1],
+               buffer_info.m.planes[0].length);
+   }
+   mutex_lock(&inst->lock);
+   list_for_each_safe(ptr, next, &inst->registered_bufs) {
+       bi = list_entry(ptr, struct buffer_info, list);
+       if (bi->type == buffer_type) {
+            list_del(&bi->list);
 			for (i = 0; i < bi->num_planes; i++) {
 				if (bi->handle[i] && bi->mapped[i]) {
 					dprintk(VIDC_DBG,
@@ -743,7 +744,7 @@ int msm_vidc_release_buffers(void *instance, int buffer_type)
 			kfree(bi);
 		}
 	}
-	mutex_unlock(&inst->lock);
+    mutex_unlock(&inst->lock);
 	return rc;
 }
 
@@ -1006,17 +1007,11 @@ void *msm_vidc_smem_get_client(void *instance)
 {
 	struct msm_vidc_inst *inst = instance;
 
-        
-        if (!inst) {
-                dprintk(VIDC_ERR, "%s: invalid NULL instance\n", __func__);
-                return NULL;
-        }
-        if (!inst->mem_client) {
-                dprintk(VIDC_ERR, "%s: invalid NULL client (instance: %p)\n",
-                                __func__, inst);
-                return NULL;
-        }
-        
+	if (!inst || !inst->mem_client) {
+		dprintk(VIDC_ERR, "%s: invalid instance or client = %p %p\n",
+				__func__, inst, inst->mem_client);
+		return NULL;
+	}
 
 	return inst->mem_client;
 }

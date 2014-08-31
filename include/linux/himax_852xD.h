@@ -21,9 +21,7 @@
 
 #ifdef HX_RST_PIN_FUNC
 	
-	#if defined(CONFIG_TOUCHSCREEN_HIMAX_ESD_EN)
-	#define HX_ESD_WORKAROUND								
-	#endif
+	
 	#define ENABLE_CHIP_RESET_MACHINE					
 #endif	
 
@@ -37,6 +35,17 @@
 #define HX_85XX_C_SERIES_PWON		3
 #define HX_85XX_D_SERIES_PWON		4
 
+
+#ifdef HX_RST_PIN_FUNC
+	
+	
+	#define ENABLE_CHIP_RESET_MACHINE					
+#endif	
+
+#ifdef ENABLE_CHIP_RESET_MACHINE 
+	#define HX_TP_SYS_RESET										
+	
+#endif
 
 #define HX_TP_BIN_CHECKSUM_SW		1
 #define HX_TP_BIN_CHECKSUM_HW		2

@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,6 +46,10 @@
 
 #include <linux/coresight-stm.h>
 #include <linux/kernel.h>
+#ifdef CONFIG_DIAG_RB_DUMP
+#include <linux/memblock.h>
+#include <linux/vmalloc.h>
+#endif
 
 MODULE_DESCRIPTION("Diag Char Driver");
 MODULE_LICENSE("GPL v2");
@@ -78,7 +82,93 @@ module_param(itemsize, uint, 0);
 module_param(poolsize, uint, 0);
 module_param(max_clients, uint, 0);
 
+#ifdef CONFIG_DIAG_RB_DUMP
+#define DIAG_RB_BASE_ADDR	0x7E200000  
+#define DIAG_RB_BASE_SIZE	0x01E00000  
+#define DIAG_RB_INFO_SIZE	0
+#define DIAG_RB_DUMP_BASE_ADDR	(DIAG_RB_BASE_ADDR + DIAG_RB_INFO_SIZE)
+
+u32 diag_rb_start_offset_in_smem = 0;  
+unsigned char *diag_rb_base_ptr, *diag_rb_dump_ptr;
+int diag_rb_init = 0;
 int diag_rb_enable = 0;
+int diag_rb_mem_remap(int enable)
+{
+	phys_addr_t start;
+	phys_addr_t size;
+	struct page **pages = NULL;
+	phys_addr_t page_start;
+	unsigned int page_count;
+	pgprot_t prot;
+	static int mem_init = 0;
+	int i, ret;
+	if (mem_init == 0) {
+		mem_init = 1;
+		start = DIAG_RB_BASE_ADDR;
+		size = DIAG_RB_BASE_SIZE;
+		ret = memblock_reserve(start, size);
+		if (ret) {
+			pr_err("Failed to reserve memory from %08lx-%08lx\n",
+				(long)start, (long)(start + size - 1));
+			return ret;
+		}
+		page_start = start - offset_in_page(start);
+		page_count = DIV_ROUND_UP(size + offset_in_page(start), PAGE_SIZE);
+		prot = pgprot_noncached(PAGE_KERNEL);
+		pages = kmalloc(sizeof(struct page *) * page_count, GFP_KERNEL);
+		if (!pages) {
+			pr_err("%s: Failed to allocate array for %u pages\n", __func__,
+				page_count);
+			return ret;
+		}
+		for (i = 0; i < page_count; i++) {
+			phys_addr_t addr = page_start + i * PAGE_SIZE;
+			pages[i] = pfn_to_page(addr >> PAGE_SHIFT);
+		}
+		diag_rb_base_ptr = (unsigned char *)vmap(pages, page_count, VM_MAP, prot);
+		kfree(pages);
+	}
+
+	if(enable) {
+		pr_info("%s: diag_rb_base_ptr= 0x%lx, int size=%d, %d, %d\n",
+				__func__, (unsigned long int)diag_rb_base_ptr,
+				DIAG_RB_BASE_SIZE, sizeof(int), DIAG_RB_BASE_SIZE/sizeof(int));
+
+		memset(diag_rb_base_ptr, 0, DIAG_RB_BASE_SIZE);
+		diag_rb_dump_ptr = diag_rb_base_ptr + DIAG_RB_INFO_SIZE;
+		diag_rb_start_offset_in_smem = 0;
+		diag_rb_init = 1;
+	}
+	else {
+		
+	}
+	return ret;
+}
+
+void diag_rb_push_data_to_smem(u8* data_ptr, u32 data_len)
+{
+	u32 len = 0, over_len = 0;
+	u32 MAX_SMEM_SIZE = DIAG_RB_BASE_SIZE - DIAG_RB_INFO_SIZE;
+	
+	if (diag_rb_init == 0)
+		diag_rb_mem_remap(1);
+	if ((diag_rb_start_offset_in_smem + data_len) > MAX_SMEM_SIZE)
+	{
+		len = (MAX_SMEM_SIZE - diag_rb_start_offset_in_smem);
+		over_len= diag_rb_start_offset_in_smem + data_len - MAX_SMEM_SIZE;
+		memcpy((void*)(diag_rb_dump_ptr + diag_rb_start_offset_in_smem), data_ptr, len);
+		diag_rb_start_offset_in_smem = 0;
+
+		memcpy((void*)(diag_rb_dump_ptr + diag_rb_start_offset_in_smem), (data_ptr+len), over_len);
+		diag_rb_start_offset_in_smem += over_len;
+	}
+	else
+	{
+		memcpy((void*)(diag_rb_dump_ptr + diag_rb_start_offset_in_smem), data_ptr, data_len);
+		diag_rb_start_offset_in_smem += data_len;
+	}
+}
+#endif
 
 static unsigned s, entries_once = 50;
 static ssize_t show_diag_registration(struct device *dev,
@@ -190,6 +280,29 @@ static ssize_t store_diag_mdlog_enable(struct device *dev,
 	return count;
 }
 
+
+#ifdef CONFIG_DIAG_RB_DUMP
+static ssize_t show_diag_rb_debug_mask(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	int p = 0;
+	p += sprintf(buf+p, "diag_rb_start_offset_in_smem= %lx\n",
+		(unsigned long int)diag_rb_start_offset_in_smem);
+	return p;
+}
+
+static ssize_t store_diag_rb_debug_mask(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	int ret;
+	unsigned long u = 0;
+	ret = strict_strtoul(buf, 10, (unsigned long *)&u);
+	if (ret < 0)
+		return ret;
+	printk("diag: Trigger ramdump mode\n");
+	return count;
+}
+
 static ssize_t show_diag_rb(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -208,12 +321,48 @@ static ssize_t store_diag_rb(struct device *dev,
 	if (ret < 0)
 		return ret;
 	if (u > 0) {
+		if (u == 3)
+			diag_rb_mem_remap(1);
 		diag_rb_enable = u;
 	} else {
 		diag_rb_enable = 0;
 	}
 	return count;
 }
+
+int dump_count = 0;
+#define DIAG_RB_DUMP_SIZE	2048
+static ssize_t show_diag_rb_dump(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	int p = DIAG_RB_DUMP_SIZE;
+	if (!(diag_rb_enable & 1)){
+		pr_info("%s: diag_rb_enable = %d, return!\n", __func__, diag_rb_enable);
+		return 0;
+	}
+	if (diag_rb_init == 0)
+		diag_rb_mem_remap(1);
+	
+	if (dump_count < DIAG_RB_BASE_SIZE/DIAG_RB_DUMP_SIZE) {
+		memcpy(buf, diag_rb_base_ptr + p * dump_count, p);
+		dump_count++;
+		
+		return p;
+	}
+	else {
+		dump_count = 0;
+		
+		
+		return 0;
+	}
+}
+
+static ssize_t store_diag_rb_dump(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	return count;
+}
+#endif
 
 static DEVICE_ATTR(diag_reg_table, 0664,
 	show_diag_registration, store_registration_index);
@@ -223,8 +372,14 @@ static DEVICE_ATTR(diag9k_debug_mask, 0664,
 	show_diag_debug_mask, store_diag9k_debug_mask);
 static DEVICE_ATTR(diag_mdlog_enable, 0664,
 	show_diag_mdlog_enable, store_diag_mdlog_enable);
+#ifdef CONFIG_DIAG_RB_DUMP
+static DEVICE_ATTR(diag_rb_debug_mask, 0664,
+	show_diag_rb_debug_mask, store_diag_rb_debug_mask);
 static DEVICE_ATTR(diag_rb, 0664,
 	show_diag_rb, store_diag_rb);
+static DEVICE_ATTR(diag_rb_dump, 0664,
+	show_diag_rb_dump, store_diag_rb_dump);
+#endif
 
 
 #include "diagfwd_htc.c"
@@ -1136,7 +1291,7 @@ long diagchar_ioctl(struct file *filp,
 			clear_client_dci_cumulative_log_mask(i);
 			
 			result =
-			diag_send_dci_log_mask(&driver->smd_cntl[MODEM_DATA]);
+			diag_send_dci_log_mask(driver->smd_cntl[MODEM_DATA].ch);
 			if (result != DIAG_DCI_NO_ERROR) {
 				mutex_unlock(&driver->dci_mutex);
 				return result;
@@ -1146,7 +1301,7 @@ long diagchar_ioctl(struct file *filp,
 			
 			result =
 			diag_send_dci_event_mask(
-				&driver->smd_cntl[MODEM_DATA]);
+				driver->smd_cntl[MODEM_DATA].ch);
 			if (result != DIAG_DCI_NO_ERROR) {
 				mutex_unlock(&driver->dci_mutex);
 				return result;
@@ -1699,10 +1854,20 @@ dropd:
 		for (i = 0; i < NUM_SMD_DATA_CHANNELS; i++) {
 			struct diag_smd_info *data = &driver->smd_data[i];
 			if (data->in_busy_1 == 1) {
+#ifdef CONFIG_DIAG_RB_DUMP
+				if(diag_rb_enable == 3)
+					diag_rb_push_data_to_smem(data->buf_in_1, (u32)data->write_ptr_1->length);
+				else
+					
+					COPY_USER_SPACE_OR_EXIT(buf+ret,
+						*(data->buf_in_1),
+						data->write_ptr_1->length);
+#else
 				
 				COPY_USER_SPACE_OR_EXIT(buf+ret,
 					*(data->buf_in_1),
 					data->write_ptr_1->length);
+#endif
 				if (!driver->real_time_mode) {
 					process_lock_on_copy(&data->nrt_lock);
 					clear_read_wakelock++;
@@ -1713,10 +1878,20 @@ dropd:
 						       flags);
 			}
 			if (data->in_busy_2 == 1) {
+#ifdef CONFIG_DIAG_RB_DUMP
+				if(diag_rb_enable == 3)
+					diag_rb_push_data_to_smem(data->buf_in_2, (u32)data->write_ptr_2->length);
+				else
+					
+					COPY_USER_SPACE_OR_EXIT(buf+ret,
+						*(data->buf_in_2),
+						data->write_ptr_2->length);
+#else
 				
 				COPY_USER_SPACE_OR_EXIT(buf+ret,
 					*(data->buf_in_2),
 					data->write_ptr_2->length);
+#endif
 				if (!driver->real_time_mode) {
 					process_lock_on_copy(&data->nrt_lock);
 					clear_read_wakelock++;
@@ -1735,17 +1910,37 @@ dropd:
 					continue;
 
 				if (data->in_busy_1 == 1) {
+#ifdef CONFIG_DIAG_RB_DUMP
+					if(diag_rb_enable == 3)
+						diag_rb_push_data_to_smem(data->buf_in_1, (u32)data->write_ptr_1->length);
+					else
+						
+						COPY_USER_SPACE_OR_EXIT(buf+ret,
+							*(data->buf_in_1),
+							data->write_ptr_1->length);
+#else
 					
 					COPY_USER_SPACE_OR_EXIT(buf+ret,
 						*(data->buf_in_1),
 						data->write_ptr_1->length);
+#endif
 					data->in_busy_1 = 0;
 				}
 				if (data->in_busy_2 == 1) {
+#ifdef CONFIG_DIAG_RB_DUMP
+					if(diag_rb_enable == 3)
+						diag_rb_push_data_to_smem(data->buf_in_2, (u32)data->write_ptr_2->length);
+					else
+						
+						COPY_USER_SPACE_OR_EXIT(buf+ret,
+							*(data->buf_in_2),
+							data->write_ptr_2->length);
+#else
 					
 					COPY_USER_SPACE_OR_EXIT(buf+ret,
 						*(data->buf_in_2),
 						data->write_ptr_2->length);
+#endif
 					data->in_busy_2 = 0;
 				}
 			}
@@ -2403,15 +2598,7 @@ int mask_request_validate(unsigned char mask_buf[])
 		case 0x0C:    
 		case 0x1C:    
 		case 0x1D:    
-        case 0x20:    
-        case 0x26:    
-        case 0x27:    
 		case 0x29:	  
-        case 0x35:    
-        case 0x36:    
-        case 0x40:    
-        case 0x41:    
-        case 0x4B:    
 		case 0x60:    
 		case 0x63:    
 		case 0x73:    
@@ -2488,9 +2675,17 @@ static int diagchar_setup_cdev(dev_t devno)
 	if (err)
 		DIAG_INFO("dev_attr_diag_mdlog_enable registration failed !\n\n");
 
+#ifdef CONFIG_DIAG_RB_DUMP
+	err = 	device_create_file(diagdev, &dev_attr_diag_rb_debug_mask);
+	if (err)
+		DIAG_INFO("dev_attr_diag_rb_debug_mask registration failed !\n\n");
 	err = 	device_create_file(diagdev, &dev_attr_diag_rb);
 	if (err)
 		DIAG_INFO("dev_attr_diag_rb registration failed !\n\n");
+	err = 	device_create_file(diagdev, &dev_attr_diag_rb_dump);
+	if (err)
+		DIAG_INFO("dev_attr_diag_rb_dump registration failed !\n\n");
+#endif
 
 #if defined(CONFIG_DIAGFWD_BRIDGE_CODE) && !defined(CONFIG_DIAG_HSIC_ON_LEGACY)
 	diagcharmdm_setup_cdev(devno+1);
@@ -2557,7 +2752,6 @@ void diagfwd_bridge_fn(int type)
 #else
 inline void diagfwd_bridge_fn(int type) { }
 #endif
-
 static int __init diagchar_init(void)
 {
 	dev_t dev;
@@ -2641,7 +2835,6 @@ static int __init diagchar_init(void)
 		driver->debug_dmbytes_recv = 0;
 #endif
 		wake_lock_init(&driver->wake_lock, WAKE_LOCK_SUSPEND, "diagchar");
-
 		
 		error = alloc_chrdev_region(&dev, driver->minor_start,
 					    driver->num, driver->name);

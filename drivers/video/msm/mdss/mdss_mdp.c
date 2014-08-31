@@ -116,6 +116,8 @@ static int mdss_mdp_fbmem_alloc(struct msm_fb_data_type *mfd)
 		return -ENOMEM;
 
 	virt = ioremap(phys, size);
+	memset(virt, 0, size);
+
 	msm_iommu_map_contig_buffer(phys, dom, 0, size, SZ_4K, 0,
 					    &mfd->iova);
 
@@ -1955,10 +1957,6 @@ static int mdss_mdp_parse_dt_misc(struct platform_device *pdev)
 	rc = of_property_read_u32(pdev->dev.of_node, "qcom,mdss-rot-block-size",
 		&data);
 	mdata->rot_block_size = (!rc ? data : 128);
-
-	rc = of_property_read_u32(pdev->dev.of_node,
-		"qcom,mdss-rotator-ot-limit", &data);
-	mdata->rotator_ot_limit = (!rc ? data : 0);
 
 	mdata->has_bwc = of_property_read_bool(pdev->dev.of_node,
 					       "qcom,mdss-has-bwc");

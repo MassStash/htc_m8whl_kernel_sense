@@ -91,10 +91,7 @@ static act_func_t act_func[] = {
 #define DEFAULT_INFINITY 0x7000
 #define DEFAULT_MACRO -0x7000
 
-static int16_t lc898212_sorting_step_table[]	= {
-    0x6000, 0x5A00, 0x5400, 0x4E00, 0x4800, 0x4200, 0x3C00, 0x3600, 0x3000, 0x2A00, 0x2400, 0x1E00, 0x1800, 0x1200, 0x0C00, 0x0600, 0x0000,
-    0xFA00, 0xF400, 0xEE00, 0xE800, 0xE200, 0xDC00, 0xD600, 0xD000, 0xCA00, 0xC400, 0xBE00, 0xB800, 0xB200, 0xAC00, 0xA600, 0xA000
-};
+
 static struct msm_camera_i2c_reg_array lc898212_settings_1[] = {
 {0x80, 0x34},
 {0x81, 0x20},
@@ -128,9 +125,9 @@ static struct msm_camera_i2c_reg_array lc898212_settings_2_0x12[] = {
 {0x7B, 0x00},
 {0x7E, 0x78},
 {0x7F, 0x00},
-{0x7C, 0x01},
+{0x7C, 0x03},
 {0x7D, 0x00},
-{0x93, 0xC0},
+{0x93, 0x00},
 {0x86, 0x60},
 
 {0x40, 0x80},
@@ -210,9 +207,9 @@ static struct msm_camera_i2c_reg_array lc898212_settings_2_0x13[] = {
 {0x7B, 0x00},
 {0x7E, 0x78},
 {0x7F, 0x00},
-{0x7C, 0x01},
+{0x7C, 0x03},
 {0x7D, 0x00},
-{0x93, 0xC0},
+{0x93, 0x00},
 {0x86, 0x60},
 
 {0x40, 0x80},
@@ -292,9 +289,9 @@ static struct msm_camera_i2c_reg_array lc898212_settings_2_default[] = {
 {0x7B, 0x00},
 {0x7E, 0x78},
 {0x7F, 0x00},
-{0x7C, 0x01},
+{0x7C, 0x03},
 {0x7D, 0x00},
-{0x93, 0xC0},
+{0x93, 0x00},
 {0x86, 0x60},
 
 {0x40, 0x80},
@@ -389,708 +386,6 @@ static struct msm_camera_i2c_reg_array lc898212_settings_4[] = {
 int g_infinity_pos = 100;
 #endif
 
-static int32_t lc898212_check_actuator_unstable(struct msm_actuator_ctrl_t *a_ctrl)
-{
-    int32_t rc = 0;
-    uint16_t reg_8f = 0; 
-    uint16_t reg_8a = 0; 
-    int32_t is_unstable = 1;
-
-    if (!a_ctrl) {
-        pr_err("a_ctrl is NULL!!\n");
-        return is_unstable;
-    }
-    if (!a_ctrl->i2c_client.i2c_func_tbl) {
-        pr_err("a_ctrl->i2c_client.i2c_func_tbl is NULL!!\n");
-        return is_unstable;
-    }
-
-    rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_read(&a_ctrl->i2c_client, 0x8f, &reg_8f, MSM_CAMERA_I2C_BYTE_DATA);
-    if (rc < 0) {
-        pr_err("i2c read 0x8f failed (%d)\n", rc);
-        return is_unstable;
-    }
-    else
-        CDBG("i2c read 0x8f :(0x%x)\n", reg_8f);
-
-    rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_read(&a_ctrl->i2c_client, 0x8a, &reg_8a, MSM_CAMERA_I2C_BYTE_DATA);
-    if (rc < 0) {
-        pr_err("i2c read 0x8a failed (%d)\n", rc);
-        return is_unstable;
-    }
-    else
-        CDBG("i2c read 0x8a :(0x%x)\n", reg_8a);
-
-    if (reg_8f == 0x01 || reg_8a == 0x0D)
-      is_unstable = 1;
-    else
-      is_unstable = 0;
-    return is_unstable;
-}
-
-static void lc898212_move_center(struct msm_actuator_ctrl_t *a_ctrl)
-{
-	int32_t rc = 0;
-	pr_info("%s move center\n", __func__);
-	rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0xa1, 0x0, MSM_CAMERA_I2C_WORD_DATA);
-	if (rc < 0) {
-	    pr_err("%s 0xa1 i2c write failed (%d)\n", __func__, rc);
-	}
-
-	rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0x16, 0xfe80, MSM_CAMERA_I2C_WORD_DATA);
-	if (rc < 0) {
-	    pr_err("%s 0x16 i2c write failed (%d)\n", __func__, rc);
-	}
-
-	rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0x8a, 5, MSM_CAMERA_I2C_BYTE_DATA);
-	if (rc < 0) {
-	    pr_err("%s 0x8a i2c write failed (%d)\n", __func__, rc);
-	}
-}
-static void lc898212_sorting(struct msm_actuator_ctrl_t *a_ctrl, int16_t* final_max_diff)
-{
-	int i = 0, j = 0;
-	int32_t rc = 0;
-	int size =sizeof(lc898212_sorting_step_table)/sizeof(int16_t);
-	uint16_t data = 0;
-	int16_t temp_data[3];
-	int16_t avg_data = 0;
-	int16_t avg_data1[size];
-	int16_t avg_data2[size];
-	int16_t max_diff = 0;
-	int16_t diff = 0;
-	
-	lc898212_move_center(a_ctrl);
-	msleep(30);
-
-    rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0x4C, 0x7F, MSM_CAMERA_I2C_BYTE_DATA);
-	if (rc < 0) {
-	    pr_err("%s i2c write 0x4c failed (%d)\n", __func__, rc);
-	}
-	rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0x4D, 0xF0, MSM_CAMERA_I2C_BYTE_DATA);
-	if (rc < 0) {
-	    pr_err("%s i2c write 0x4d failed (%d)\n", __func__, rc);
-	}
-	
-	
-	
-
-	pr_info("%s size(%d)\n", __func__, size);
-	
-	for(i =0 ; i < size ; i++)
-	{
-	    pr_info("%s (%d)=0x%x\n", __func__, i, lc898212_sorting_step_table[i]);
-	    rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0xa1, lc898212_sorting_step_table[i], MSM_CAMERA_I2C_WORD_DATA);
-	    if (rc < 0) {
-	        pr_err("%s 0xa1 i2c write failed (%d)\n", __func__, rc);
-	    }
-	    if(i == 0) 
-	    rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0x16, 0x180, MSM_CAMERA_I2C_WORD_DATA);
-	    else
-	    rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0x16, 0xfe80, MSM_CAMERA_I2C_WORD_DATA);
-	    if (rc < 0) {
-	        pr_err("%s 0x16 i2c write failed (%d)\n", __func__, rc);
-	    }
-
-	    rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client,
-	         0x8a,
-	         5,
-	         MSM_CAMERA_I2C_BYTE_DATA);
-	    if (rc < 0) {
-	         pr_err("%s 0x8a i2c write failed (%d)\n", __func__, rc);
-	    }
-
-	    for (j = 0; j < 20 ; j++)
-	    {
-	        rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_read(&a_ctrl->i2c_client, 0x8a, &data, MSM_CAMERA_I2C_BYTE_DATA);
-	        if (rc < 0) {
-	            pr_err("%s:(%d) i2c read 0x8a failed (%d)\n", __func__, j , rc);
-	        }
-	        else
-	        {
-	            if((data & 0x1) == 0)
-	            {
-	                pr_info("%s:(%d) move done, break\n", __func__, j);
-	                break;
-	            }
-	            else
-	                msleep(5);
-	        }
-	    }
-
-	    msleep(30);
-	    for (j = 0; j < 3 ; j++)
-	    {
-	        temp_data[j] = 0;
-	        rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_read(&a_ctrl->i2c_client, 0x3c, &data, MSM_CAMERA_I2C_WORD_DATA);
-	        if (rc < 0) {
-	            pr_err("%s: (%d)(%d) i2c read 0x3c failed (%d)\n", __func__, i, j, rc);
-	        }
-	        else
-	        {
-	            pr_info("%s: (%d)(%d) i2c read 0x3c :(0x%x)(%d)\n", __func__, i, j, data,data);
-	            temp_data[j]= (int16_t)data;
-	        }
-	    }
-	    avg_data = (temp_data[0] + temp_data[1] + temp_data[2])/3 ;
-	    pr_info("%s: (%d) avg :(0x%x)\n", __func__, i, avg_data);
-	    avg_data1[i] = avg_data;
-	}
-
-	
-	for(i = size-1 ; i >= 0 ; i--)
-	{
-	    pr_info("%s (%d)=0x%x\n", __func__, i, lc898212_sorting_step_table[i]);
-	    rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0xa1, lc898212_sorting_step_table[i], MSM_CAMERA_I2C_WORD_DATA);
-	    if (rc < 0) {
-	        pr_err("%s 0xa1 i2c write failed (%d)\n", __func__, rc);
-	    }
-
-	    rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0x16, 0x180, MSM_CAMERA_I2C_WORD_DATA);
-	    if (rc < 0) {
-	        pr_err("%s 0x16 i2c write failed (%d)\n", __func__, rc);
-	    }
-
-	    rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0x8a, 5, MSM_CAMERA_I2C_BYTE_DATA);
-	    if (rc < 0) {
-	        pr_err("%s 0x8a i2c write failed (%d)\n", __func__, rc);
-	    }
-
-	    for (j = 0; j < 20 ; j++)
-	    {
-	        rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_read(&a_ctrl->i2c_client, 0x8a, &data, MSM_CAMERA_I2C_BYTE_DATA);
-	        if (rc < 0) {
-	            pr_err("%s:(%d) i2c read 0x8a failed (%d)\n", __func__, j , rc);
-	        }
-	        else
-	        {
-	            if((data & 0x1) == 0)
-	            {
-	                pr_info("%s:(%d) move done, break\n", __func__, j);
-	                break;
-	            }
-	            else
-	                msleep(5);
-	        }
-	    }
-
-	    msleep(30);
-	    for (j = 0; j < 3 ; j++)
-	    {
-	        temp_data[j] = 0;
-	        rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_read(&a_ctrl->i2c_client, 0x3c, &data, MSM_CAMERA_I2C_WORD_DATA);
-	        if (rc < 0) {
-	            pr_err("%s: (%d)(%d) i2c read 0x3c failed (%d)\n", __func__, i, j, rc);
-	        }
-	        else
-	        {
-	            pr_info("%s: (%d)(%d) i2c read 0x3c :(0x%x)(%d)\n", __func__, i, j, data,data);
-	            temp_data[j]= (int16_t)data;
-	        }
-	    }
-	    avg_data = (temp_data[0] + temp_data[1] + temp_data[2])/3 ;
-	    pr_info("%s: (%d) avg :(0x%x)\n", __func__, i, avg_data);
-	    avg_data2[i] = avg_data;
-	}
-
-	
-	for(i =0 ; i < size ; i++)
-	{
-	    pr_info("%s: (%d) avg_data :(0x%x, 0x%x)\n", __func__, i, avg_data1[i], avg_data2[i]);
-	    if(avg_data1[i] > avg_data2[i])
-	        diff = avg_data1[i] - avg_data2[i];
-	    else
-	        diff = avg_data2[i] - avg_data1[i];
-
-	    if(diff > max_diff)
-	        max_diff = diff;
-	    pr_info("%s: (%d) diff :(0x%x, 0x%x)\n", __func__, i, diff, max_diff);
-	}
-	*final_max_diff = max_diff;
-
-	rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0x4C, 0x40, MSM_CAMERA_I2C_BYTE_DATA);
-	if (rc < 0) {
-	    pr_err("%s i2c write 0x4c failed (%d)\n", __func__, rc);
-	}
-	rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0x4D, 0x30, MSM_CAMERA_I2C_BYTE_DATA);
-	if (rc < 0) {
-	    pr_err("%s i2c write 0x4d failed (%d)\n", __func__, rc);
-	}
-	lc898212_move_center(a_ctrl);
-}
-
-static void lc898212_loop_gain_sorting(struct msm_actuator_ctrl_t *a_ctrl, uint32_t* gain_G1, uint32_t* gain_G2, uint8_t vcm_freq, uint16_t vcm_freq_ms22e)
-{
-	int i = 0, j = 0;
-	int32_t rc = 0;
-	uint16_t data = 0;
-	uint16_t data_0x3a = 0;
-	uint16_t data_0x6e = 0;
-	uint16_t data_0x83 = 0;
-	uint16_t data_0x87 = 0;
-	uint16_t data_0x8f = 0;
-	uint16_t data_0xa4 = 0;
-	uint16_t data_0x76 = 0;
-
-	uint16_t data_0x62 = 0;
-	uint16_t data_0x64 = 0;
-	uint16_t data_0x66 = 0;
-	uint16_t data_0x68 = 0;
-	uint16_t data_0x6A = 0;
-	uint16_t data_0x70 = 0;
-	uint16_t data_0x6C = 0;
-
-	uint16_t data_0x4C = 0;
-	uint16_t G1_H = 0, G1_L = 0, G2_H = 0, G2_L = 0 ;
-	uint32_t G1 = 0, G2 = 0 ;
-
-
-	rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_read(&a_ctrl->i2c_client, 0x3a, &data_0x3a, MSM_CAMERA_I2C_WORD_DATA);
-	if (rc < 0)
-	{
-		pr_err("%s: i2c read 0x3a failed (%d)\n", __func__, rc);
-	}
-
-	rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_read(&a_ctrl->i2c_client, 0x6e, &data_0x6e, MSM_CAMERA_I2C_WORD_DATA);
-	if (rc < 0)
-	{
-		pr_err("%s: i2c read 0x6e failed (%d)\n", __func__, rc);
-	}
-
-	rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_read(&a_ctrl->i2c_client, 0x83, &data_0x83, MSM_CAMERA_I2C_BYTE_DATA);
-	if (rc < 0)
-	{
-		pr_err("%s: i2c read 0x83 failed (%d)\n", __func__, rc);
-	}
-
-	rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_read(&a_ctrl->i2c_client, 0x87, &data_0x87, MSM_CAMERA_I2C_BYTE_DATA);
-	if (rc < 0)
-	{
-		pr_err("%s: i2c read 0x87 failed (%d)\n", __func__, rc);
-	}
-
-	rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_read(&a_ctrl->i2c_client, 0x8f, &data_0x8f, MSM_CAMERA_I2C_BYTE_DATA);
-	if (rc < 0)
-	{
-		pr_err("%s: i2c read 0x8f failed (%d)\n", __func__, rc);
-	}
-
-	rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_read(&a_ctrl->i2c_client, 0xa4, &data_0xa4, MSM_CAMERA_I2C_BYTE_DATA);
-	if (rc < 0)
-	{
-		pr_err("%s: i2c read 0xa4 failed (%d)\n", __func__, rc);
-	}
-
-	rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_read(&a_ctrl->i2c_client, 0xa5, &data, MSM_CAMERA_I2C_BYTE_DATA);
-	if (rc < 0)
-	{
-		pr_err("%s: i2c read 0xa5 failed (%d)\n", __func__, rc);
-	}
-	pr_info("%s addr 0xa5:0x%x\n", __func__, data);
-	if(data == 0)
-	{
-		rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0xa4, 0x76, MSM_CAMERA_I2C_BYTE_DATA);
-		if (rc < 0) {
-	    pr_err("%s i2c write 0xa4 failed (%d)\n", __func__, rc);
-		}
-	}
-
-
-	rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0x87, 0, MSM_CAMERA_I2C_BYTE_DATA);
-	if (rc < 0) {
-	    pr_err("%s i2c write 0x87 failed (%d)\n", __func__, rc);
-	}
-
-
-	rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_read(&a_ctrl->i2c_client, 0x76, &data_0x76, MSM_CAMERA_I2C_WORD_DATA);
-	if (rc < 0)
-	{
-		pr_err("%s: i2c read 0x76 failed (%d)\n", __func__, rc);
-	}
-
-
-	data =  data_0x76 & 0xfc00;
-	rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0x76, data, MSM_CAMERA_I2C_WORD_DATA);
-	if (rc < 0) {
-	    pr_err("%s i2c write 0x87 failed (%d)\n", __func__, rc);
-	}
-
-
-	rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_read(&a_ctrl->i2c_client, 0x62, &data_0x62, MSM_CAMERA_I2C_WORD_DATA);
-	if (rc < 0)
-	{
-		pr_err("%s: i2c read 0x62 failed (%d)\n", __func__, rc);
-	}
-
-	rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_read(&a_ctrl->i2c_client, 0x64, &data_0x64, MSM_CAMERA_I2C_WORD_DATA);
-	if (rc < 0)
-	{
-		pr_err("%s: i2c read 0x64 failed (%d)\n", __func__, rc);
-	}
-
-	rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_read(&a_ctrl->i2c_client, 0x66, &data_0x66, MSM_CAMERA_I2C_WORD_DATA);
-	if (rc < 0)
-	{
-		pr_err("%s: i2c read 0x66 failed (%d)\n", __func__, rc);
-	}
-
-	rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_read(&a_ctrl->i2c_client, 0x68, &data_0x68, MSM_CAMERA_I2C_WORD_DATA);
-	if (rc < 0)
-	{
-		pr_err("%s: i2c read 0x68 failed (%d)\n", __func__, rc);
-	}
-
-	rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_read(&a_ctrl->i2c_client, 0x6A, &data_0x6A, MSM_CAMERA_I2C_WORD_DATA);
-	if (rc < 0)
-	{
-		pr_err("%s: i2c read 0x6A failed (%d)\n", __func__, rc);
-	}
-
-	rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_read(&a_ctrl->i2c_client, 0x70, &data_0x70, MSM_CAMERA_I2C_WORD_DATA);
-	if (rc < 0)
-	{
-		pr_err("%s: i2c read 0x70 failed (%d)\n", __func__, rc);
-	}
-
-	rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_read(&a_ctrl->i2c_client, 0x6C, &data_0x6C, MSM_CAMERA_I2C_WORD_DATA);
-	if (rc < 0)
-	{
-		pr_err("%s: i2c read 0x6C failed (%d)\n", __func__, rc);
-	}
-
-	rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0x5A, 0x680, MSM_CAMERA_I2C_WORD_DATA);
-	if (rc < 0) {
-	    pr_err("%s i2c write 0x5A failed (%d)\n", __func__, rc);
-	}
-
-	rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_read(&a_ctrl->i2c_client, 0x5A, &data, MSM_CAMERA_I2C_WORD_DATA);
-	if (rc < 0)
-	{
-		pr_err("%s: i2c read 0x5A failed (%d)\n", __func__, rc);
-	}
-	else
-		pr_info("%s: i2c read 0x5A (0x%x)\n", __func__, data);
-
-	rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0x62, data, MSM_CAMERA_I2C_WORD_DATA);
-	if (rc < 0) {
-	    pr_err("%s i2c write 0x62 failed (%d)\n", __func__, rc);
-	}
-
-	rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0x64, data, MSM_CAMERA_I2C_WORD_DATA);
-	if (rc < 0) {
-	    pr_err("%s i2c write 0x64 failed (%d)\n", __func__, rc);
-	}
-
-	rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_read(&a_ctrl->i2c_client, 0x5C, &data, MSM_CAMERA_I2C_WORD_DATA);
-	if (rc < 0)
-	{
-		pr_err("%s: i2c read 0x5C failed (%d)\n", __func__, rc);
-	}
-	rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0x66, data, MSM_CAMERA_I2C_WORD_DATA);
-	if (rc < 0) {
-	    pr_err("%s i2c write 0x66 failed (%d)\n", __func__, rc);
-	}
-
-	rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_read(&a_ctrl->i2c_client, 0x5E, &data, MSM_CAMERA_I2C_WORD_DATA);
-	if (rc < 0)
-	{
-		pr_err("%s: i2c read 0x5E failed (%d)\n", __func__, rc);
-	}
-	rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0x68, data, MSM_CAMERA_I2C_WORD_DATA);
-	if (rc < 0) {
-	    pr_err("%s i2c write 0x68 failed (%d)\n", __func__, rc);
-	}
-
-	rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_read(&a_ctrl->i2c_client, 0x60, &data, MSM_CAMERA_I2C_WORD_DATA);
-	if (rc < 0)
-	{
-		pr_err("%s: i2c read 0x60 failed (%d)\n", __func__, rc);
-	}
-	rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0x6A, data, MSM_CAMERA_I2C_WORD_DATA);
-	if (rc < 0) {
-	    pr_err("%s i2c write 0x6A failed (%d)\n", __func__, rc);
-	}
-
-
-    rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0x70, 0, MSM_CAMERA_I2C_WORD_DATA);
-    if (rc < 0) {
-	    pr_err("%s i2c write 0x70 failed (%d)\n", __func__, rc);
-    }
-
-    rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0x6C, 0, MSM_CAMERA_I2C_WORD_DATA);
-    if (rc < 0) {
-	    pr_err("%s i2c write 0x6C failed (%d)\n", __func__, rc);
-    }
-
-    rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0x04, 0, MSM_CAMERA_I2C_WORD_DATA);
-    if (rc < 0) {
-	    pr_err("%s i2c write 0x04 failed (%d)\n", __func__, rc);
-    }
-
-    rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0x3A, 0, MSM_CAMERA_I2C_WORD_DATA);
-    if (rc < 0) {
-	    pr_err("%s i2c write 0x3A failed (%d)\n", __func__, rc);
-    }
-
-
-    rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0x6e, vcm_freq_ms22e, MSM_CAMERA_I2C_WORD_DATA);
-    if (rc < 0) {
-	    pr_err("%s i2c write 0x6e failed (%d)\n", __func__, rc);
-    }
-
-    rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_read(&a_ctrl->i2c_client, 0x4c, &data_0x4C, MSM_CAMERA_I2C_WORD_DATA);
-    if (rc < 0)
-    {
-		pr_err("%s: i2c read 0x4c failed (%d)\n", __func__, rc);
-    }
-
-
-    rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0x83, 0x56, MSM_CAMERA_I2C_BYTE_DATA);
-    if (rc < 0) {
-	    pr_err("%s i2c write 0x83 failed (%d)\n", __func__, rc);
-    }
-
-
-    rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0x87, 0x80, MSM_CAMERA_I2C_BYTE_DATA);
-    if (rc < 0) {
-	    pr_err("%s i2c write 0x87 failed (%d)\n", __func__, rc);
-    }
-
-
-    rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0x85, 0xE0, MSM_CAMERA_I2C_BYTE_DATA);
-    if (rc < 0) {
-	    pr_err("%s i2c write 0x85 failed (%d)\n", __func__, rc);
-    }
-
-    for (j = 0; j < 20 ; j++)
-    {
-        rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_read(&a_ctrl->i2c_client, 0x85, &data, MSM_CAMERA_I2C_BYTE_DATA);
-        if (rc < 0) {
-            pr_err("%s:(%d) i2c read 0x85 failed (%d)\n", __func__, j , rc);
-        }
-        else
-        {
-            if((data & 0xC0) == 0)
-            {
-                pr_info("%s:(%d) ram clean done, break\n", __func__, j);
-                break;
-            }
-            else
-                msleep(5);
-        }
-    }
-
-
-    rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0x83, 0x56, MSM_CAMERA_I2C_BYTE_DATA);
-    if (rc < 0) {
-	    pr_err("%s i2c write 0x83 failed (%d)\n", __func__, rc);
-    }
-
-
-    rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0x87, 0x87, MSM_CAMERA_I2C_BYTE_DATA);
-    if (rc < 0) {
-	    pr_err("%s i2c write 0x87 failed (%d)\n", __func__, rc);
-    }
-
-    pr_err("%s  vcm_freq:0x%x\n", __func__, vcm_freq);
-    rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0x8C, vcm_freq, MSM_CAMERA_I2C_BYTE_DATA);
-    if (rc < 0) {
-	    pr_err("%s  i2c write 0x8C failed (%d)\n", __func__, rc);
-    }
-
-
-    rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0x8D, 0x80, MSM_CAMERA_I2C_BYTE_DATA);
-    if (rc < 0) {
-	    pr_err("%s  i2c write 0x8D failed (%d)\n", __func__, rc);
-    }
-
-
-    rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0xA3, 0x0A, MSM_CAMERA_I2C_BYTE_DATA);
-    if (rc < 0) {
-	    pr_err("%s  i2c write 0xA3 failed (%d)\n", __func__, rc);
-    }
-
-
-    msleep(100);
-
-    for (i = 0; i < 5 ; i++)
-    {
-        
-        rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0x8F, 0x80, MSM_CAMERA_I2C_BYTE_DATA);
-        if (rc < 0) {
-		    pr_err("%s  i2c write 0x8F failed (%d)\n", __func__, rc);
-        }
-        
-        for (j = 0; j < 20 ; j++)
-        {
-            rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_read(&a_ctrl->i2c_client, 0x8F, &data, MSM_CAMERA_I2C_BYTE_DATA);
-            if (rc < 0) {
-                pr_err("%s:(%d) i2c read 0x8F failed (%d)\n", __func__, j , rc);
-            }
-            else
-            {
-                if((data & 0x80) == 0)
-                {
-                    pr_info("%s:(%d) set done, break\n", __func__, j);
-                    break;
-                }
-                else
-                    msleep(5);
-            }
-        }
-
-        
-        
-        
-        
-        rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_read(&a_ctrl->i2c_client, 0x32, &G1_H, MSM_CAMERA_I2C_WORD_DATA);
-        if (rc < 0)
-        {
-            pr_err("%s: i2c read 0x32 failed (%d)\n", __func__, rc);
-		}
-
-        rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_read(&a_ctrl->i2c_client, 0x34, &G1_L, MSM_CAMERA_I2C_WORD_DATA);
-        if (rc < 0)
-        {
-            pr_err("%s: i2c read 0x34 failed (%d)\n", __func__, rc);
-        }
-
-        rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_read(&a_ctrl->i2c_client, 0x36, &G2_H, MSM_CAMERA_I2C_WORD_DATA);
-        if (rc < 0)
-        {
-            pr_err("%s: i2c read 0x36 failed (%d)\n", __func__, rc);
-        }
-
-        rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_read(&a_ctrl->i2c_client, 0x38, &G2_L, MSM_CAMERA_I2C_WORD_DATA);
-        if (rc < 0)
-        {
-            pr_err("%s: i2c read 0x38 failed (%d)\n", __func__, rc);
-        }
-
-        G1 = (G1_H << 16) | G1_L ;
-        G2 = (G2_H << 16) | G2_L ;
-        pr_info("%s: (%d) G1:(0x%x), G1_H:0x%x, G1_L:0x%x \n", __func__, i, G1, G1_H, G1_L);
-        pr_info("%s: (%d) G2:(0x%x), G2_H:0x%x, G2_L:0x%x \n", __func__, i, G2, G2_H, G2_L);
-
-        gain_G1[i]= G1;
-        gain_G2[i]= G2;
-    }
-
-
-    rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0x8C, 0x0, MSM_CAMERA_I2C_BYTE_DATA);
-    if (rc < 0) {
-	    pr_err("%s  i2c write 0x8C failed (%d)\n", __func__, rc);
-    }
-
-
-    rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0x8D, 0x0, MSM_CAMERA_I2C_BYTE_DATA);
-    if (rc < 0) {
-	    pr_err("%s  i2c write 0x8D failed (%d)\n", __func__, rc);
-    }
-
-
-    rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0xA3, 0x0, MSM_CAMERA_I2C_BYTE_DATA);
-    if (rc < 0) {
-	    pr_err("%s  i2c write 0xA3 failed (%d)\n", __func__, rc);
-    }
-
-
-    rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0x85, 0xE0, MSM_CAMERA_I2C_BYTE_DATA);
-    if (rc < 0) {
-	    pr_err("%s  i2c write 0x85 failed (%d)\n", __func__, rc);
-    }
-
-    for (j = 0; j < 20 ; j++)
-    {
-        rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_read(&a_ctrl->i2c_client, 0x85, &data, MSM_CAMERA_I2C_BYTE_DATA);
-        if (rc < 0) {
-            pr_err("%s:(%d) i2c read 0x85 failed (%d)\n", __func__, j , rc);
-        }
-        else
-        {
-            if((data & 0xE0) == 0)
-            {
-                pr_info("%s:(%d) ram clean done, break\n", __func__, j);
-                break;
-            }
-            else
-                msleep(5);
-        }
-    }
-
-
-    rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0x62, data_0x62, MSM_CAMERA_I2C_WORD_DATA);
-    if (rc < 0) {
-	    pr_err("%s i2c write 0x62 failed (%d)\n", __func__, rc);
-    }
-
-    rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0x64, data_0x64, MSM_CAMERA_I2C_WORD_DATA);
-    if (rc < 0) {
-	    pr_err("%s i2c write 0x64 failed (%d)\n", __func__, rc);
-    }
-
-    rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0x66, data_0x66, MSM_CAMERA_I2C_WORD_DATA);
-    if (rc < 0) {
-	    pr_err("%s i2c write 0x66 failed (%d)\n", __func__, rc);
-    }
-
-    rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0x68, data_0x68, MSM_CAMERA_I2C_WORD_DATA);
-    if (rc < 0) {
-	    pr_err("%s i2c write 0x68 failed (%d)\n", __func__, rc);
-    }
-
-    rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0x6A, data_0x6A, MSM_CAMERA_I2C_WORD_DATA);
-    if (rc < 0) {
-	    pr_err("%s i2c write 0x6A failed (%d)\n", __func__, rc);
-    }
-
-    rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0x70, data_0x70, MSM_CAMERA_I2C_WORD_DATA);
-    if (rc < 0) {
-	    pr_err("%s i2c write 0x70 failed (%d)\n", __func__, rc);
-    }
-
-    rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0x6C, data_0x6C, MSM_CAMERA_I2C_WORD_DATA);
-    if (rc < 0) {
-	    pr_err("%s i2c write 0x6C failed (%d)\n", __func__, rc);
-    }
-
-    rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0x76, data_0x76, MSM_CAMERA_I2C_WORD_DATA);
-    if (rc < 0) {
-	    pr_err("%s i2c write 0x76 failed (%d)\n", __func__, rc);
-    }
-
-
-    rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0x3a, data_0x3a, MSM_CAMERA_I2C_WORD_DATA);
-    if (rc < 0) {
-	    pr_err("%s i2c write 0x3a failed (%d)\n", __func__, rc);
-    }
-
-    rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0x3e, data_0x6e, MSM_CAMERA_I2C_WORD_DATA);
-    if (rc < 0) {
-	    pr_err("%s i2c write 0x3e failed (%d)\n", __func__, rc);
-    }
-
-    rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0x8f, data_0x8f, MSM_CAMERA_I2C_BYTE_DATA);
-    if (rc < 0) {
-	    pr_err("%s i2c write 0x8f failed (%d)\n", __func__, rc);
-    }
-
-    rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0x83, data_0x83, MSM_CAMERA_I2C_BYTE_DATA);
-    if (rc < 0) {
-	    pr_err("%s i2c write 0x83 failed (%d)\n", __func__, rc);
-    }
-
-    rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0x87, data_0x87, MSM_CAMERA_I2C_BYTE_DATA);
-    if (rc < 0) {
-	    pr_err("%s i2c write 0x87 failed (%d)\n", __func__, rc);
-    }
-
-    rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0xa4, data_0xa4, MSM_CAMERA_I2C_BYTE_DATA);
-    if (rc < 0) {
-	    pr_err("%s i2c write 0xa4 failed (%d)\n", __func__, rc);
-    }
-
-}
 static int32_t lc898212_wrapper_i2c_write(struct msm_actuator_ctrl_t *a_ctrl,
     int16_t next_lens_position, int8_t dir)
 {
@@ -1122,7 +417,7 @@ static int32_t lc898212_wrapper_i2c_write(struct msm_actuator_ctrl_t *a_ctrl,
 
     rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client,
          0x8a,
-         0xd,
+         5,
          MSM_CAMERA_I2C_BYTE_DATA);
     if (rc < 0) {
          pr_err("%s 0x8a i2c write failed (%d)\n", __func__, rc);
@@ -1152,13 +447,7 @@ static int32_t lc898212_act_init_focus(struct msm_actuator_ctrl_t *a_ctrl,
     if (a_ctrl->af_OTP_info.VCM_OTP_Read) {
         bias = a_ctrl->af_OTP_info.VCM_Bias;
         offset = a_ctrl->af_OTP_info.VCM_Offset;
-#if 0
         infinity = a_ctrl->af_OTP_info.VCM_Infinity;
-#else
-        pr_info("%s step_position_table[0]:%d, VCM_Infinity:%d", __func__, (int16_t)a_ctrl->step_position_table[0], (int16_t)a_ctrl->af_OTP_info.VCM_Infinity);
-        
-        infinity = a_ctrl->step_position_table[0];
-#endif
     }
 
     lc898212_settings.reg_setting = lc898212_settings_1;
@@ -1284,7 +573,7 @@ static int32_t lc898212_act_init_focus(struct msm_actuator_ctrl_t *a_ctrl,
         return rc;
     }
 
-    rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0x8a, 0xd, MSM_CAMERA_I2C_BYTE_DATA);
+    rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write(&a_ctrl->i2c_client, 0x8a, 5, MSM_CAMERA_I2C_BYTE_DATA);
     if (rc < 0) {
         pr_err("%s 0x8a i2c write failed (%d)\n", __func__, rc);
         return rc;
@@ -1635,25 +924,6 @@ static int32_t msm_actuator_move_focus(
 	int32_t num_steps = move_params->num_steps;
 	struct msm_camera_i2c_reg_setting reg_setting;
 
-	if ((sign_dir > MSM_ACTUATOR_MOVE_SIGNED_NEAR) ||
-		(sign_dir < MSM_ACTUATOR_MOVE_SIGNED_FAR)) {
-		pr_err("Invalid sign_dir = %d\n", sign_dir);
-		return -EFAULT;
-	}
-	if ((dir > MOVE_FAR) || (dir < MOVE_NEAR)) {
-		pr_err("Invalid direction = %d\n", dir);
-		return -EFAULT;
-	}
-#if 0 
-	if (dest_step_pos > a_ctrl->total_steps) {
-		pr_err("Step pos greater than total steps = %d\n",
-		dest_step_pos);
-		return -EFAULT;
-	}
-#endif 
-	curr_lens_pos = a_ctrl->step_position_table[a_ctrl->curr_step_pos];
-	move_params->curr_lens_pos = curr_lens_pos;
-
 	if (copy_from_user(&ringing_params_kernel,
 		&(move_params->ringing_params[a_ctrl->curr_region_index]),
 		sizeof(struct damping_params_t))) {
@@ -1667,6 +937,7 @@ static int32_t msm_actuator_move_focus(
 	if (dest_step_pos == a_ctrl->curr_step_pos)
 		return rc;
 
+	curr_lens_pos = a_ctrl->step_position_table[a_ctrl->curr_step_pos];
 	a_ctrl->i2c_tbl_index = 0;
 	CDBG("curr_step_pos =%d dest_step_pos =%d curr_lens_pos=%d\n",
 		a_ctrl->curr_step_pos, dest_step_pos, curr_lens_pos);
@@ -1744,7 +1015,6 @@ static int32_t msm_actuator_move_focus(
 	else
 	{
 
-	move_params->curr_lens_pos = curr_lens_pos;
 	reg_setting.reg_setting = a_ctrl->i2c_reg_tbl;
 	reg_setting.data_type = a_ctrl->i2c_data_type;
 	reg_setting.size = a_ctrl->i2c_tbl_index;
@@ -1823,12 +1093,6 @@ static int32_t msm_actuator_init_step_table(struct msm_actuator_ctrl_t *a_ctrl,
 	kfree(a_ctrl->step_position_table);
 	a_ctrl->step_position_table = NULL;
 
-	if (set_info->af_tuning_params.total_steps
-		>  MAX_ACTUATOR_AF_TOTAL_STEPS) {
-		pr_err("Max actuator totalsteps exceeded = %d\n",
-		set_info->af_tuning_params.total_steps);
-		return -EFAULT;
-	}
 	
 	a_ctrl->step_position_table =
 		kmalloc(sizeof(uint16_t) *
@@ -1924,19 +1188,12 @@ static int32_t msm_actuator_init(struct msm_actuator_ctrl_t *a_ctrl,
 		pr_err("Actuator function table not found\n");
 		return rc;
 	}
-	if (set_info->af_tuning_params.total_steps
-		>  MAX_ACTUATOR_AF_TOTAL_STEPS) {
-		pr_err("Max actuator totalsteps exceeded = %d\n",
-		set_info->af_tuning_params.total_steps);
-		return -EFAULT;
-	}
-	if (set_info->af_tuning_params.region_size
-		> MAX_ACTUATOR_REGION) {
+
+	a_ctrl->region_size = set_info->af_tuning_params.region_size;
+	if (a_ctrl->region_size > MAX_ACTUATOR_REGION) {
 		pr_err("MAX_ACTUATOR_REGION is exceeded.\n");
 		return -EFAULT;
 	}
-
-	a_ctrl->region_size = set_info->af_tuning_params.region_size;
 	a_ctrl->pwd_step = set_info->af_tuning_params.pwd_step;
 	a_ctrl->total_steps = set_info->af_tuning_params.total_steps;
 
@@ -2004,10 +1261,6 @@ static int32_t msm_actuator_init(struct msm_actuator_ctrl_t *a_ctrl,
 		return -EFAULT;
 	}
 
-	if (a_ctrl->func_tbl->actuator_init_step_table)
-		rc = a_ctrl->func_tbl->
-			actuator_init_step_table(a_ctrl, set_info);
-
     if(a_ctrl->act_i2c_select == WRITE_MULTI_TABLE)
     {
         rc = lc898212_act_init_focus(a_ctrl,
@@ -2016,9 +1269,7 @@ static int32_t msm_actuator_init(struct msm_actuator_ctrl_t *a_ctrl,
 				init_settings);
     }
     else
-	if (set_info->actuator_params.init_setting_size &&
-		set_info->actuator_params.init_setting_size
-		<= MAX_ACTUATOR_REG_TBL_SIZE) {
+	if (set_info->actuator_params.init_setting_size) {
 		if (a_ctrl->func_tbl->actuator_init_focus) {
 			init_settings = kmalloc(sizeof(struct reg_settings_t) *
 				(set_info->actuator_params.init_setting_size),
@@ -2069,6 +1320,9 @@ static int32_t msm_actuator_init(struct msm_actuator_ctrl_t *a_ctrl,
 	}
 
 	a_ctrl->initial_code = set_info->af_tuning_params.initial_code;
+	if (a_ctrl->func_tbl->actuator_init_step_table)
+		rc = a_ctrl->func_tbl->
+			actuator_init_step_table(a_ctrl, set_info);
 
 	a_ctrl->curr_step_pos = 0;
 	a_ctrl->curr_region_index = 0;
@@ -2243,24 +1497,6 @@ static int32_t msm_actuator_config(struct msm_actuator_ctrl_t *a_ctrl,
 			pr_err("move focus failed %d\n", rc);
 		break;
 
-	case CFG_GET_VCM_SORTING:
-	{
-	    pr_info("CFG_GET_VCM_SORTING +\n");
-	    lc898212_sorting(a_ctrl, &(cdata->max_diff));
-	    pr_info("CFG_GET_VCM_SORTING  cdata->max_diff:0x%x, cdata->vcm_freq:0x%x\n", cdata->max_diff, cdata->vcm_freq);
-	    pr_info("CFG_GET_VCM_SORTING -\n");
-	}
-	    break;
-	case CFG_GET_VCM_LOOP_GAIN_SORTING:
-	{
-	    int i = 0;
-	    pr_info("CFG_GET_VCM_LOOP_GAIN_SORTING + vcm_freq:0x%x, vcm_freq_ms22e:0x%x\n", cdata->vcm_freq, cdata->vcm_freq_ms22e);
-	    lc898212_loop_gain_sorting(a_ctrl, cdata->gain_G1, cdata->gain_G2, cdata->vcm_freq, cdata->vcm_freq_ms22e);
-	    for(i = 0; i < 5; i++)
-	        pr_info("CFG_GET_VCM_SORTING gain_G1[%d]:0x%x, gain_G2[%d]:0x%x\n", i, cdata->gain_G1[i], i,  cdata->gain_G2[i]);
-	    pr_info("CFG_GET_VCM_LOOP_GAIN_SORTING -\n");
-	}
-	    break;
 	case CFG_ACTUATOR_STOP:
 		rc = msm_actuator_stop(a_ctrl);
 		if (rc < 0)
@@ -2299,11 +1535,6 @@ static int32_t msm_actuator_config(struct msm_actuator_ctrl_t *a_ctrl,
 			pr_info("%s ois is not supported\n", __func__);
 		}
 		break;
-	
-	case CFG_GET_ACT_STABLE_INFO:
-		cdata->is_act_unstable = lc898212_check_actuator_unstable(a_ctrl);
-		break;
-	
 	default:
 		break;
 	}
@@ -2493,7 +1724,6 @@ static int32_t msm_actuator_i2c_probe(struct i2c_client *client,
 	}
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
-		kfree(act_ctrl_t);
 		pr_err("i2c_check_functionality failed\n");
 		goto probe_failure;
 	}
@@ -2504,7 +1734,6 @@ static int32_t msm_actuator_i2c_probe(struct i2c_client *client,
 		&act_ctrl_t->subdev_id);
 	CDBG("cell-index %d, rc %d\n", act_ctrl_t->subdev_id, rc);
 	if (rc < 0) {
-		kfree(act_ctrl_t);
 		pr_err("failed rc %d\n", rc);
 		return rc;
 	}
@@ -2566,7 +1795,6 @@ static int32_t msm_actuator_platform_probe(struct platform_device *pdev)
 		&pdev->id);
 	CDBG("cell-index %d, rc %d\n", pdev->id, rc);
 	if (rc < 0) {
-		kfree(msm_actuator_t);
 		pr_err("failed rc %d\n", rc);
 		return rc;
 	}
@@ -2575,7 +1803,6 @@ static int32_t msm_actuator_platform_probe(struct platform_device *pdev)
 		&msm_actuator_t->cci_master);
 	CDBG("qcom,cci-master %d, rc %d\n", msm_actuator_t->cci_master, rc);
 	if (rc < 0) {
-		kfree(msm_actuator_t);
 		pr_err("failed rc %d\n", rc);
 		return rc;
 	}
@@ -2592,7 +1819,6 @@ static int32_t msm_actuator_platform_probe(struct platform_device *pdev)
 	msm_actuator_t->i2c_client.cci_client = kzalloc(sizeof(
 		struct msm_camera_cci_client), GFP_KERNEL);
 	if (!msm_actuator_t->i2c_client.cci_client) {
-		kfree(msm_actuator_t);
 		pr_err("failed no memory\n");
 		return -ENOMEM;
 	}

@@ -23,9 +23,6 @@
 #include <linux/input.h>
 #include <linux/log2.h>
 #include <linux/qpnp/power-on.h>
-#ifdef CONFIG_KPDPWR_S2_DVDD_RESET
-#include <mach/devices_dtb.h>
-#endif
 
 #define QPNP_PON_REVISION2(base)		(base + 0x01)
 
@@ -86,6 +83,13 @@
 
 #define QPNP_KEY_STATUS_DELAY			msecs_to_jiffies(250)
 #define QPNP_PON_REV_B				0x01
+
+enum pon_type {
+	PON_KPDPWR,
+	PON_RESIN,
+	PON_CBLPWR,
+	PON_KPDPWR_RESIN,
+};
 
 struct qpnp_pon_config {
 	u32 pon_type;
@@ -454,84 +458,6 @@ static irqreturn_t qpnp_resin_bark_irq(int irq, void *_pon)
 err_exit:
 	return IRQ_HANDLED;
 }
-
-#ifdef CONFIG_KPDPWR_S2_DVDD_RESET
-int qpnp_get_reset_en(int pon_type)
-{
-	u16 rst_en_reg;
-	struct qpnp_pon *pon = sys_reset_dev;
-	int rc;
-	u8 val = 0;
-
-	if (pon == NULL)
-		return -ENOMEM;
-
-	switch (pon_type) {
-	case PON_KPDPWR:
-		rst_en_reg = QPNP_PON_KPDPWR_S2_CNTL2(pon->base);
-		break;
-	case PON_RESIN:
-		rst_en_reg = QPNP_PON_RESIN_S2_CNTL2(pon->base);
-		break;
-	case PON_KPDPWR_RESIN:
-		rst_en_reg = QPNP_PON_KPDPWR_RESIN_S2_CNTL2(pon->base);
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	rc = spmi_ext_register_readl(pon->spmi->ctrl, pon->spmi->sid,
-			rst_en_reg, &val, 1);
-	if (rc) {
-		dev_err(&pon->spmi->dev,
-			"%s: Unable to read addr = %x, rc(%d)\n", __func__, rst_en_reg, rc);
-		return -EINVAL;
-	}
-
-	if (val & QPNP_PON_S2_RESET_ENABLE)
-		return 1;
-	else
-		return 0;
-}
-
-int qpnp_config_reset_enable(int pon_type, int en)
-{
-	u16 rst_en_reg;
-	struct qpnp_pon *pon = sys_reset_dev;
-	int rc;
-
-	if (pon == NULL)
-		return -ENOMEM;
-
-	switch (pon_type) {
-	case PON_KPDPWR:
-		rst_en_reg = QPNP_PON_KPDPWR_S2_CNTL2(pon->base);
-		break;
-	case PON_RESIN:
-		rst_en_reg = QPNP_PON_RESIN_S2_CNTL2(pon->base);
-		break;
-	case PON_KPDPWR_RESIN:
-		rst_en_reg = QPNP_PON_KPDPWR_RESIN_S2_CNTL2(pon->base);
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	if (en)
-		rc = qpnp_pon_masked_write(pon, rst_en_reg, QPNP_PON_RESET_EN,
-							QPNP_PON_S2_RESET_ENABLE);
-	else
-		rc = qpnp_pon_masked_write(pon, rst_en_reg, QPNP_PON_RESET_EN, 0);
-
-	if (rc) {
-		dev_err(&pon->spmi->dev,
-			"%s: Unable to write to addr = %x, rc(%d)\n", __func__, rst_en_reg, rc);
-		return -EINVAL;
-	}
-
-	return 0;
-}
-#endif
 
 static int __devinit
 qpnp_config_pull(struct qpnp_pon *pon, struct qpnp_pon_config *cfg)
@@ -1015,10 +941,6 @@ free_input_dev:
 	return rc;
 }
 
-#ifdef CONFIG_HTC_POWER_DEBUG
-extern void htc_print_pon_boot_reason(void);
-#endif
-
 static int __devinit qpnp_pon_probe(struct spmi_device *spmi)
 {
 	struct qpnp_pon *pon;
@@ -1083,11 +1005,6 @@ static int __devinit qpnp_pon_probe(struct spmi_device *spmi)
 		pon->spmi->sid, index ? qpnp_pon_reason[index - 1] :
 		"Unknown", cold_boot ? "cold" : "warm");
 
-#ifdef CONFIG_HTC_POWER_DEBUG
-	
-	htc_print_pon_boot_reason();
-#endif
-
 	rc = of_property_read_u32(pon->spmi->dev.of_node,
 				"qcom,pon-dbc-delay", &delay);
 	if (rc) {
@@ -1131,13 +1048,6 @@ static int __devinit qpnp_pon_probe(struct spmi_device *spmi)
 			return rc;
 		}
 	}
-
-#ifdef CONFIG_KPDPWR_S2_DVDD_RESET
-	
-	if (!(get_radio_flag() & BIT(3))) {
-		qpnp_config_reset_enable(PON_KPDPWR, 1);
-	}
-#endif
 
 	dev_set_drvdata(&spmi->dev, pon);
 

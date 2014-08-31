@@ -267,61 +267,54 @@ static void wait_on_retry_sync_kiocb(struct kiocb *iocb)
 	__set_current_state(TASK_RUNNING);
 }
 
-static struct fs_dbg_threshold dbg_threshold[] = {
-	{ 52428800, "read"}, 
-	{ 31457280, "write"}, 
-	{ 104857600, "erase"}, 
-};
-static void check_dbg_threshold(struct task_io_accounting *acc,
-	struct fs_dbg_threshold *thresh, int type)
-{
-	if (acc->acc_bytes[type] > thresh->threshold) {
-		pr_info("FS Statistics: %s(pid %d, parent %s(%d)) %s %llu MB in %u ms\n",
-				current->comm, current->pid,
-				current->parent->comm, current->parent->pid,
-				thresh->type,
-				acc->acc_bytes[type] / 1048576,
-				jiffies_to_msecs(jiffies - acc->last_jiffies[type]));
-		acc->acc_bytes[type] = 0;
-		acc->last_jiffies[type] = 0;
-	}
-}
-
+#define WRITE_THRESHOLD	30 * 1024 * 1024
+#define READ_THRESHOLD	50 * 1024 * 1024
 extern unsigned int get_tamper_sf(void);
-void fs_debug_dump(unsigned int type, size_t bytes)
+static void print_io_dump(int rw, size_t bytes)
 {
 	unsigned long last_jiffies;
+	int reset = 0;
 
 	if (get_tamper_sf() == 1)
 		return;
-	if (type > FS_DBG_TYPE_ERASE)
-		return;
+
 	if (!strcmp(current->comm, "sdcard"))
 		return;
 
-	last_jiffies = current->ioac.last_jiffies[type];
+	last_jiffies = current->ioac.last_jiffies;
 	
-	if ((last_jiffies == 0) || time_after(jiffies, last_jiffies + 5 * HZ)) {
-		current->ioac.acc_bytes[type] = bytes;
-		current->ioac.last_jiffies[type] = jiffies;
-		if (type == FS_DBG_TYPE_ERASE)
-			check_dbg_threshold(&current->ioac, &dbg_threshold[type], type);
+	if ((current->ioac.last_jiffies == 0) ||
+		time_after(jiffies, last_jiffies + 5 * HZ)) {
+		current->ioac.last_jiffies = jiffies;
+		current->ioac.acc_write_bytes = (rw == WRITE) ? bytes : 0;
+		current->ioac.acc_read_bytes = (rw == READ) ? bytes : 0;
 		return;
 	}
-	current->ioac.acc_bytes[type] += bytes;
-
-	
-	if (type == FS_DBG_TYPE_ERASE) {
-		check_dbg_threshold(&current->ioac, &dbg_threshold[type], type);
-		return;
+	if (rw == WRITE)
+		current->ioac.acc_write_bytes += bytes;
+	else
+		current->ioac.acc_read_bytes += bytes;
+	if (time_after(jiffies, last_jiffies + HZ)) {
+		if (current->ioac.acc_write_bytes > WRITE_THRESHOLD) {
+			pr_info("FS Statistics: %s(pid %d) write %llu bytes in %u ms\n",
+				current->comm, current->pid,
+				current->ioac.acc_write_bytes,
+				jiffies_to_msecs(jiffies - last_jiffies));
+			reset = 1;
+		}
+		if (current->ioac.acc_read_bytes > READ_THRESHOLD) {
+			pr_info("FS Statistics: %s(pid %d) read %llu bytes in %u ms\n",
+				current->comm, current->pid,
+				current->ioac.acc_read_bytes,
+				jiffies_to_msecs(jiffies - last_jiffies));
+			reset = 1;
+		}
+		if (reset) {
+			current->ioac.last_jiffies = 0;
+			current->ioac.acc_write_bytes = 0;
+			current->ioac.acc_read_bytes = 0;
+		}
 	}
-
-	
-	if (time_before(jiffies, last_jiffies + HZ))
-		return;
-
-	
-	check_dbg_threshold(&current->ioac, &dbg_threshold[type], type);
 
 	return;
 }
@@ -380,7 +373,7 @@ ssize_t vfs_read(struct file *file, char __user *buf, size_t count, loff_t *pos)
 	if (sb && (!strcmp(sb->s_type->name, "ext4")
 		|| !strcmp(sb->s_type->name, "fuse")
 		|| !strcmp(sb->s_type->name, "vfat")))
-		fs_debug_dump(FS_DBG_TYPE_READ, count);
+		print_io_dump(READ, count);
 
 	return ret;
 }
@@ -442,7 +435,7 @@ ssize_t vfs_write(struct file *file, const char __user *buf, size_t count, loff_
 	if (sb && (!strcmp(sb->s_type->name, "ext4")
 		|| !strcmp(sb->s_type->name, "fuse")
 		|| !strcmp(sb->s_type->name, "vfat")))
-		fs_debug_dump(FS_DBG_TYPE_WRITE, count);
+		print_io_dump(WRITE, count);
 
 	return ret;
 }

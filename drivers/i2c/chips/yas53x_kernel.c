@@ -449,8 +449,8 @@ static int __devinit yas53x_probe(struct i2c_client *client, const struct i2c_de
 		pdata = kzalloc(sizeof(*pdata), GFP_KERNEL);
 		if (pdata == NULL) {
 			dev_err(&client->dev, "%s: memory allocation for pdata failed.", __func__);
-		} else
-			yas53x_parse_dt(&client->dev, pdata);
+		}
+		yas53x_parse_dt(&client->dev, pdata);
 	} else {
 		pdata = client->dev.platform_data;
 		pdata->chip_layout = *(int *)client->dev.platform_data;

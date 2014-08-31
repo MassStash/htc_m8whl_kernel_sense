@@ -265,11 +265,9 @@ struct diag_context {
 	struct list_head list_item;
 };
 
-
+#include "u_xpst.c"
 
 static struct list_head diag_dev_list;
-
-#include "u_xpst.c"
 
 static inline struct diag_context *func_to_diag(struct usb_function *f)
 {
@@ -863,7 +861,6 @@ int diag_function_add(struct usb_configuration *c, const char *name,
 	} else {
 		pr_err("[USB] %s: name: %s was not found\n",
 			__func__, name);
-		return -ENODEV;
 	}
 
 	list_add_tail(&dev->list_item, &diag_dev_list);

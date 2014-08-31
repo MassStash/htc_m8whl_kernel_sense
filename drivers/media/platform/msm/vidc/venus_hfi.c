@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -40,9 +40,7 @@
 #define SHARED_QSIZE 0x1000000
 
 static struct hal_device_data hal_ctxt;
-#ifdef REDUCE_KERNEL_ERROR_LOG
-static int kernel_log_Count =0;
-#endif
+
 static const u32 venus_qdss_entries[][2] = {
 	{0xFC307000, 0x1000},
 	{0xFC322000, 0x1000},
@@ -1540,6 +1538,9 @@ static int venus_hfi_core_init(void *device)
 
 	dev->intr_status = 0;
 	INIT_LIST_HEAD(&dev->sess_head);
+	mutex_init(&dev->read_lock);
+	mutex_init(&dev->write_lock);
+	mutex_init(&dev->session_lock);
 	venus_hfi_set_registers(dev);
 
 	if (!dev->hal_client) {
@@ -1624,26 +1625,16 @@ static int venus_hfi_core_release(void *device)
 	return 0;
 }
 
-static int venus_hfi_get_q_size(struct venus_hfi_device *dev,
-	unsigned int q_index)
+static int venus_hfi_is_cmd_pending(struct venus_hfi_device *dev)
 {
 	struct hfi_queue_header *queue;
 	struct vidc_iface_q_info *q_info;
 	u32 write_ptr, read_ptr;
 	u32 rc = 0;
-
-	if (q_index >= VIDC_IFACEQ_NUMQ) {
-		dprintk(VIDC_ERR, "Invalid q index: %d\n", q_index);
-		return -ENOENT;
-	}
-
-	q_info = &dev->iface_queues[q_index];
-	if (!q_info) {
-		dprintk(VIDC_ERR, "cannot read shared Q's\n");
-		return -ENOENT;
-	}
-
-	queue = (struct hfi_queue_header *)q_info->q_hdr;
+	q_info = &dev->iface_queues[VIDC_IFACEQ_CMDQ_IDX];
+	if (!q_info)
+		dprintk(VIDC_ERR, "cannot read shared Q's");
+	queue = (struct hfi_queue_header *) q_info->q_hdr;
 	if (!queue) {
 		dprintk(VIDC_ERR, "queue not present");
 		return -ENOENT;
@@ -1653,6 +1644,27 @@ static int venus_hfi_get_q_size(struct venus_hfi_device *dev,
 	rc = read_ptr - write_ptr;
 	return rc;
 }
+
+static int venus_hfi_is_msg_pending(struct venus_hfi_device *dev)
+{
+	struct hfi_queue_header *queue;
+	struct vidc_iface_q_info *q_info;
+	u32 write_ptr, read_ptr;
+	u32 rc = 0;
+	q_info = &dev->iface_queues[VIDC_IFACEQ_MSGQ_IDX];
+	if (!q_info)
+		dprintk(VIDC_ERR, "cannot read shared Q's");
+	queue = (struct hfi_queue_header *) q_info->q_hdr;
+	if (!queue) {
+		dprintk(VIDC_ERR, "queue not present");
+		return -ENOENT;
+	}
+	write_ptr = (u32)queue->qhdr_write_idx;
+	read_ptr = (u32)queue->qhdr_read_idx;
+	rc = read_ptr - write_ptr;
+	return rc;
+}
+
 
 static inline void venus_hfi_clk_gating_on(struct venus_hfi_device *device)
 {
@@ -1664,12 +1676,12 @@ static inline void venus_hfi_clk_gating_on(struct venus_hfi_device *device)
 		dprintk(VIDC_DBG, "Clocks are already disabled");
 		goto already_disabled;
 	}
-	if (!venus_hfi_get_q_size(device, VIDC_IFACEQ_MSGQ_IDX)) {
+	if(!venus_hfi_is_msg_pending(device)) {
 		venus_hfi_write_register(device,
 				VIDC_WRAPPER_INTR_MASK,
-				VIDC_WRAPPER_INTR_MASK_A2HVCODEC_BMSK |
-				VIDC_WRAPPER_INTR_MASK_A2HCPU_BMSK, 0);
+				VIDC_WRAPPER_INTR_MASK_A2HVCODEC_BMSK | VIDC_WRAPPER_INTR_MASK_A2HCPU_BMSK, 0);
 	}
+
 	venus_hfi_clk_disable(device);
 	if (!queue_delayed_work(device->venus_pm_workq, &venus_hfi_pm_work,
 			msecs_to_jiffies(msm_vidc_pwr_collapse_delay)))
@@ -2484,8 +2496,7 @@ static void venus_hfi_pm_hndlr(struct work_struct *work)
 	rc = wait_for_completion_timeout(&pc_prep_done,
 			msecs_to_jiffies(msm_vidc_hw_rsp_timeout));
 	if (!rc) {
-                dprintk(VIDC_ERR, "%s: Wait interrupted or timeout: %d\n",
-                        __func__, rc);
+		dprintk(VIDC_ERR, "Wait interrupted or timeout: %d", rc);
 		return;
 	}
 
@@ -2513,7 +2524,7 @@ static int venus_hfi_try_clk_gating(struct venus_hfi_device *device)
 	}
 	mutex_lock(&device->write_lock);
 	mutex_lock(&device->clk_pwr_lock);
-	rc = venus_hfi_get_q_size(device, VIDC_IFACEQ_CMDQ_IDX);
+	rc = venus_hfi_is_cmd_pending(device);
 	ctrl_status = venus_hfi_read_register(
 		device,
 		VIDC_CPU_CS_SCIACMDARG0);
@@ -2545,20 +2556,8 @@ static void venus_hfi_process_msg_event_notify(
 		vsfr = (struct hfi_sfr_struct *)
 				device->sfr.align_virtual_addr;
 		if (vsfr)
-		{
-#ifdef REDUCE_KERNEL_ERROR_LOG
-			if(kernel_log_Count<=10)
-			{
-				dprintk(VIDC_ERR, "SFR Message from FW : %s",
-				vsfr->rg_data);
-				kernel_log_Count++;
-			}
-#else
 			dprintk(VIDC_ERR, "SFR Message from FW : %s",
-			vsfr->rg_data);
-
-#endif
-		}
+				vsfr->rg_data);
 	}
 }
 static void venus_hfi_response_handler(struct venus_hfi_device *device)
@@ -3282,6 +3281,7 @@ static int venus_hfi_load_fw(void *dev)
 			__func__, device);
 		return -EINVAL;
 	}
+	mutex_init(&device->clk_pwr_lock);
 	device->clk_gating_level = VCODEC_CLK;
 	rc = venus_hfi_iommu_attach(device);
 	if (rc) {
@@ -3543,11 +3543,6 @@ static void *venus_hfi_add_device(u32 device_id,
 		goto error_createq_pm;
 	}
 
-	mutex_init(&hdevice->read_lock);
-	mutex_init(&hdevice->write_lock);
-	mutex_init(&hdevice->session_lock);
-	mutex_init(&hdevice->clk_pwr_lock);
-
 	if (hal_ctxt.dev_count == 0)
 		INIT_LIST_HEAD(&hal_ctxt.dev_head);
 
@@ -3667,9 +3662,7 @@ int venus_hfi_initialize(struct hfi_device *hdev, u32 device_id,
 		hfi_cmd_response_callback callback)
 {
 	int rc = 0;
-#ifdef REDUCE_KERNEL_ERROR_LOG
-	kernel_log_Count=0;
-#endif
+
 	if (!hdev || !res || !callback) {
 		dprintk(VIDC_ERR, "Invalid params: %p %p %p\n",
 			hdev, res, callback);

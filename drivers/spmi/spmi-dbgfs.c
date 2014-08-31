@@ -27,7 +27,6 @@
 #include <linux/of_device.h>
 #include <linux/debugfs.h>
 #endif
-#include <mach/devices_cmdline.h>
 
 
 #define ADDR_LEN	 6	
@@ -958,10 +957,10 @@ static int htc_vreg_ldo_set_voltage(struct _qpnp_vregs *qpnp_vregs, struct _vreg
 {
 	int ret, i;
 	uint8_t range_sel, voltage_sel;
-	int range_sel_flag, range_id = 0;
+	int range_id = 0;
 
 	
-	range_sel_flag = -1;
+	range_sel = -1;
 
 	
 	if (vreg->type == VREG_TYPE_PLDO) {
@@ -970,7 +969,6 @@ static int htc_vreg_ldo_set_voltage(struct _qpnp_vregs *qpnp_vregs, struct _vreg
 				&& ( val < pldo_ranges[i].max_uV)) {
 				range_sel = pldo_ranges[i].range_sel;
 				range_id = i;
-				range_sel_flag = 1;
 				break;
 			}
 		}
@@ -980,7 +978,6 @@ static int htc_vreg_ldo_set_voltage(struct _qpnp_vregs *qpnp_vregs, struct _vreg
 				&& ( val < nldo1_ranges[i].max_uV)) {
 				range_sel = nldo1_ranges[i].range_sel;
 				range_id = i;
-				range_sel_flag = 1;
 				break;
 			}
 		}
@@ -989,7 +986,7 @@ static int htc_vreg_ldo_set_voltage(struct _qpnp_vregs *qpnp_vregs, struct _vreg
 	}
 
 	
-	if (range_sel_flag<0) {
+	if (range_sel<0) {
 		pr_err("Can't set voltage due to not range can be seleted\n");
 		return -1;
 	}
@@ -1030,10 +1027,10 @@ static int htc_vreg_smps_set_voltage(struct _qpnp_vregs *qpnp_vregs, struct _vre
 {
 	int ret, i;
 	uint8_t range_sel, voltage_sel;
-	int range_sel_flag, range_id = 0;
+	int range_id = 0;
 
 	
-	range_sel_flag = -1;
+	range_sel = -1;
 
 	if (vreg->type == VREG_TYPE_HF_SMPS) {
 		for (i = 0; i < ARRAY_SIZE(smps_ranges); i++) {
@@ -1041,12 +1038,10 @@ static int htc_vreg_smps_set_voltage(struct _qpnp_vregs *qpnp_vregs, struct _vre
 				&& ( val < smps_ranges[i].max_uV)) {
 				range_sel = smps_ranges[i].range_sel;
 				range_id = i;
-				range_sel_flag = 1;
 				break;
 			}
 		}
 	} else if (vreg->type == VREG_TYPE_FT_SMPS) {
-#if 0
 		for (i = 0; i < ARRAY_SIZE(ftsmps_ranges); i++) {
 			if ((ftsmps_ranges[i].min_uV < val)
 				&& ( val < ftsmps_ranges[i].max_uV)) {
@@ -1055,28 +1050,12 @@ static int htc_vreg_smps_set_voltage(struct _qpnp_vregs *qpnp_vregs, struct _vre
 				break;
 			}
 		}
-#else
-		
-		ret = spmi_read_data(qpnp_vregs->ctrl, &range_sel, vreg->base_addr + qpnp_vregs->range_ctl_offset, 1);
-		if (ret) {
-			pr_err("SPMI read failed, err = %zu\n", ret);
-			return ret;
-		}
-		
-		for (i = 0; i < ARRAY_SIZE(ftsmps_ranges); i++) {
-			if (ftsmps_ranges[i].range_sel == range_sel) {
-				range_id = i;
-				range_sel_flag = 1;
-				break;
-			}
-		}
-#endif
 	} else {
 		
 	}
 
 	
-	if (range_sel_flag<0) {
+	if (range_sel<0) {
 		pr_err("Can't set voltage due to not range can be seleted\n");
 		return -1;
 	}
@@ -1296,28 +1275,12 @@ static int voltage_debug_get(void *data, u64 *val)
 DEFINE_SIMPLE_ATTRIBUTE(voltage_fops, voltage_debug_get,
 			voltage_debug_set, "%lld\n");
 
-
-static int htc_voltage_debugfs_init(void)
-{
-		static struct dentry *debugfs_voltages_base;
-		struct _vreg *vreg = NULL;
-		int i;
-
-		debugfs_voltages_base = debugfs_create_dir("htc_voltage", NULL);
-
-		for (i = 0; i < qpnp_vregs.total_vregs; i++) {
-			vreg = &qpnp_vregs.vregs[i];
-			if(!debugfs_create_file(vreg->name, S_IRUGO, debugfs_voltages_base,
-				vreg, &voltage_fops))
-				return -ENOMEM;
-		}
-
-        return 0;
-}
-
 static int htc_vreg_dump_debugfs_init(void)
 {
         static struct dentry *debugfs_vregs_base;
+		static struct dentry *debugfs_voltages_base;
+		int i;
+		struct _vreg *vreg = NULL;
 
         debugfs_vregs_base = debugfs_create_dir("htc_vreg", NULL);
 
@@ -1327,6 +1290,15 @@ static int htc_vreg_dump_debugfs_init(void)
         if (!debugfs_create_file("list_vregs", S_IRUGO, debugfs_vregs_base,
                                 NULL, &list_vregs_fops))
                 return -ENOMEM;
+
+		debugfs_voltages_base = debugfs_create_dir("htc_voltage", NULL);
+
+		for (i = 0; i < qpnp_vregs.total_vregs; i++) {
+			vreg = &qpnp_vregs.vregs[i];
+			if(!debugfs_create_file(vreg->name, S_IRUGO, debugfs_voltages_base,
+				vreg, &voltage_fops))
+				return -ENOMEM;
+		}
 
         return 0;
 }
@@ -1438,9 +1410,6 @@ static int __devinit htc_vreg_dump_probe(struct platform_device *pdev)
 		pr_err("%s: Fail to get pull down bit offset\n", __func__);
 
 	htc_vreg_dump_debugfs_init();
-	
-	if (get_tamper_sf() == 0 && board_is_super_cid())
-		htc_voltage_debugfs_init();
 	return 0;
 }
 

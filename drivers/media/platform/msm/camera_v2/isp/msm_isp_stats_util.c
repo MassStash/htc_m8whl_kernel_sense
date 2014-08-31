@@ -121,14 +121,6 @@ void msm_isp_process_stats_irq(struct vfe_device *vfe_dev,
 			stats_event->stats_buf_idxs[stream_info->stats_type] =
 				done_buf->buf_idx;
 			if (!stream_info->composite_flag) {
-				
-				if (vfe_dev->pdev != NULL) {
-					if (vfe_dev->pdev->id == 0 && ((buf_event.frame_id <= 10) || (buf_event.frame_id % 200 == 0))) {
-						pr_info("%s: stats event frame id: %u, stats_mask: 0x%x\n",
-							__func__, buf_event.frame_id, 1 << stream_info->stats_type);
-					}
-				}
-				
 				stats_event->stats_mask =
 					1 << stream_info->stats_type;
 				ISP_DBG("%s: stats event frame id: 0x%x\n",
@@ -144,14 +136,6 @@ void msm_isp_process_stats_irq(struct vfe_device *vfe_dev,
 	}
 
 	if (comp_stats_type_mask) {
-		
-		if (vfe_dev->pdev != NULL) {
-			if (vfe_dev->pdev->id == 0 && ((buf_event.frame_id <= 10) || (buf_event.frame_id % 200 == 0))) {
-				pr_info("%s: composite stats event frame id: %u, stats_mask: 0x%x\n",
-					__func__, buf_event.frame_id, comp_stats_type_mask);
-			}
-		}
-		
 		ISP_DBG("%s: composite stats event frame id: 0x%x mask: 0x%x\n",
 			__func__, buf_event.frame_id, comp_stats_type_mask);
 		stats_event->stats_mask = comp_stats_type_mask;

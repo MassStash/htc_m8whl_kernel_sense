@@ -47,7 +47,6 @@ static char *tmp;
 static struct dsi_cmd_desc debug_cmd = {
 	{DTYPE_DCS_LWRITE, 1, 0, 0, 1, 1}, dcs_cmds
 };
-
 static ssize_t dsi_cmd_write(
 	struct file *file,
 	const char __user *buff,
@@ -57,7 +56,6 @@ static ssize_t dsi_cmd_write(
 	u32 type, value;
 	int cnt, i;
 	struct dcs_cmd_req cmdreq;
-	char rbuf[4];
 
 	if (count >= sizeof(debug_buf) || count < MIN_COUNT)
 		return -EFAULT;
@@ -82,49 +80,37 @@ static ssize_t dsi_cmd_write(
 		debug_cmd.dchdr.dtype = DTYPE_DCS_LWRITE;
 	else if (type == DTYPE_GEN_LWRITE)
 		debug_cmd.dchdr.dtype = DTYPE_GEN_LWRITE;
-	else if (type == DTYPE_DCS_READ)
-		debug_cmd.dchdr.dtype = DTYPE_DCS_READ;
 	else
 		return -EFAULT;
 
-	//PR_DISP_INFO("%s: cnt=%d, type=0x%x\n", __func__, cnt, type);
+	PR_DISP_INFO("%s: cnt=%d, type=0x%x\n", __func__, cnt, type);
 
 	
 	for (i = 0; i < cnt; i++) {
 		if (i >= DCS_MAX_CNT) {
-			//PR_DISP_INFO("%s: DCS command count over DCS_MAX_CNT, Skip these commands.\n", __func__);
+			PR_DISP_INFO("%s: DCS command count over DCS_MAX_CNT, Skip these commands.\n", __func__);
 			break;
 		}
 		tmp = debug_buf + (3 * (i + 1));
 		sscanf(tmp, "%x", &value);
 		dcs_cmds[i] = value;
-		//PR_DISP_INFO("%s: value=0x%x\n", __func__, dcs_cmds[i]);
+		PR_DISP_INFO("%s: value=0x%x\n", __func__, dcs_cmds[i]);
 	}
 
 	memset(&cmdreq, 0, sizeof(cmdreq));
+	cmdreq.cmds = &debug_cmd;
+	cmdreq.cmds_cnt = 1;
+	cmdreq.flags = CMD_REQ_COMMIT | CMD_CLK_CTRL;
+	cmdreq.rlen = 0;
+	cmdreq.cb = NULL;
 
-	if (type == DTYPE_DCS_READ){
-		cmdreq.cmds = &debug_cmd;
-		cmdreq.cmds_cnt = 1;
-		cmdreq.flags = CMD_REQ_COMMIT | CMD_REQ_RX;
-		cmdreq.rlen = 4;
-		cmdreq.rbuf = rbuf;
-		mdss_dsi_read_commit(ctrl_instance, &cmdreq);
-		PR_DISP_INFO("%s: Read 0x%x = 0x%x, count=%d\n", __func__, dcs_cmds[0], rbuf[0], count);
-	} else {
-		cmdreq.cmds = &debug_cmd;
-		cmdreq.cmds_cnt = 1;
-		cmdreq.flags = CMD_REQ_COMMIT | CMD_CLK_CTRL;
-		cmdreq.rlen = 0;
-		cmdreq.cb = NULL;
-		mdss_dsi_cmdlist_put(ctrl_instance, &cmdreq);
-		//PR_DISP_INFO("%s %d\n", __func__, count);
-	}
+	mdss_dsi_cmdlist_put(ctrl_instance, &cmdreq);
+	PR_DISP_INFO("%s %d\n", __func__, count);
 	return count;
 }
 
 static const struct file_operations dsi_cmd_fops = {
-	.write = dsi_cmd_write,
+        .write = dsi_cmd_write,
 };
 
 void htc_debugfs_init(struct msm_fb_data_type *mfd)
@@ -281,7 +267,7 @@ void htc_set_cabc(struct msm_fb_data_type *mfd)
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 					panel_data);
 
-	if (htc_attr_status[CABC_INDEX].req_value > 2)
+	if ((htc_attr_status[CABC_INDEX].req_value > 2) || (htc_attr_status[CABC_INDEX].req_value < 0))
 		return;
 
 	if (!ctrl_pdata->cabc_off_cmds.cmds)
@@ -319,7 +305,7 @@ void htc_set_cabc(struct msm_fb_data_type *mfd)
 	mdss_dsi_cmdlist_put(ctrl_pdata, &cmdreq);
 
 	htc_attr_status[CABC_INDEX].cur_value = htc_attr_status[CABC_INDEX].req_value;
-	//PR_DISP_INFO("%s cabc mode=%d\n", __func__, htc_attr_status[CABC_INDEX].cur_value);
+	PR_DISP_INFO("%s cabc mode=%d\n", __func__, htc_attr_status[CABC_INDEX].cur_value);
 	return;
 }
 static void dimming_do_work(struct work_struct *work)
@@ -343,7 +329,7 @@ static void dimming_do_work(struct work_struct *work)
 
 	mdss_dsi_cmdlist_put(ctrl_pdata, &cmdreq);
 
-	//PR_DISP_INFO("dimming on\n");
+	PR_DISP_INFO("dimming on\n");
 }
 
 void htc_dimming_on(struct msm_fb_data_type *mfd)
@@ -402,5 +388,5 @@ void htc_set_pp_pa(struct mdss_mdp_ctl *ctl)
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 
 	htc_mdss_pp_pa[HUE_INDEX].cur_value = htc_mdss_pp_pa[HUE_INDEX].req_value;
-	//PR_DISP_INFO("%s pp_hue = 0x%x\n", __func__, htc_mdss_pp_pa[HUE_INDEX].req_value);
+	PR_DISP_INFO("%s pp_hue = 0x%x\n", __func__, htc_mdss_pp_pa[HUE_INDEX].req_value);
 }

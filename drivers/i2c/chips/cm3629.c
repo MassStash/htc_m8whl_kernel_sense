@@ -83,7 +83,7 @@ static uint32_t correction_table[10] = {0};
 static uint32_t adctable[10] = {0};
 static int record_adc[6] = {0};
 static int avg_min_adc = 0;
-static int p_status = 9;
+static int p_status;
 static int p_irq_status;
 static int prev_correction;
 static uint8_t ps1_canc_set;
@@ -825,10 +825,7 @@ static void sensor_irq_do_work(struct work_struct *work)
 			report_psensor_input_event(lpi, 2);
 			p_irq_status = 1;
 		}
-		if (lpi->ps_pocket_mode | p_irq_status)
-			p_status = 0;
-		else
-			p_status = 1;
+		p_status = (lpi->ps_pocket_mode | p_irq_status);
 	}
 
 	if (((add & CM3629_ALS_IF_L) == CM3629_ALS_IF_L) ||
@@ -842,7 +839,7 @@ static void sensor_irq_do_work(struct work_struct *work)
 	}
 
 	if (!(add & 0x3F)) { 
-		if (inter_error < 30) {
+		if (inter_error < 10) {
 			D("[PS][cm3629 warning]%s unkown interrupt: 0x%x!\n",
 			__func__, add);
 			inter_error++ ;
@@ -940,10 +937,7 @@ static void polling_do_work(struct work_struct *w)
 	lpi->j_end = jiffies;
 	if (time_after(lpi->j_end, (lpi->j_start + 3* HZ))){
 		lpi->ps_pocket_mode = 0;
-		if (lpi->ps_pocket_mode | p_irq_status)
-			p_status = 0;
-		else
-			p_status = 1;
+		p_status = (lpi->ps_pocket_mode | p_irq_status);
 	}
 	if (lpi->ps_enable == 0)
 		return;
@@ -1118,7 +1112,7 @@ static int psensor_enable(struct cm3629_info *lpi)
 	int index = 0;
 #endif
 	mutex_lock(&ps_enable_mutex);
-	p_status = 1;
+
 	D("[PS][cm3629] %s lpi->dynamical_threshold :%d,lpi->mfg_mode:%d",
 				__func__, lpi->dynamical_threshold, lpi->mfg_mode);
 
@@ -1197,7 +1191,7 @@ static int psensor_enable(struct cm3629_info *lpi)
 			lpi->ps_base_index = lpi->mapping_size - 1;
 			if (ret == 0 && lpi->mapping_table != NULL ){
 				queue_delayed_work(lpi->lp_wq, &polling_work,
-					msecs_to_jiffies(POLLING_DELAY));
+					msecs_to_jiffies(1));
 			}
 	}
 	mutex_unlock(&ps_enable_mutex);
@@ -1272,7 +1266,7 @@ static int psensor_disable(struct cm3629_info *lpi)
 			_cm3629_I2C_Write2(lpi->cm3629_slave_address, PS_1_thd, cmd, 3);
 		}
 	}
-	p_status = 9;
+	p_status = 0;
 	mutex_unlock(&ps_enable_mutex);
 	D("[PS][cm3629] %s --%d\n", __func__, lpi->ps_enable);
 	return ret;
@@ -1420,13 +1414,8 @@ static void psensor_set_kvalue(struct cm3629_info *lpi)
 	
 	if (lpi->ps_kparam1 >> 16 == PS_CALIBRATED) {
 		psensor_cali = 1;
-
 		lpi->inte_ps1_canc = (uint8_t) (lpi->ps_kparam2 & 0xFF);
-		if (lpi->ps_kparam2 >> 16 == 0xFFFF)
-			lpi->inte_ps2_canc = (uint8_t) ((lpi->ps_kparam2 >> 8) & 0xFF);
-		else
-			lpi->inte_ps2_canc = (uint8_t) ((lpi->ps_kparam2 >> 16) & 0xFF);
-
+		lpi->inte_ps2_canc = (uint8_t) ((lpi->ps_kparam2 >> 8) & 0xFF);
 		if (lpi->ps_calibration_rule == 3) {
 
 			if ((lpi->ps_conf1_val & CM3629_PS_IT_1_6T) == CM3629_PS_IT_1_6T) {
@@ -1818,13 +1807,9 @@ static ssize_t ps_kadc_store(struct device *dev,
 
 		enable_ps_interrupt(ps_conf);
 	}
+
 	ps1_canc_set = lpi->inte_ps1_canc = (param2 & 0xFF);
-
-	if (param2 >> 16 == 0xFFFF)
-		ps2_canc_set = lpi->inte_ps2_canc = (uint8_t) ((param2 >> 8) & 0xFF);
-	else
-		ps2_canc_set = lpi->inte_ps2_canc = (uint8_t) ((param2 >> 16) & 0xFF);
-
+	ps2_canc_set = lpi->inte_ps2_canc = ((param2 >> 8) & 0xFF);
 	psensor_intelligent_cancel_cmd(lpi);
 
 #ifdef CONFIG_PSENSOR_KTHRESHOLD
@@ -2140,17 +2125,18 @@ static ssize_t ls_enable_store(struct device *dev,
 	ls_auto = -1;
 	sscanf(buf, "%d", &ls_auto);
 
-	if (ls_auto != 0 && ls_auto != 1 && ls_auto != 147 && ls_auto != 148 && ls_auto != 149) {
+	if (ls_auto != 0 && ls_auto != 1 && ls_auto != 147 && ls_auto != 148) {
 		return -EINVAL;
 	}
 	if (ls_auto) {
+		lpi->ls_calibrate = (ls_auto == 147) ? 1 : 0;
+		lpi->ws_calibrate = (ls_auto == 148) ? 1 : 0;
 		ret = lightsensor_enable(lpi);
 	} else {
+		lpi->ls_calibrate = 0;
+		lpi->ws_calibrate = 0;
 		ret = lightsensor_disable(lpi);
 	}
-	lpi->ls_calibrate = (ls_auto == 147) ? 1 : 0;
-	lpi->ws_calibrate = (ls_auto == 148) ? 1 : 0;
-
 
 	D("[LS][cm3629] %s: lpi->als_enable = %d, lpi->ls_calibrate = %d, lpi->ws_calibrate = %d, ls_auto=%d\n",
 		__func__, lpi->als_enable, lpi->ls_calibrate, lpi->ws_calibrate, ls_auto);
@@ -2373,13 +2359,6 @@ static ssize_t ps_fixed_thd_add_store(struct device *dev,
 	return count;
 }
 static DEVICE_ATTR(ps_fixed_thd_add, 0664, ps_fixed_thd_add_show, ps_fixed_thd_add_store);
-
-static ssize_t p_status_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
-{
-	return sprintf(buf,"%d\n",p_status);
-}
-static DEVICE_ATTR(p_status, 0444, p_status_show, NULL);
 
 static ssize_t phone_status_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
@@ -2997,6 +2976,7 @@ static int __devinit cm3629_probe(struct i2c_client *client,
 
 	D("[PS][cm3629] %s\n", __func__);
 
+
 	lpi = kzalloc(sizeof(struct cm3629_info), GFP_KERNEL);
 	if (!lpi)
 		return -ENOMEM;
@@ -3241,9 +3221,6 @@ static int __devinit cm3629_probe(struct i2c_client *client,
 	if (ret)
 		goto err_create_ps_device;
 
-	ret = device_create_file(lpi->ps_dev, &dev_attr_p_status);
-	if (ret)
-		goto err_create_ps_device;
 #ifdef CONFIG_FB
 	lpi->cm3629_fb_wq = create_singlethread_workqueue("CM3629_FB");
 	if (!lpi->cm3629_fb_wq) {

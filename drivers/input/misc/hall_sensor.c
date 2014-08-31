@@ -35,9 +35,6 @@
 
 #define DRIVER_NAME "HL"
 
-bool disable_cover = 0;
-module_param(disable_cover, bool, 0644);
-
 struct ak_hall_data {
 	struct input_dev *input_dev;
 	uint32_t gpio_att:16;
@@ -118,8 +115,6 @@ static ssize_t write_att(struct device *dev, struct device_attribute *attr,
 			disable_irq_nosync(gpio_to_irq(hl->gpio_att));
 			disable_irq_nosync(gpio_to_irq(hl->gpio_att_s));
 			hl->hall_enable = 0;
-			irq_set_irq_wake(gpio_to_irq(hl->gpio_att_s), 0);
-			irq_set_irq_wake(gpio_to_irq(hl->gpio_att), 0);
 		}
 		else if(hl->hall_enable == 0 && buf[0] == '1')
 		{
@@ -129,8 +124,6 @@ static ssize_t write_att(struct device *dev, struct device_attribute *attr,
 			enable_irq(gpio_to_irq(hl->gpio_att));
 			enable_irq(gpio_to_irq(hl->gpio_att_s));
 			hl->hall_enable = 1;
-			irq_set_irq_wake(gpio_to_irq(hl->gpio_att_s), 1);
-			irq_set_irq_wake(gpio_to_irq(hl->gpio_att), 1);
 		}
 		else
 			HL_LOG("Invalid paramater(0:Disable 1:Enable) hall enable = %d\n", hl->hall_enable);
@@ -236,9 +229,6 @@ static int hall_input_register(struct ak_hall_data *hl)
 static void report_cover_event(int pole, int irq, struct ak_hall_data *hl)
 {
 	uint8_t val_n = 0, val_s = 0;
-
-	if (disable_cover)
-		return;
 
 	if(pole == 0) 
 	{

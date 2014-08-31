@@ -26,6 +26,12 @@ static struct msm_sensor_power_setting s5k6a1gx_power_setting[] = {
 	},
 	{
 		.seq_type = SENSOR_VREG_NCP6924,
+		.seq_val = NCP6924_VANA,
+		.config_val = 1,
+		.delay = 1,
+	},
+	{
+		.seq_type = SENSOR_VREG_NCP6924,
 		.seq_val = NCP6924_VIO,
 		.config_val = 1,
 		.delay = 1,
@@ -33,12 +39,6 @@ static struct msm_sensor_power_setting s5k6a1gx_power_setting[] = {
 	{
 		.seq_type = SENSOR_VREG_NCP6924,
 		.seq_val = NCP6924_VDIG,
-		.config_val = 1,
-		.delay = 1,
-	},
-	{
-		.seq_type = SENSOR_VREG_NCP6924,
-		.seq_val = NCP6924_VANA,
 		.config_val = 1,
 		.delay = 1,
 	},

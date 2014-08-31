@@ -353,7 +353,6 @@ static int32_t msm_sensor_get_dt_vreg_data(struct device_node *of_node,
 			sensordata->cam_vreg[i].op_mode);
 	}
 
-#ifndef CONFIG_MACH_DUMMY
 	rc = of_property_read_u32_array(of_node, "qcom,cam-vreg-gpios-index",
 		vreg_array, count);
 	if (rc < 0) {
@@ -365,7 +364,6 @@ static int32_t msm_sensor_get_dt_vreg_data(struct device_node *of_node,
 		CDBG("%s cam_vreg[%d].gpios_index = %d\n", __func__, i,
 			sensordata->cam_vreg[i].gpios_index);
 	}
-#endif
 
 	kfree(vreg_array);
 	return rc;
@@ -487,8 +485,7 @@ int32_t msm_sensor_get_dt_gpio_req_tbl(struct device_node *of_node,
 		if (val_array[i] >= gpio_array_size) {
 			pr_err("%s gpio req tbl index %d invalid\n",
 				__func__, val_array[i]);
-			rc = -EINVAL;
-			goto ERROR2;
+			return -EINVAL;
 		}
 		gconf->cam_gpio_req_tbl[i].gpio = gpio_array[val_array[i]];
 		CDBG("%s cam_gpio_req_tbl[%d].gpio = %d\n", __func__, i,
@@ -572,8 +569,7 @@ int32_t msm_sensor_get_dt_gpio_set_tbl(struct device_node *of_node,
 		if (val_array[i] >= gpio_array_size) {
 			pr_err("%s gpio set tbl index %d invalid\n",
 				__func__, val_array[i]);
-			rc = -EINVAL;
-			goto ERROR2;
+			return -EINVAL;
 		}
 		gconf->cam_gpio_set_tbl[i].gpio = gpio_array[val_array[i]];
 		CDBG("%s cam_gpio_set_tbl[%d].gpio = %d\n", __func__, i,
@@ -1219,12 +1215,6 @@ int32_t msm_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 			pr_debug("%s:%d gpio set val %d\n", __func__, __LINE__,
 				data->gpio_conf->gpio_num_info->gpio_num
 				[power_setting->seq_val]);
-			 
-			if ( data->gpio_conf->gpio_num_info->gpio_num[power_setting->seq_val] == 429)
-			{
-				gpio_429_index ++;
-			}
-			
 			gpio_set_value_cansleep(
 				data->gpio_conf->gpio_num_info->gpio_num
 				[power_setting->seq_val],
@@ -1337,24 +1327,7 @@ power_up_failed:
 				0);
 			break;
 		case SENSOR_GPIO:
-			
-			if (data->gpio_conf->gpio_num_info == NULL) {
-				pr_err("%s data->gpio_conf->gpio_num_info is NULL\n", __func__);
-				break;
-			}
-			
-
 		
-			 
-			if (data->gpio_conf->gpio_num_info->gpio_num[power_setting->seq_val] == 429)
-			{
-				gpio_429_index --;
-				if (gpio_429_index != 0)
-				{
-					break;
-				}
-			}
-			
 			if(power_setting->config_val == GPIO_OUT_HIGH)
 				gpio_set_value_cansleep(
 					data->gpio_conf->gpio_num_info->gpio_num
@@ -1482,16 +1455,6 @@ int32_t msm_sensor_power_down(struct msm_sensor_ctrl_t *s_ctrl)
 				continue;
 			}
 		
-			 
-			if (data->gpio_conf->gpio_num_info->gpio_num[power_setting->seq_val] == 429)
-			{
-				gpio_429_index --;
-				if (gpio_429_index != 0)
-				{
-					break;
-				}
-			}
-			
 			if(power_setting->config_val == GPIO_OUT_HIGH)
 				gpio_set_value_cansleep(
 					data->gpio_conf->gpio_num_info->gpio_num
@@ -2328,7 +2291,7 @@ int32_t msm_sensor_platform_probe(struct platform_device *pdev, void *data)
 		return rc;
 	}
 
-	pr_info("%s %s probe succeeded\n", __func__,
+	CDBG("%s %s probe succeeded\n", __func__,
 		s_ctrl->sensordata->sensor_name);
 	v4l2_subdev_init(&s_ctrl->msm_sd.sd,
 		s_ctrl->sensor_v4l2_subdev_ops);

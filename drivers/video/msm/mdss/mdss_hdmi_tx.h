@@ -36,7 +36,6 @@ struct hdmi_tx_platform_data {
 	struct dss_io_data io[HDMI_TX_MAX_IO];
 	struct dss_module_power power_data[HDMI_TX_MAX_PM];
 	u16 ddc_ref_clk;
-	bool drm_workaround;
 };
 
 struct hdmi_audio {
@@ -93,5 +92,4 @@ struct hdmi_tx_ctrl {
 	void *feature_data[HDMI_TX_FEAT_MAX];
 };
 
-int hdmi_hpd_status(void);
 #endif 

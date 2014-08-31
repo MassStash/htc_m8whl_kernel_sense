@@ -2859,7 +2859,6 @@ static struct pll_clk a7sspll = {
 		.main_output_mask = BIT(0),
 	},
 	.base = &virt_bases[APCS_PLL_BASE],
-	.rcg_debug_base = &virt_bases[APCS_BASE],
 	.c = {
 		.parent = &xo_a_clk.c,
 		.dbg_name = "a7sspll",
@@ -3133,7 +3132,7 @@ static struct clk_lookup msm_clocks_8226[] = {
 	CLK_LOOKUP("iface_clk",   gcc_mss_cfg_ahb_clk.c, "fc880000.qcom,mss"),
 	CLK_LOOKUP("mem_clk",    gcc_boot_rom_ahb_clk.c, "fc880000.qcom,mss"),
 	
-	CLK_LOOKUP("ref_clk",            cxo_d1_a_pin.c, "2-000e"),
+	CLK_LOOKUP("ref_clk",            cxo_d1_pin.c, "2-000e"),
 	
 	CLK_LOOKUP("xo", cxo_pil_pronto_clk.c, "fb21b000.qcom,pronto"),
 

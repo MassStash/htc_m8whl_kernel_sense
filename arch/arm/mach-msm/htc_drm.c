@@ -1049,8 +1049,8 @@ static long htcdrm_gdrive_ioctl(struct file *file, unsigned int command, unsigne
 					PERR("copy_to_user error (gdrive voucher)");
 					ret = -EFAULT;
 				}
+				kfree(out_buf);
 			}
-			kfree(out_buf);
 			break;
 		case HTC_GDRIVE_CREATE_VOUCHER_SIGNATURE:
 			PDEBUG("%s entry(%d)", __func__, __LINE__);
@@ -1064,7 +1064,6 @@ static long htcdrm_gdrive_ioctl(struct file *file, unsigned int command, unsigne
 			}
 			if ((out_buf = kmalloc(hmsg.resp_len, GFP_KERNEL)) == NULL) {
 				PERR("Alloc memory fail");
-				kfree(in_buf);
 				return -ENOMEM;
 			}
 			if (copy_from_user(in_buf, (void __user *)hmsg.req_buf, hmsg.req_len)) {

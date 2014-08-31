@@ -1104,7 +1104,3 @@ config RMNET_SDIO_SMD_DATA_CHANNEL
 	  Data SMD channel for transferring network data
 
 endif # USB_GADGET
-
-
-config HTC_USB_DEBUG_FLAG
-	bool "HTC USB debug flag for WDT issue"

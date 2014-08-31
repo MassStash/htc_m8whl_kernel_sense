@@ -228,8 +228,7 @@ void __blk_run_queue(struct request_queue *q)
 	if (!q->notified_urgent &&
 		q->elevator->type->ops.elevator_is_urgent_fn &&
 		q->urgent_request_fn &&
-		q->elevator->type->ops.elevator_is_urgent_fn(q) &&
-		list_empty(&q->flush_data_in_flight)) {
+		q->elevator->type->ops.elevator_is_urgent_fn(q)) {
 		q->notified_urgent = true;
 		q->urgent_request_fn(q);
 	} else
@@ -1172,9 +1171,9 @@ generic_make_request_checks(struct bio *bio)
 	might_sleep();
 
 #ifdef CONFIG_MMC_MUST_PREVENT_WP_VIOLATION
-	sprintf(wp_ptn, "mmcblk0p%d", get_partition_num_by_name("xxxxxx"));
+	sprintf(wp_ptn, "mmcblk0p%d", get_partition_num_by_name("system"));
 	if (!strcmp(bdevname(bio->bi_bdev, b), wp_ptn) && !board_mfg_mode() &&
-			(get_tamper_sf() == 1) && (get_atsdebug() != 1) && (bio->bi_rw & WRITE)) {
+			(get_tamper_sf() == 1) && (bio->bi_rw & WRITE)) {
 		pr_info("blk-core: Attempt to write protected partition %s block %Lu \n",
 				bdevname(bio->bi_bdev, b), (unsigned long long)bio->bi_sector);
 		err = 0;

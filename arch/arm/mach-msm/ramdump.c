@@ -264,7 +264,6 @@ static int _do_ramdump(void *handle, struct ramdump_segment *segments,
 		return -EPIPE;
 	}
 
-	pr_info("Ramdump(%s)\n", rd_dev->name);
 	for (i = 0; i < nsegments; i++)
 		segments[i].size = PAGE_ALIGN(segments[i].size);
 

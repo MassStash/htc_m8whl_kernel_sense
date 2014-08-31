@@ -52,8 +52,10 @@ enum KSM_RUN_STATE {
 	KRS_RUN,
 	KRS_SUSPEND,
 	KRS_RESUME,
+#if defined(CONFIG_FB)
+	KRS_SLEEP,
+#endif
 };
-static int ksm_sleep = 0;
 #endif
 
 struct mm_slot {
@@ -112,6 +114,12 @@ static struct ksm_scan ksm_scan = {
 static struct kmem_cache *rmap_item_cache;
 static struct kmem_cache *stable_node_cache;
 static struct kmem_cache *mm_slot_cache;
+
+#ifdef CONFIG_KSM_HTC_POLICY
+#if defined(CONFIG_FB)
+static enum KSM_RUN_STATE ksm_run_status_before_suspend = KRS_RUN;
+#endif
+#endif
 
 static unsigned long ksm_pages_shared;
 
@@ -1108,7 +1116,7 @@ static int ksmd_should_run(void)
 {
 	int ret = (ksm_run & KSM_RUN_MERGE) && !list_empty(&ksm_mm_head.mm_list);
 #ifdef CONFIG_KSM_HTC_POLICY
-	ret = (ksm_enable_smart_scan) ? (ret && !ksm_sleep && ((ksm_run_state == KRS_RUN) || (ksm_run_state == KRS_RESUME))) : (ret);
+	ret = (ksm_enable_smart_scan) ? (ret && ((ksm_run_state == KRS_RUN) || (ksm_run_state == KRS_RESUME))) : (ret);
 #endif
 	return ret;
 }
@@ -1186,14 +1194,22 @@ static void ksm_resume_check(unsigned long added_bytes)
 
 static void ksm_early_suspend(void)
 {
-	printk(KERN_INFO "ksm: early suspend, current status %d\n", ksm_run_state);
-	ksm_sleep = 1;
+	printk(KERN_INFO "ksm: early suspend, store status %d\n", ksm_run_state);
+
+	mutex_lock(&ksm_thread_mutex);
+	ksm_run_status_before_suspend = ksm_run_state;
+	ksm_run_state = KRS_SLEEP;
+	mutex_unlock(&ksm_thread_mutex);
 }
 
 static void ksm_late_resume(void)
 {
-	printk(KERN_INFO "ksm: late resume, current status %d.\n", ksm_run_state);
-	ksm_sleep = 0;
+	printk(KERN_INFO "ksm: late resume, restore status %d.\n", ksm_run_status_before_suspend);
+
+	mutex_lock(&ksm_thread_mutex);
+	ksm_run_state = ksm_run_status_before_suspend;
+	mutex_unlock(&ksm_thread_mutex);
+
 	wake_up_interruptible(&ksm_thread_wait);
 }
 
@@ -1637,18 +1653,22 @@ static ssize_t enable_smart_scan_store(struct kobject *kobj,
 		switch (ksm_run_state) {
 			case KRS_SUSPEND:
 				ksm_resume_count++;
+				wake_up_interruptible(&ksm_thread_wait);
 				break;
 
 			case KRS_RESUME:
 				break;
 
+#if defined(CONFIG_FB)
+			case KRS_SLEEP:
+				ksm_run_status_before_suspend = KRS_RUN;
+				wake_up_interruptible(&ksm_thread_wait);
+				break;
+#endif
+
 			default:
 				break;
 		}
-
-		if (ksm_sleep || ksm_run_state == KRS_SUSPEND)
-			wake_up_interruptible(&ksm_thread_wait);
-
 		ksm_run_state = KRS_RUN;
 	}
 

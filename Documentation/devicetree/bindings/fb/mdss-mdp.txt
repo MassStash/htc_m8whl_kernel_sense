@@ -146,9 +146,6 @@ Optional properties:
 				total numbers of MMBs per pipe while values, if
 				any, following first one denotes indexes of MMBs
 				to that RGB pipe.
-- qcom,mdss-rotator-ot-limit:	Variable to change the rotator ot value dynamically.
-				This value can be tuned to match performance
-				requirements.
 
 - htc,fbmem-heap-remapping: A boolean property that indicates ION fbmem heap
                             was reserved and can be used for remapping by fb
@@ -212,7 +209,6 @@ Example:
 						<2 6 7>;
 		qcom,mdss-smp-data = <22 4096>;
 		qcom,mdss-rot-block-size = <64>;
-		qcom,mdss-rotator-ot-limit = <2>;
 		qcom,mdss-smp-mb-per-pipe = <2>;
 		qcom,mdss-pref-prim-intf = "dsi";
 		qcom,mdss-has-bwc;

@@ -264,7 +264,6 @@ void mempool_free_pages(void *element, void *pool_data)
 	sub_meminfo_total_pages_on(NR_MEMPOOL_ALLOC_PAGES, 1 << order,
 			element && virt_addr_valid((void *)element));
 
-	if (element)
-	    __free_pages(element, order);
+	__free_pages(element, order);
 }
 EXPORT_SYMBOL(mempool_free_pages);

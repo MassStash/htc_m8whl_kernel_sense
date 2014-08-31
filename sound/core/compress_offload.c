@@ -876,7 +876,7 @@ static int snd_compress_dev_register(struct snd_device *device)
 		return -EBADFD;
 	compr = device->device_data;
 
-	snprintf(str, sizeof(str),"comprC%iD%i", compr->card->number, compr->device);
+	sprintf(str, "comprC%iD%i", compr->card->number, compr->device);
 	pr_debug("reg %s for device %s, direction %d\n", str, compr->name,
 			compr->direction);
 	

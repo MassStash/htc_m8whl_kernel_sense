@@ -376,7 +376,6 @@ static int __devinit pil_mss_loadable_init(struct modem_data *drv,
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						    "rmb_base");
 		q6->rmb_base = devm_request_and_ioremap(&pdev->dev, res);
-		q6->rmb_base_phys = (phys_addr_t*)res->start;
 		if (!q6->rmb_base)
 			return -ENOMEM;
 		mba->rmb_base = q6->rmb_base;

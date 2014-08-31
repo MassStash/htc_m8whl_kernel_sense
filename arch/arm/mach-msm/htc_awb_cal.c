@@ -28,7 +28,7 @@ GNU General Public License for more details.
 
 
 #define AWB_CAL_MAX_SIZE	0x4000U     
-#define DUAL_CAL_SIZE 4095
+#define DUAL_CAL_SIZE 3342
 
 #define CALIBRATION_DATA_PATH "/calibration_data"
 #define CAM_AWB_CAL_DATA "cam_awb"

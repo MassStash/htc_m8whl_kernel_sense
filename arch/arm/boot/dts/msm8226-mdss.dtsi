@@ -38,7 +38,6 @@
 		qcom,mdss-wb-off = <0x00011100 0x00013100>;
 		qcom,mdss-intf-off = <0x00000000 0x00021300>;
 		qcom,mdss-rot-block-size = <64>;
-		qcom,mdss-rotator-ot-limit = <2>;
 		qcom,mdss-smp-mb-per-pipe = <4>;
 		vdd-cx-supply = <&pm8226_s1_corner>;
 
@@ -51,7 +50,9 @@
 		mdss_fb0: qcom,mdss_fb_primary {
 			cell-index = <0>;
 			compatible = "qcom,mdss-fb";
-			htc,fbmem-heap-remapping;
+			qcom,memory-reservation-type = "EBI1";
+			qcom,memory-reservation-size = <0x800000>;
+			qcom,memblock-reserve = <0x03200000 0xFA0000>;
 		};
 
 		mdss_fb1: qcom,mdss_fb_wfd {

@@ -39,7 +39,6 @@
 #include "wcd9xxx-resmgr.h"
 #include "wcd9xxx-common.h"
 
-#include <mach/htc_acoustic_alsa.h>
 #undef pr_info
 #undef pr_err
 #define pr_info(fmt, ...) pr_aud_info(fmt, ##__VA_ARGS__)
@@ -454,7 +453,6 @@ struct taiko_priv {
 
 	
 	struct htc_ramp_work audio_vol_ramp_work;
-	struct mutex ldoh_lock;
 
 	int (*machine_codec_event_cb)(struct snd_soc_codec *codec,
 			enum wcd9xxx_codec_event);
@@ -541,62 +539,6 @@ static unsigned short tx_digital_gain_reg[] = {
 	TAIKO_A_CDC_TX9_VOL_CTL_GAIN,
 	TAIKO_A_CDC_TX10_VOL_CTL_GAIN,
 };
-
-static int taiko_control_mic_detect_reg(void *private_data, int on)
-{
-	struct snd_soc_codec *codec = (struct snd_soc_codec *)private_data;
-	struct taiko_priv *priv;
-
-	if(codec == NULL) {
-		pr_err("%s: codec ptr is null\n",__func__);
-		return -EINVAL;
-	}
-	pr_info("%s: enter\n",__func__);
-	priv = snd_soc_codec_get_drvdata(codec);
-	mutex_lock(&priv->ldoh_lock);
-
-	pr_info("%s:control LDO and BG reg on %d\n",__func__,on);
-	if(on) {
-		
-		
-		if (++priv->ldo_h_users == 1) {
-			WCD9XXX_BG_CLK_LOCK(&priv->resmgr);
-			wcd9xxx_resmgr_get_bandgap(&priv->resmgr,
-						   WCD9XXX_BANDGAP_AUDIO_MODE);
-			wcd9xxx_resmgr_get_clk_block(&priv->resmgr,
-						     WCD9XXX_CLK_RCO);
-			snd_soc_update_bits(codec, TAIKO_A_LDO_H_MODE_1, 1 << 7,
-					    1 << 7);
-			wcd9xxx_resmgr_put_clk_block(&priv->resmgr,
-						     WCD9XXX_CLK_RCO);
-			WCD9XXX_BG_CLK_UNLOCK(&priv->resmgr);
-			pr_info("%s: ldo_h_users %d\n", __func__,
-				 priv->ldo_h_users);
-			
-			usleep_range(1000, 1000);
-		}
-	} else {
-		
-		
-		if (--priv->ldo_h_users == 0) {
-			WCD9XXX_BG_CLK_LOCK(&priv->resmgr);
-			wcd9xxx_resmgr_get_clk_block(&priv->resmgr,
-						     WCD9XXX_CLK_RCO);
-			snd_soc_update_bits(codec, TAIKO_A_LDO_H_MODE_1, 1 << 7,
-					    0);
-			wcd9xxx_resmgr_put_clk_block(&priv->resmgr,
-						     WCD9XXX_CLK_RCO);
-			wcd9xxx_resmgr_put_bandgap(&priv->resmgr,
-						   WCD9XXX_BANDGAP_AUDIO_MODE);
-			WCD9XXX_BG_CLK_UNLOCK(&priv->resmgr);
-			pr_info("%s: ldo_h_users %d\n", __func__,
-				 priv->ldo_h_users);
-		}
-	}
-	mutex_unlock(&priv->ldoh_lock);
-	pr_info("%s: exit\n",__func__);
-	return 0;
-}
 
 static int spkr_drv_wrnd_param_set(const char *val,
 				   const struct kernel_param *kp)
@@ -2526,17 +2468,6 @@ static const struct snd_kcontrol_new aif_cap_mixer[] = {
 			slim_tx_mixer_get, slim_tx_mixer_put),
 };
 
-static void taiko_codec_mute_st_gain(struct snd_soc_codec *codec,
-					int mute_en)
-{
-	pr_debug("%s %d\n", __func__, mute_en);
-
-	if (mute_en)
-		snd_soc_write(codec, TAIKO_A_CDC_IIR1_GAIN_B1_CTL, 0xAC);
-	else
-		snd_soc_write(codec, TAIKO_A_CDC_IIR1_GAIN_B1_CTL, 0xE2);
-}
-
 static void taiko_codec_enable_adc_block(struct snd_soc_codec *codec,
 					 int enable)
 {
@@ -2630,8 +2561,6 @@ static int taiko_codec_enable_adc(struct snd_soc_dapm_widget *w,
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		taiko_codec_enable_adc_block(codec, 0);
-		usleep_range(70000, 70000);
-		taiko_codec_mute_st_gain(codec, 0);
 		break;
 	}
 	return 0;
@@ -3307,7 +3236,6 @@ static int __taiko_codec_enable_ldo_h(struct snd_soc_dapm_widget *w,
 	struct taiko_priv *priv = snd_soc_codec_get_drvdata(codec);
 
 	pr_debug("%s: enter\n", __func__);
-	mutex_lock(&priv->ldoh_lock);
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		if (++priv->ldo_h_users == 1) {
@@ -3346,7 +3274,6 @@ static int __taiko_codec_enable_ldo_h(struct snd_soc_dapm_widget *w,
 		     priv->ldo_h_users);
 		break;
 	}
-	mutex_unlock(&priv->ldoh_lock);
 	pr_debug("%s: leave\n", __func__);
 	return 0;
 }
@@ -4341,20 +4268,32 @@ static int taiko_volatile(struct snd_soc_codec *ssc, unsigned int reg)
 	return 0;
 }
 
-#ifdef CONFIG_SOUND_CONTROL_HAX_3_GPL
-extern int snd_hax_reg_access(unsigned int);
-extern unsigned int snd_hax_cache_read(unsigned int);
-extern void snd_hax_cache_write(unsigned int, unsigned int);
-#endif
+static int taiko_write(struct snd_soc_codec *codec, unsigned int reg,
+	unsigned int value)
+{
+	int ret;
+	struct wcd9xxx *wcd9xxx = codec->control_data;
 
-#ifndef CONFIG_SOUND_CONTROL_HAX_3_GPL 
-static
-#endif
-unsigned int taiko_read(struct snd_soc_codec *codec,
+	if (reg == SND_SOC_NOPM)
+		return 0;
+
+	BUG_ON(reg > TAIKO_MAX_REGISTER);
+
+	if (!taiko_volatile(codec, reg)) {
+		ret = snd_soc_cache_write(codec, reg, value);
+		if (ret != 0)
+			dev_err(codec->dev, "Cache write to %x failed: %d\n",
+				reg, ret);
+	}
+
+	return wcd9xxx_reg_write(&wcd9xxx->core_res, reg, value);
+}
+static unsigned int taiko_read(struct snd_soc_codec *codec,
 				unsigned int reg)
 {
 	unsigned int val;
 	int ret;
+
 	struct wcd9xxx *wcd9xxx = codec->control_data;
 
 	if (reg == SND_SOC_NOPM)
@@ -4375,52 +4314,6 @@ unsigned int taiko_read(struct snd_soc_codec *codec,
 	val = wcd9xxx_reg_read(&wcd9xxx->core_res, reg);
 	return val;
 }
-#ifdef CONFIG_SOUND_CONTROL_HAX_3_GPL
-EXPORT_SYMBOL(taiko_read);
-#endif
-
-#ifndef CONFIG_SOUND_CONTROL_HAX_3_GPL
-static
-#endif
-int taiko_write(struct snd_soc_codec *codec, unsigned int reg,
-	unsigned int value)
-{
-	int ret;
-#ifdef CONFIG_SOUND_CONTROL_HAX_3_GPL
-	int val;
-#endif
-
-	struct wcd9xxx *wcd9xxx = codec->control_data;
-
-	if (reg == SND_SOC_NOPM)
-		return 0;
-
-	BUG_ON(reg > TAIKO_MAX_REGISTER);
-
-	if (!taiko_volatile(codec, reg)) {
-		ret = snd_soc_cache_write(codec, reg, value);
-		if (ret != 0)
-			dev_err(codec->dev, "Cache write to %x failed: %d\n",
-				reg, ret);
-	}
-
-#ifdef CONFIG_SOUND_CONTROL_HAX_3_GPL
-	if (!snd_hax_reg_access(reg)) {
-		if (!((val = snd_hax_cache_read(reg)) != -1)) {
-			val = wcd9xxx_reg_read_safe(codec->control_data, reg);
-		}
-	} else {
-		snd_hax_cache_write(reg, value);
-		val = value;
-	}
-	return wcd9xxx_reg_write(&wcd9xxx->core_res, reg, val);
-#else
-	return wcd9xxx_reg_write(&wcd9xxx->core_res, reg, value);
-#endif
-}
-#ifdef CONFIG_SOUND_CONTROL_HAX_3_GPL
-EXPORT_SYMBOL(taiko_write);
-#endif
 
 static int taiko_startup(struct snd_pcm_substream *substream,
 		struct snd_soc_dai *dai)
@@ -5360,9 +5253,6 @@ static int taiko_codec_enable_slimtx(struct snd_soc_dapm_widget *w,
 					      dai->rate, dai->bit_width,
 					      &dai->grph);
 		break;
-	case SND_SOC_DAPM_PRE_PMD:
-		taiko_codec_mute_st_gain(codec, 1);
-		break;
 	case SND_SOC_DAPM_POST_PMD:
 		ret = wcd9xxx_close_slim_sch_tx(core, &dai->wcd9xxx_ch_list,
 						dai->grph);
@@ -5844,18 +5734,15 @@ static const struct snd_soc_dapm_widget taiko_dapm_widgets[] = {
 
 	SND_SOC_DAPM_AIF_OUT_E("AIF1 CAP", "AIF1 Capture", 0, SND_SOC_NOPM,
 		AIF1_CAP, 0, taiko_codec_enable_slimtx,
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_PMD |
-		SND_SOC_DAPM_POST_PMD),
+		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_AIF_OUT_E("AIF2 CAP", "AIF2 Capture", 0, SND_SOC_NOPM,
 		AIF2_CAP, 0, taiko_codec_enable_slimtx,
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_PMD |
-		SND_SOC_DAPM_POST_PMD),
+		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_AIF_OUT_E("AIF3 CAP", "AIF3 Capture", 0, SND_SOC_NOPM,
 		AIF3_CAP, 0, taiko_codec_enable_slimtx,
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_PMD |
-		SND_SOC_DAPM_POST_PMD),
+		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_AIF_OUT_E("AIF4 VI", "VIfeed", 0, SND_SOC_NOPM,
 		AIF4_VIFEED, 0, taiko_codec_enable_slimvi_feedback,
@@ -6923,8 +6810,8 @@ static const struct snd_soc_dapm_widget taiko_1_dapm_widgets[] = {
 			   SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_ADC_E("ADC2", NULL, TAIKO_A_TX_1_2_EN, 3, 0,
 			   taiko_codec_enable_adc,
-			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
-			   SND_SOC_DAPM_POST_PMD),
+			   SND_SOC_DAPM_PRE_PMU |
+			   SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_ADC_E("ADC3", NULL, TAIKO_A_TX_3_4_EN, 7, 0,
 			   taiko_codec_enable_adc,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
@@ -6981,13 +6868,6 @@ static struct regulator *taiko_codec_find_regulator(struct snd_soc_codec *codec,
 	return NULL;
 }
 
-#ifdef CONFIG_SOUND_CONTROL_HAX_3_GPL
-struct snd_soc_codec *fauxsound_codec_ptr;
-EXPORT_SYMBOL(fauxsound_codec_ptr);
-int wcd9xxx_hw_revision;
-EXPORT_SYMBOL(wcd9xxx_hw_revision);
-#endif
-
 static int taiko_codec_probe(struct snd_soc_codec *codec)
 {
 	struct wcd9xxx *control;
@@ -6995,7 +6875,6 @@ static int taiko_codec_probe(struct snd_soc_codec *codec)
 	struct wcd9xxx_pdata *pdata;
 	struct wcd9xxx *wcd9xxx;
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
-	struct hs_notify_t notifier;
 	int ret = 0;
 	int i;
 #if 0
@@ -7005,20 +6884,9 @@ static int taiko_codec_probe(struct snd_soc_codec *codec)
 	struct wcd9xxx *core = dev_get_drvdata(codec->dev->parent);
 	struct wcd9xxx_core_resource *core_res;
 
-#ifdef CONFIG_SOUND_CONTROL_HAX_3_GPL
-	pr_info("taiko codec probe...\n");
-	fauxsound_codec_ptr = codec;
-#endif
-
 	codec->control_data = dev_get_drvdata(codec->dev->parent);
 	control = codec->control_data;
 
-#ifdef CONFIG_SOUND_CONTROL_HAX_3_GPL
-	if (TAIKO_IS_1_0(control->version))
-		wcd9xxx_hw_revision = 1;
-	else
-		wcd9xxx_hw_revision = 2;
-#endif
 	wcd9xxx_ssr_register(control, taiko_device_down,
 			     taiko_post_reset_cb, (void *)codec);
 
@@ -7185,10 +7053,6 @@ static int taiko_codec_probe(struct snd_soc_codec *codec)
 	codec->ignore_pmdown_time = 1;
 
 	INIT_WORK(&taiko->audio_vol_ramp_work.rwork, audio_vol_ramping_func);
-	mutex_init(&taiko->ldoh_lock);
-	notifier.private_data = (void*)codec;
-	notifier.callback_f = taiko_control_mic_detect_reg;
-	htc_acoustic_register_hs_notify(HS_CODEC_N, &notifier);
 
 	return ret;
 

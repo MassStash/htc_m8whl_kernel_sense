@@ -38,7 +38,6 @@ static atomic_t mnemosync_is_init = ATOMIC_INIT(0);
 struct mnemosyne_meta {
 	char *name;
 	int num;
-	int index;	
 };
 
 #undef DECLARE_MNEMOSYNE_START
@@ -53,7 +52,6 @@ struct mnemosyne_meta {
 #define DECLARE_MNEMOSYNE_ARRAY(meta_name, meta_num)	{ \
 		.name = #meta_name,			\
 		.num = meta_num,			\
-		.index = -1,				\
 	},
 
 #define DECLARE_MNEMOSYNE(meta_name)	DECLARE_MNEMOSYNE_ARRAY(meta_name, 1)
@@ -68,8 +66,6 @@ EXPORT_SYMBOL(mnemosyne_get_base);
 
 static int mnemosyne_setup(unsigned int phys, unsigned base)
 {
-	int i, index;
-
 	if (atomic_read(&mnemosync_is_init)) {
 		WARN(1, "%s: init again with phys=0x%08x, bas=0x%08x!\n", MNEMOSYNE_MODULE_NAME, phys, base);
 		return -EIO;
@@ -81,12 +77,6 @@ static int mnemosyne_setup(unsigned int phys, unsigned base)
 	pr_info("%s: phys: 0x%p\n", MNEMOSYNE_MODULE_NAME, mnemosyne_phys);
 	pr_info("%s: base: 0x%p\n", MNEMOSYNE_MODULE_NAME, mnemosyne_base);
 	pr_info("%s: init success.\n", MNEMOSYNE_MODULE_NAME);
-
-	
-	for (i=0, index=0; i<sizeof(mnemosyne_meta_data)/sizeof(struct mnemosyne_meta); i++) {
-		mnemosyne_meta_data[i].index = index;
-		index += mnemosyne_meta_data[i].num;
-	}
 
 	atomic_inc(&mnemosync_is_init);
 
@@ -147,103 +137,69 @@ PARSE_PDATA_ERR_OUT:
 	return ret;
 }
 
-#ifdef CONFIG_DEBUG_FS
-static ssize_t is_init_read(struct file *file, char __user *buf, size_t count, loff_t *ppos)
+#ifdef CONFIG_SYSFS
+#define MNEMOSYNE_ATTR_RO(_name)	static struct kobj_attribute _name##_attr = __ATTR_RO(_name)
+#define MNEMOSYNE_ATTR(_name)		static struct kobj_attribute _name##_attr = __ATTR(_name, 0644, _name##_show, _name##_store)
+
+static ssize_t rawdata_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
 {
-	char temp_buf[32];
+	struct mnemosyne_data *data = mnemosyne_base;
+	MNEMOSYNE_ELEMENT_TYPE *rawdata = (MNEMOSYNE_ELEMENT_TYPE *)data;
 	int size = 0;
-	size = sprintf(temp_buf, "%d\n", atomic_read(&mnemosync_is_init));
-	return simple_read_from_buffer(buf, count, ppos, temp_buf, size);
-}
+	int i, j;
 
-static const struct file_operations is_init_fops = {
-	.read = is_init_read,
-};
-
-static void* rawdata_seq_start(struct seq_file *sfile, loff_t *pos)
-{
 	
 	if (atomic_read(&mnemosync_is_init) == 0) {
 		pr_warn("%s: not init!\n", MNEMOSYNE_MODULE_NAME);
-		return NULL;
+		return 0;
 	}
 
-	if (*pos < 0)
-		*pos = 0;
-	else if (*pos >= sizeof(mnemosyne_meta_data)/sizeof(struct mnemosyne_meta))
-		return NULL;
-
-	return pos;
-}
-
-static void* rawdata_seq_next(struct seq_file *sfile, void *v, loff_t *pos)
-{
-	++*pos;
-
-	if (*pos >= sizeof(mnemosyne_meta_data)/sizeof(struct mnemosyne_meta))
-		return NULL;
-
-	return pos;
-}
-
-static void rawdata_seq_stop(struct seq_file *sfile, void *v)
-{
-	return;
-}
-
-static int rawdata_seq_show(struct seq_file *sfile, void *v)
-{
-	uint32_t pos = *(uint32_t *)v;
-	struct mnemosyne_meta* meta = (struct mnemosyne_meta*)mnemosyne_meta_data;
-	struct mnemosyne_data *data = mnemosyne_base;
-	MNEMOSYNE_ELEMENT_TYPE *rawdata = (MNEMOSYNE_ELEMENT_TYPE *)data;
-
-	int i;
-
-	for (i=0, rawdata+=meta[pos].index; i<meta[pos].num; i++) {
-		seq_printf(sfile, "%s", meta[pos].name);
-		if (meta[pos].num > 1)
-			seq_printf(sfile, "[%d]", i);
-		seq_printf(sfile, ": 0x%08x = %u\n", rawdata[i], rawdata[i]);
+	
+	for (i=0; i<sizeof(mnemosyne_meta_data)/sizeof(struct mnemosyne_meta); i++) {
+		for (j=0; j<mnemosyne_meta_data[i].num; j++) {
+			size += sprintf(buf + size, "%s", mnemosyne_meta_data[i].name);
+			if (mnemosyne_meta_data[i].num > 1)
+				size += sprintf(buf + size, "[%d]", j);
+			size += sprintf(buf + size, ": 0x%08x = %d\n", rawdata[j], rawdata[j]);
+		}
+		rawdata += mnemosyne_meta_data[i].num;
 	}
-	return 0;
+
+	return size;
 }
 
-static struct seq_operations rawdata_seq_ops = {
-	.start = rawdata_seq_start,
-	.next = rawdata_seq_next,
-	.stop = rawdata_seq_stop,
-	.show = rawdata_seq_show
+MNEMOSYNE_ATTR_RO(rawdata);
+
+static ssize_t is_init_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+{
+	int size = 0;
+	size = sprintf(buf, "%d\n", atomic_read(&mnemosync_is_init));
+	return size;
+}
+
+MNEMOSYNE_ATTR_RO(is_init);
+
+static struct attribute *mnemosyne_attrs[] = {
+	&rawdata_attr.attr,
+	&is_init_attr.attr,
+	NULL,
 };
 
-static int rawdata_seq_open(struct inode *inode, struct file *file)
-{
-	return seq_open(file, &rawdata_seq_ops);
-}
-
-static const struct file_operations rawdata_fops = {
-	.open		= rawdata_seq_open,
-	.read		= seq_read,
-	.llseek		= seq_lseek,
-	.release	= seq_release,
-	.owner		= THIS_MODULE,
+static struct attribute_group mnemosyne_attr_group = {
+	.attrs = mnemosyne_attrs,
+	.name = MNEMOSYNE_MODULE_NAME,
 };
 
-static struct dentry *base_dir;
-
-static int __devinit mnemosyne_debugfs_setup(void)
+static int __devinit mnemosyne_sysfs_setup(void)
 {
-	base_dir = debugfs_create_dir(MNEMOSYNE_MODULE_NAME, NULL);
+	int ret = 0;
 
-	if (!base_dir) {
-		pr_err("%s: create debugfs dir failed\n", MNEMOSYNE_MODULE_NAME);
-		return -EIO;
+	ret = sysfs_create_group(kernel_kobj, &mnemosyne_attr_group);
+	if (ret) {
+		pr_err("%s: register sysfs failed\n", MNEMOSYNE_MODULE_NAME);
 	}
 
-	debugfs_create_file("is_init", S_IRUGO, base_dir, NULL, &is_init_fops);
-	debugfs_create_file("rawdata", S_IRUGO, base_dir, NULL, &rawdata_fops);
-
-	return 0;
+	return ret;
 }
 #endif
 
@@ -286,8 +242,8 @@ static struct platform_driver mnemosyne_driver = {
 
 static int __init mnemosyne_init(void)
 {
-#ifdef CONFIG_DEBUG_FS
-	mnemosyne_debugfs_setup();
+#ifdef CONFIG_SYSFS
+	mnemosyne_sysfs_setup();
 #endif
 
 	return platform_driver_register(&mnemosyne_driver);

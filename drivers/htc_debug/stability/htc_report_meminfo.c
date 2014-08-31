@@ -12,8 +12,8 @@ static atomic_long_t meminfo_stat[NR_MEMINFO_STAT_ITEMS] =
 const char * const meminfo_stat_text[] = {
 	[NR_KMALLOC_PAGES] = "Kmalloc",
 	[NR_VMALLOC_PAGES] = "VmallocAlloc",
-	[NR_DMA_PAGES] = "DmaAlloc",
-	[NR_IOMMU_PAGETABLES_PAGES] = "IommuPgd",
+	[NR_DMA_PAGES] = "DMA_Alloc",
+	[NR_IOMMU_PAGETABLES_PAGES] = "IOMMUPGD",
 	[NR_DRIVER_ALLOC_PAGES] = "DriverAlloc",
 	[NR_HASHTABLES_PAGES] = "HashTables",
 	[NR_MEMPOOL_ALLOC_PAGES] = "MemPoolAlloc",
@@ -22,6 +22,8 @@ const char * const meminfo_stat_text[] = {
 static atomic_long_t cached_mapped_stat = ATOMIC_LONG_INIT(0);
 
 static atomic_long_t kgsl_mapped_stat = ATOMIC_LONG_INIT(0);
+
+extern unsigned long ftrace_total_pages(void);
 
 void kmalloc_count(struct page *page, int to_alloc)
 {
@@ -82,41 +84,6 @@ static unsigned long driver_alloc_total_pages(void)
 	return (unsigned long) total;
 }
 
-static inline unsigned long cached_pages(struct sysinfo *i)
-{
-	long cached = global_page_state(NR_FILE_PAGES) -
-	              total_swapcache_pages - i->bufferram;
-
-	if (cached < 0)
-		cached = 0;
-
-	return cached;
-}
-
-unsigned long cached_unmapped_pages(struct sysinfo *i)
-{
-	long cached_unmapped = (long)cached_pages(i) -
-	                       atomic_long_read(&cached_mapped_stat);
-
-	if (cached_unmapped < 0)
-		cached_unmapped = 0;
-
-	return cached_unmapped;
-}
-
-unsigned long kgsl_unmapped_pages(void)
-{
-	long kgsl_alloc = kgsl_get_alloc_size(false) >> PAGE_SHIFT;
-	long kgsl_unmapped = kgsl_alloc -
-	                atomic_long_read(&kgsl_mapped_stat);
-
-	if (kgsl_unmapped < 0)
-		kgsl_unmapped = 0;
-
-	return kgsl_unmapped;
-}
-
-
 unsigned long meminfo_total_pages(enum meminfo_stat_item item)
 {
 	long total = atomic_long_read(&meminfo_stat[item]);
@@ -162,8 +129,24 @@ void report_meminfo_item(struct seq_file *m, enum meminfo_stat_item item)
 
 static void report_unmapped(struct seq_file *m, struct sysinfo *sysinfo)
 {
-	unsigned long cached_unmapped = cached_unmapped_pages(sysinfo);
-	unsigned long kgsl_unmapped = kgsl_unmapped_pages();
+	long cached, cached_unmapped, kgsl_unmapped;
+	unsigned long kgsl_alloc = kgsl_get_alloc_size(1);
+
+	cached = global_page_state(NR_FILE_PAGES) -
+		total_swapcache_pages - sysinfo->bufferram;
+
+	if (cached < 0)
+		cached = 0;
+
+	cached_unmapped = cached - atomic_long_read(&cached_mapped_stat);
+
+	if (cached_unmapped < 0)
+		cached_unmapped = 0;
+
+	kgsl_unmapped = (kgsl_alloc >> PAGE_SHIFT) - atomic_long_read(&kgsl_mapped_stat);
+
+	if (kgsl_unmapped < 0)
+		kgsl_unmapped = 0;
 
 #define K(x) ((x) << (PAGE_SHIFT - 10))
 	seq_printf(m, "%-16s%8lu kB\n", "CachedUnmapped: ", K(cached_unmapped));

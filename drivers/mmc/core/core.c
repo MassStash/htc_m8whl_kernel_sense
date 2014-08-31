@@ -60,8 +60,6 @@ static void mmc_clk_scaling(struct mmc_host *host, bool from_wq);
 #define MMC_FLUSH_REQ_TIMEOUT_MS 90000 
 #define MMC_CACHE_DISBALE_TIMEOUT_MS 180000 
 
-#define MMC_WORKLOAD_DURATION (60 * 60 * 1000) 
-
 #define SD_REMOVE_DEBUG		1
 #if SD_REMOVE_DEBUG
 char last_claim_comm[16];
@@ -93,17 +91,7 @@ static struct wake_lock mmc_removal_work_wake_lock;
 
 extern unsigned int get_tamper_sf(void);
 
-extern int powersave_enabled;
-extern bool ac_status;
-
-enum {
-    PP_NORMAL = 0,
-    PP_POWERSAVE = 1,
-    PP_EXTREMELY_POWERSAVE = 2,
-    PP_PERFORMANCE = 4,
-};
-
-bool use_spi_crc = 0;
+bool use_spi_crc = 1;
 module_param(use_spi_crc, bool, 0);
 
 #ifdef CONFIG_MMC_UNSAFE_RESUME
@@ -163,10 +151,6 @@ void mmc_stats(struct work_struct *work)
 	unsigned long erase_time; 
 	unsigned long erase_blks;
 	unsigned long erase_rq;
-	
-	ktime_t workload_diff;
-	unsigned long workload_time; 
-
 	if (!host || !host->perf_enable || !stats_workqueue)
 		return;
 
@@ -273,34 +257,14 @@ void mmc_stats(struct work_struct *work)
 		else
 			pr_info("%s Statistics: write %lu KB in %lu ms, perf %lu KB/s, rq %lu\n",
 					mmc_hostname(host), wbytes / 1024, wtime, wperf, wcnt);
-
-		if (rtime) {
-			if (host->debug_mask & MMC_DEBUG_FREE_SPACE)
-				pr_info("%s Statistics: read %lu KB in %lu ms, perf %lu KB/s, rq %lu, /data free %lu MB\n",
-						mmc_hostname(host), rbytes / 1024, rtime, rperf, rcnt, free);
-			else
-				pr_info("%s Statistics: read %lu KB in %lu ms, perf %lu KB/s, rq %lu\n",
-						mmc_hostname(host), rbytes / 1024, rtime, rperf, rcnt);
-		}
 	}
-	else if ((rtime > 500) || (rtime && (stats_interval == MMC_STATS_LOG_INTERVAL)))  {
+	if ((rtime > 500) || (rtime && (stats_interval == MMC_STATS_LOG_INTERVAL)))  {
 		if (host->debug_mask & MMC_DEBUG_FREE_SPACE)
 			pr_info("%s Statistics: read %lu KB in %lu ms, perf %lu KB/s, rq %lu, /data free %lu MB\n",
 					mmc_hostname(host), rbytes / 1024, rtime, rperf, rcnt, free);
 		else
 			pr_info("%s Statistics: read %lu KB in %lu ms, perf %lu KB/s, rq %lu\n",
 					mmc_hostname(host), rbytes / 1024, rtime, rperf, rcnt);
-	}
-
-	
-	workload_diff = ktime_sub(ktime_get(), host->perf.workload_time);
-        workload_time = (unsigned long)ktime_to_ms(workload_diff);
-	if (workload_time >= MMC_WORKLOAD_DURATION) {
-		pr_info("%s Statistics: workload write %lu KB (%lu MB)\n",
-				mmc_hostname(host),
-				host->perf.wkbytes_drv, host->perf.wkbytes_drv / 1024);
-		host->perf.wkbytes_drv = 0;
-		host->perf.workload_time = ktime_get();
 	}
 
 	
@@ -474,8 +438,6 @@ void mmc_request_done(struct mmc_host *host, struct mmc_request *mrq)
 				} else {
 					host->perf.wbytes_drv +=
 						mrq->data->bytes_xfered;
-					host->perf.wkbytes_drv +=
-                                                (mrq->data->bytes_xfered / 1024);
 					host->perf.wtime_drv =
 						ktime_add(host->perf.wtime_drv,
 							diff);
@@ -667,12 +629,6 @@ int mmc_card_start_bkops(struct mmc_card *card)
 	unsigned long flags;
 	struct mmc_host *host = card->host;
 
-	
-	if ((powersave_enabled == PP_EXTREMELY_POWERSAVE) && !ac_status)  {
-		pr_debug("%s: skip bkops due to extreme powersave mode\n", __func__);
-		return 0;
-	}
-
 	mmc_claim_host(host);
 	err = __mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 			EXT_CSD_BKOPS_START, 1, 0, false, false);
@@ -749,12 +705,6 @@ void mmc_start_bkops(struct mmc_card *card, bool from_exception)
 		return;
 	}
 
-	
-	if ((powersave_enabled == PP_EXTREMELY_POWERSAVE) && !ac_status)  {
-		pr_debug("%s: skip bkops due to extreme powersave mode\n", __func__);
-		return;
-	}
-
 	mmc_rpm_hold(card->host, &card->dev);
 	
 	if (!mmc_try_claim_host(card->host)) {
@@ -793,6 +743,12 @@ void mmc_start_bkops(struct mmc_card *card, bool from_exception)
 			mmc_hostname(card->host), __func__,
 			card->ext_csd.raw_bkops_status,
 			from_exception);
+	}
+
+	if (card->ext_csd.raw_bkops_status > 1) {
+		if (card->need_sanitize)
+			mmc_card_set_force_sanitize(card);
+		mmc_card_set_force_bkops(card);
 	}
 
 	if (from_exception) {
@@ -1116,8 +1072,7 @@ struct mmc_async_req *mmc_start_req(struct mmc_host *host,
 			mmc_post_req(host, host->areq->mrq, 0);
 			host->areq = NULL;
 			if (areq) {
-				if (!(areq->cmd_flags &
-						MMC_REQ_NOREINSERT_MASK)) {
+				if (!(areq->cmd_flags & REQ_URGENT)) {
 					areq->reinsert_req(areq);
 					mmc_post_req(host, areq->mrq, 0);
 				} else {
@@ -2100,8 +2055,8 @@ void mmc_remove_sd_card(struct work_struct *work)
 		container_of(work, struct mmc_host, remove.work);
 	const unsigned int REDETECT_MAX = 5;
 
-	printk(KERN_INFO "%s: %s enter\n", mmc_hostname(host),
-	       __func__);
+	printk(KERN_INFO "%s: %s, redetect_cnt : %d\n", mmc_hostname(host),
+		__func__, host->redetect_cnt);
 	mod_timer(&sd_remove_tout_timer, (jiffies + msecs_to_jiffies(5000)));
 	mmc_bus_get(host);
 	if (host->bus_ops && !host->bus_dead) {
@@ -2116,16 +2071,13 @@ void mmc_remove_sd_card(struct work_struct *work)
 	}
 	mmc_bus_put(host);
 	wake_unlock(&mmc_removal_work_wake_lock);
-	wake_lock_timeout(&mmc_removal_work_wake_lock, HZ * 2);
 
 	printk(KERN_INFO "%s: %s exit\n", mmc_hostname(host),
 		__func__);
 
 	del_timer_sync(&sd_remove_tout_timer);
 
-	if (host->redetect_cnt++ < REDETECT_MAX) {
-	       pr_info("%s : detect try : %d, cd-pin : %d\n", mmc_hostname(host),
-	               host->redetect_cnt, host->ops->get_cd(host));
+	if (host->ops->get_cd(host) && host->redetect_cnt++ < REDETECT_MAX) {
 		cancel_delayed_work(&host->detect);
 		mmc_detect_change(host, msecs_to_jiffies(1000));
 	}
@@ -3010,13 +2962,13 @@ static int mmc_rescan_try_freq(struct mmc_host *host, unsigned freq)
 	}
 	if (!host->ios.vdd)
 	       mmc_power_up(host);
-	if (mmc_is_sd_host(host) && !mmc_attach_sd(host)) {
+	if (!mmc_attach_sd(host)) {
 		pr_info("%s: Find a SD card\n", __func__);
 		return 0;
 	}
 	if (!host->ios.vdd)
 	       mmc_power_up(host);
-	if (mmc_is_mmc_host(host) && !mmc_attach_mmc(host)) {
+	if (!mmc_attach_mmc(host)) {
 		pr_info("%s: Find a MMC/eMMC card\n", __func__);
 		return 0;
 	}
@@ -3264,8 +3216,7 @@ int mmc_flush_cache(struct mmc_card *card)
 	struct mmc_host *host = card->host;
 	int err = 0, rc;
 
-	if (!(host->caps2 & MMC_CAP2_CACHE_CTRL) ||
-	     (card->quirks & MMC_QUIRK_CACHE_DISABLE))
+	if (!(host->caps2 & MMC_CAP2_CACHE_CTRL))
 		return err;
 
 	if (mmc_card_mmc(card) &&
@@ -3298,8 +3249,7 @@ int mmc_cache_ctrl(struct mmc_host *host, u8 enable)
 	int err = 0, rc;
 
 	if (!(host->caps2 & MMC_CAP2_CACHE_CTRL) ||
-			mmc_card_is_removable(host) ||
-			(card->quirks & MMC_QUIRK_CACHE_DISABLE))
+			mmc_card_is_removable(host))
 		return err;
 
 	if (card && mmc_card_mmc(card) &&

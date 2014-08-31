@@ -283,14 +283,6 @@ static int msm_isp_buf_unprepare(struct msm_isp_buf_mgr *buf_mgr,
 
 	for (i = 0; i < bufq->num_bufs; i++) {
 		buf_info = msm_isp_get_buf_ptr(buf_mgr, buf_handle, i);
-
-		
-		if (buf_info == NULL) {
-			pr_err("%s: buf_info is NULL\n", __func__);
-			return rc;
-		}
-		
-
 		if (buf_info->state == MSM_ISP_BUFFER_STATE_UNUSED ||
 				buf_info->state ==
 					MSM_ISP_BUFFER_STATE_INITIALIZED)
@@ -642,14 +634,6 @@ static int msm_isp_buf_enqueue(struct msm_isp_buf_mgr *buf_mgr,
 	if (buf_state == MSM_ISP_BUFFER_STATE_DIVERTED) {
 		buf_info = msm_isp_get_buf_ptr(buf_mgr,
 						info->handle, info->buf_idx);
-
-		
-		if (buf_info == NULL) {
-			pr_err("%s: buf_info is NULL\n", __func__);
-			return rc;
-		}
-		
-
 		if (info->dirty_buf) {
 			rc = msm_isp_put_buf(buf_mgr,
 				info->handle, info->buf_idx);

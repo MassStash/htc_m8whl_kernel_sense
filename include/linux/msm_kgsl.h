@@ -17,7 +17,6 @@
 
 #define KGSL_CONTEXT_NO_FAULT_TOLERANCE 0x00000200
 #define KGSL_CONTEXT_SYNC               0x00000400
-#define KGSL_CONTEXT_PWR_CONSTRAINT     0x00000800
 #define KGSL_CONTEXT_TYPE_MASK          0x01F00000
 #define KGSL_CONTEXT_TYPE_SHIFT         20
 
@@ -166,7 +165,6 @@ enum kgsl_property_type {
 	KGSL_PROP_VERSION         = 0x00000008,
 	KGSL_PROP_GPU_RESET_STAT  = 0x00000009,
 	KGSL_PROP_PWRCTRL         = 0x0000000E,
-	KGSL_PROP_PWR_CONSTRAINT  = 0x00000012,
 };
 
 struct kgsl_shadowprop {
@@ -596,14 +594,7 @@ struct kgsl_gpumem_sync_cache_bulk {
 
 #define IOCTL_KGSL_GPUMEM_SYNC_CACHE_BULK \
 	_IOWR(KGSL_IOC_TYPE, 0x3C, struct kgsl_gpumem_sync_cache_bulk)
-#ifdef CONFIG_MSM_KGSL
 unsigned int kgsl_get_alloc_size(int detailed);
-#else
-static inline int kgsl_get_alloc_size(int detailed)
-{
-	return 0;
-}
-#endif
 
 struct kgsl_cmd_syncpoint_timestamp {
 	unsigned int context_id;
@@ -638,23 +629,6 @@ struct kgsl_submit_commands {
 
 #define IOCTL_KGSL_SUBMIT_COMMANDS \
 	_IOWR(KGSL_IOC_TYPE, 0x3D, struct kgsl_submit_commands)
-
-struct kgsl_device_constraint {
-	unsigned int type;
-	unsigned int context_id;
-	void __user *data;
-	size_t size;
-};
-
-#define KGSL_CONSTRAINT_NONE 0
-#define KGSL_CONSTRAINT_PWRLEVEL 1
-
-#define KGSL_CONSTRAINT_PWR_MIN    0
-#define KGSL_CONSTRAINT_PWR_MAX    1
-
-struct kgsl_device_constraint_pwrlevel {
-	unsigned int level;
-};
 
 #ifdef __KERNEL__
 #ifdef CONFIG_MSM_KGSL_DRM

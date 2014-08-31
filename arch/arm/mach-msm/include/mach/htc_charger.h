@@ -33,7 +33,6 @@ enum htc_charger_event {
 	HTC_CHARGER_EVENT_SRC_UNDER_RATING,
 	HTC_CHARGER_EVENT_SAFETY_TIMEOUT,
 	HTC_CHARGER_EVENT_BATT_UEVENT_CHANGE,
-    HTC_CHARGER_EVENT_SRC_CABLE_INSERT_NOTIFY,
 };
 
 enum htc_charging_cfg {
@@ -88,9 +87,7 @@ struct htc_charger {
 #else
 	int (*set_limit_charge_enable)(bool enable);
 #endif
-	int (*set_limit_input_current)(bool enable, int reason);
 	int (*set_chg_iusbmax)(int val);
-	int (*set_chg_curr_settled)(int val);
 	int (*set_chg_vin_min)(int val);
 	int (*toggle_charger)(void);
 	int (*is_ovp)(int *result);
@@ -107,10 +104,8 @@ struct htc_charger {
 	int (*is_battery_full_eoc_stop)(int *result);
 	int (*get_charge_type)(void);
 	int (*get_chg_usb_iusbmax)(void);
-	int (*get_chg_curr_settled)(void);
 	int (*get_chg_vinmin)(void);
 	int (*get_input_voltage_regulation)(void);
-	int (*store_battery_charger_data)(void);
 };
 
 int htc_charger_event_notify(enum htc_charger_event);

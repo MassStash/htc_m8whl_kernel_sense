@@ -33,7 +33,6 @@
 
 enum ACPU_STATE_FOOTPRINT {
 	ACPU_ENTER = 0x1,		
-#ifdef CONFIG_ARCH_MSM_KRAIT
 	ACPU_SAME_RATE_RETURN,		
 	ACPU_AFTER_AVS_DISABLE,
 	ACPU_AFTER_INCREASE_VDD,	
@@ -43,19 +42,6 @@ enum ACPU_STATE_FOOTPRINT {
 	ACPU_AFTER_SET_L2_BW,		
 	ACPU_BEFORE_DECREASE_VDD,	
 	ACPU_BEFORE_AVS_ENABLE,
-#elif defined(CONFIG_MSM_CORTEX_A7)
-	ACPU_BEFORE_SAFE_PARENT_INIT,
-	ACPU_BEFORE_SET_SAFE_RATE,
-	ACPU_BEFORE_SET_PARENT_RATE,
-	ACPU_BEFORE_ERR_SET_RATE,
-	ACPU_BEFORE_CLK_PREPARE,
-	ACPU_BEFORE_ERR_SET_PARENT_RATE,
-	ACPU_BEFORE_SET_RATE,
-	ACPU_BEFORE_ERR_CLK_UNPREPARE,
-	ACPU_BEFORE_CLK_UNPREPARE,
-	ACPU_BEFORE_RETURN,
-	ACPU_BEFORE_ERR_RETURN,
-#endif
 	ACPU_BEFORE_UPDATE_L2_BW,	
 	ACPU_LEAVE = 0xff,		
 };
@@ -79,7 +65,6 @@ void write_backup_cc_uah(int cc_reading);
 int read_backup_ocv_uv(void);
 void write_backup_ocv_uv(int ocv_backup);
 void set_msm_watchdog_en_footprint(int enable);
-void set_msm_watchdog_pet_time_utc(void);
 void set_msm_watchdog_pet_footprint(unsigned int sleep_clk_base);
 void set_acpuclk_footprint(unsigned cpu, unsigned state);
 void set_acpuclk_cpu_freq_footprint(enum FREQ_TYPE type, unsigned cpu, unsigned khz);

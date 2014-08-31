@@ -356,7 +356,7 @@ static int tsens_tz_degc_to_code(int degc, int idx)
 	return code;
 }
 
-static void msm_tsens_get_temp(int sensor_hw_num, long *temp)
+static void msm_tsens_get_temp(int sensor_hw_num, unsigned long *temp)
 {
 	unsigned int code, sensor_addr;
 	int sensor_sw_id = -EINVAL, rc = 0;
@@ -384,7 +384,7 @@ static void msm_tsens_get_temp(int sensor_hw_num, long *temp)
 }
 
 static int tsens_tz_get_temp(struct thermal_zone_device *thermal,
-			     long *temp)
+			     unsigned long *temp)
 {
 	struct tsens_tm_device_sensor *tm_sensor = thermal->devdata;
 
@@ -396,7 +396,7 @@ static int tsens_tz_get_temp(struct thermal_zone_device *thermal,
 	return 0;
 }
 
-int tsens_get_temp(struct tsens_device *device, long *temp)
+int tsens_get_temp(struct tsens_device *device, unsigned long *temp)
 {
 	if (!tmdev)
 		return -ENODEV;
@@ -509,7 +509,7 @@ static int tsens_tz_activate_trip_type(struct thermal_zone_device *thermal,
 }
 
 static int tsens_tz_get_trip_temp(struct thermal_zone_device *thermal,
-				   int trip, long *temp)
+				   int trip, unsigned long *temp)
 {
 	struct tsens_tm_device_sensor *tm_sensor = thermal->devdata;
 	unsigned int reg;
@@ -619,7 +619,7 @@ static void monitor_tsens_status(struct work_struct *work)
 {
 	unsigned int i, cntl;
 	int enable = 0;
-	long temp = 0;
+	unsigned long temp = 0;
 	char message[MESSAGE_SIZE];
 
 	cntl = readl_relaxed(TSENS_CTRL_ADDR(tmdev->tsens_addr));
@@ -631,7 +631,7 @@ static void monitor_tsens_status(struct work_struct *work)
 		enable = cntl & (0x1 << i);
 		if(enable > 0) {
 			msm_tsens_get_temp(i, &temp);
-			//printk("[THERMAL] Sensor %d = %lu C\n", i, temp);
+			printk("[THERMAL] Sensor %d = %lu C\n", i, temp);
 		}
 	}
 	if (monitor_tsense_wq) {
@@ -682,7 +682,7 @@ static void tsens_scheduler_fn(struct work_struct *work)
 			lower_thr = true;
 		}
 		if (upper_thr || lower_thr) {
-			long temp;
+			unsigned long temp;
 			enum thermal_trip_type trip =
 					THERMAL_TRIP_CONFIGURABLE_LOW;
 

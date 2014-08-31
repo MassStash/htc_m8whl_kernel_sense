@@ -17,24 +17,12 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/ratelimit.h>
-#include <linux/delay.h>
-
-static struct workqueue_struct *enable_detection_workqueue;	
 
 struct mmc_cd_gpio {
 	unsigned int gpio;
 	char label[0];
 	bool status;
 };
-
-void mmc_enable_detection(struct work_struct *work)
-{
-	struct mmc_host *host =	container_of(work, struct mmc_host, enable_detect.work);
-
-	enable_irq(host->hotplug.irq);
-	printk("%s %s leave\n", mmc_hostname(host), __func__);
-}
-EXPORT_SYMBOL(mmc_enable_detection);
 
 int mmc_cd_get_status(struct mmc_host *host)
 {
@@ -57,9 +45,6 @@ static irqreturn_t mmc_cd_gpio_irqt(int irq, void *dev_id)
 	struct mmc_cd_gpio *cd = host->hotplug.handler_priv;
 	int status;
 
-	disable_irq_nosync(host->hotplug.irq);
-	queue_delayed_work(enable_detection_workqueue, &host->enable_detect, msecs_to_jiffies(50));
-
 	status = mmc_cd_get_status(host);
 	if (unlikely(status < 0))
 		goto out;
@@ -73,7 +58,6 @@ static irqreturn_t mmc_cd_gpio_irqt(int irq, void *dev_id)
 		
 		host->caps |= host->caps_uhs;
 		host->redetect_cnt = 0;
-		host->crc_count = 0;
 		
 		mmc_detect_change(host, msecs_to_jiffies(100));
 	}
@@ -90,10 +74,6 @@ int mmc_cd_gpio_request(struct mmc_host *host, unsigned int gpio)
 
 	if (irq < 0)
 		return irq;
-
-	enable_detection_workqueue = create_singlethread_workqueue("enable_sd_detect");
-	if (!enable_detection_workqueue)
-		return -ENOMEM;
 
 	irq_set_irq_wake(irq, 1);
 
@@ -118,7 +98,7 @@ int mmc_cd_gpio_request(struct mmc_host *host, unsigned int gpio)
 	cd->status = ret;
 
 	ret = request_threaded_irq(irq, NULL, mmc_cd_gpio_irqt,
-				   IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
+				   IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
 				   cd->label, host);
 	if (ret < 0)
 		goto eirqreq;
@@ -129,7 +109,6 @@ eirqreq:
 	gpio_free(gpio);
 egpioreq:
 	kfree(cd);
-	destroy_workqueue(enable_detection_workqueue);
 	return ret;
 }
 EXPORT_SYMBOL(mmc_cd_gpio_request);
@@ -145,6 +124,5 @@ void mmc_cd_gpio_free(struct mmc_host *host)
 	gpio_free(cd->gpio);
 	cd->gpio = -EINVAL;
 	kfree(cd);
-	destroy_workqueue(enable_detection_workqueue);
 }
 EXPORT_SYMBOL(mmc_cd_gpio_free);

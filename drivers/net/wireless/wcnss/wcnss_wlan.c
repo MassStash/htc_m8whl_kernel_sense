@@ -36,7 +36,6 @@
 #include <linux/mfd/pm8xxx/misc.h>
 #include <linux/qpnp/qpnp-adc.h>
 
-#include <mach/board.h>
 #include <mach/msm_smd.h>
 #include <mach/msm_iomap.h>
 #include <mach/subsystem_restart.h>
@@ -48,7 +47,6 @@
 #endif
 
 #define DEVICE "wcnss_wlan"
-#define CTRL_DEVICE "wcnss_ctrl"
 #define VERSION "1.01"
 #define WCNSS_PIL_DEVICE "wcnss"
 
@@ -129,10 +127,10 @@ static DEFINE_SPINLOCK(reg_spinlock);
 #define WCNSS_TSTBUS_CTRL_WRFIFO	(0x04 << 1)
 #define WCNSS_TSTBUS_CTRL_RDFIFO	(0x05 << 1)
 #define WCNSS_TSTBUS_CTRL_CTRL		(0x07 << 1)
-#define WCNSS_TSTBUS_CTRL_AXIM_CFG0	(0x00 << 8)
-#define WCNSS_TSTBUS_CTRL_AXIM_CFG1	(0x01 << 8)
-#define WCNSS_TSTBUS_CTRL_CTRL_CFG0	(0x00 << 28)
-#define WCNSS_TSTBUS_CTRL_CTRL_CFG1	(0x01 << 28)
+#define WCNSS_TSTBUS_CTRL_AXIM_CFG0	(0x00 << 6)
+#define WCNSS_TSTBUS_CTRL_AXIM_CFG1	(0x01 << 6)
+#define WCNSS_TSTBUS_CTRL_CTRL_CFG0	(0x00 << 12)
+#define WCNSS_TSTBUS_CTRL_CTRL_CFG1	(0x01 << 12)
 
 #define MSM_PRONTO_CCPU_BASE			0xfb205050
 #define CCU_PRONTO_INVALID_ADDR_OFFSET		0x08
@@ -161,13 +159,6 @@ static DEFINE_SPINLOCK(reg_spinlock);
 #define WCNSS_MAX_FRAME_SIZE		(4*1024)
 #define WCNSS_VERSION_LEN			30
 #define WCNSS_MAX_BUILD_VER_LEN		256
-#define WCNSS_MAX_CMD_LEN		(128)
-#define WCNSS_MIN_CMD_LEN		(3)
-#define WCNSS_MIN_SERIAL_LEN		(6)
-
-#define WCNSS_USR_CTRL_MSG_START  0x00000000
-#define WCNSS_USR_SERIAL_NUM      (WCNSS_USR_CTRL_MSG_START + 1)
-#define WCNSS_USR_HAS_CAL_DATA    (WCNSS_USR_CTRL_MSG_START + 2)
 
 #define WCNSS_CTRL_MSG_START	0x01000000
 #define	WCNSS_VERSION_REQ             (WCNSS_CTRL_MSG_START + 0)
@@ -319,9 +310,7 @@ static struct {
 	int	device_opened;
 	int	iris_xo_mode_set;
 	int	fw_vbatt_state;
-	int	ctrl_device_opened;
 	struct mutex dev_lock;
-	struct mutex ctrl_lock;
 	wait_queue_head_t read_wait;
 	struct qpnp_adc_tm_btm_param vbat_monitor_params;
 	struct qpnp_adc_tm_chip *adc_tm_dev;
@@ -630,22 +619,6 @@ void wcnss_pronto_log_debug_regs(void)
 EXPORT_SYMBOL(wcnss_pronto_log_debug_regs);
 
 #ifdef CONFIG_WCNSS_REGISTER_DUMP_ON_BITE
-static void wcnss_log_iris_regs(void)
-{
-	int i;
-	u32 reg_val;
-	u32 regs_array[] = {
-		0x04, 0x05, 0x11, 0x1e, 0x40, 0x48,
-		0x49, 0x4b, 0x00, 0x01, 0x4d};
-
-	pr_info("IRIS Registers [address] : value\n");
-
-	for (i = 0; i < ARRAY_SIZE(regs_array); i++) {
-		reg_val = wcnss_rf_read_reg(regs_array[i]);
-		pr_info("[0x%08x] : 0x%08x\n", regs_array[i], reg_val);
-	}
-}
-
 void wcnss_log_debug_regs_on_bite(void)
 {
 	struct platform_device *pdev = wcnss_get_platform_device();
@@ -664,16 +637,11 @@ void wcnss_log_debug_regs_on_bite(void)
 		clk_rate = clk_get_rate(measure);
 		pr_debug("wcnss: clock frequency is: %luHz\n", clk_rate);
 
-		if (clk_rate) {
+		if (clk_rate)
 			wcnss_pronto_log_debug_regs();
-		} else {
+		else
 			pr_err("clock frequency is zero, cannot access PMU or other registers\n");
-			wcnss_log_iris_regs();
-		}
 	}
-    else{
-        pr_err("Can't access measure or wcnss_debug\n");
-    }
 }
 #endif
 
@@ -743,14 +711,12 @@ static void wcnss_smd_notify_event(void *data, unsigned int event)
 			pr_err("wcnss: failed to read from smd %d\n", len);
 			return;
 		}
-		printk("wcnss_debug: wcnss_smd_notify_event() : Start to schedule wcnssctrl_rx_work to read smd packet \r\n");
 		schedule_work(&penv->wcnssctrl_rx_work);
 		break;
 
 	case SMD_EVENT_OPEN:
 		pr_debug("wcnss: opening WCNSS SMD channel :%s",
 				WCNSS_CTRL_CHANNEL);
-		printk("wcnss_debug: opening WCNSS SMD channel :%s", WCNSS_CTRL_CHANNEL);
 		schedule_work(&penv->wcnssctrl_version_work);
 
 		break;
@@ -946,7 +912,6 @@ EXPORT_SYMBOL(wcnss_get_wlan_config);
 
 int wcnss_device_ready(void)
 {
-	printk("wcnss_debug : wcnss_device_ready(): penv->nv_downloaded = 0x%x\r\n", penv->nv_downloaded);
 	if (penv && penv->pdev && penv->nv_downloaded)
 		return 1;
 	return 0;
@@ -1178,7 +1143,6 @@ static int wcnss_smd_tx(void *data, int len)
 		pr_err("wcnss: failed to write Command %d", len);
 		ret = -ENODEV;
 	}
-	printk("wcnss_debug: wcnss_smd_tx() finish and exit \r\n");
 	return ret;
 }
 
@@ -1817,80 +1781,6 @@ static struct notifier_block wcnss_pm_notifier = {
 	.notifier_call = wcnss_pm_notify,
 };
 
-static int wcnss_ctrl_open(struct inode *inode, struct file *file)
-{
-	int rc = 0;
-
-	if (!penv || penv->ctrl_device_opened)
-		return -EFAULT;
-
-	penv->ctrl_device_opened = 1;
-
-	return rc;
-}
-
-
-void process_usr_ctrl_cmd(u8 *buf, size_t len)
-{
-	u16 cmd = buf[0] << 8 | buf[1];
-
-	switch (cmd) {
-
-	case WCNSS_USR_SERIAL_NUM:
-		if (WCNSS_MIN_SERIAL_LEN > len) {
-			pr_err("%s: Invalid serial number\n", __func__);
-			return;
-		}
-		penv->serial_number = buf[2] << 24 | buf[3] << 16
-			| buf[4] << 8 | buf[5];
-		break;
-
-	case WCNSS_USR_HAS_CAL_DATA:
-		if (1 < buf[2])
-			pr_err("%s: Invalid data for cal %d\n", __func__,
-				buf[2]);
-		has_calibrated_data = buf[2];
-		break;
-
-	default:
-		pr_err("%s: Invalid command %d\n", __func__, cmd);
-		break;
-	}
-}
-
-static ssize_t wcnss_ctrl_write(struct file *fp, const char __user
-			*user_buffer, size_t count, loff_t *position)
-{
-	int rc = 0;
-	u8 buf[WCNSS_MAX_CMD_LEN];
-
-	if (!penv || !penv->ctrl_device_opened || WCNSS_MAX_CMD_LEN < count
-			|| WCNSS_MIN_CMD_LEN > count)
-		return -EFAULT;
-
-	mutex_lock(&penv->ctrl_lock);
-	rc = copy_from_user(buf, user_buffer, count);
-	if (0 == rc)
-		process_usr_ctrl_cmd(buf, count);
-
-	mutex_unlock(&penv->ctrl_lock);
-
-	return rc;
-}
-
-
-static const struct file_operations wcnss_ctrl_fops = {
-	.owner = THIS_MODULE,
-	.open = wcnss_ctrl_open,
-	.write = wcnss_ctrl_write,
-};
-
-static struct miscdevice wcnss_usr_ctrl = {
-	.minor = MISC_DYNAMIC_MINOR,
-	.name = CTRL_DEVICE,
-	.fops = &wcnss_ctrl_fops,
-};
-
 static int
 wcnss_trigger_config(struct platform_device *pdev)
 {
@@ -2293,14 +2183,10 @@ wcnss_wlan_probe(struct platform_device *pdev)
 	}
 
 	mutex_init(&penv->dev_lock);
-	mutex_init(&penv->ctrl_lock);
 	mutex_init(&penv->vbat_monitor_mutex);
 	init_waitqueue_head(&penv->read_wait);
 
 	pr_info(DEVICE " probed in built-in mode\n");
-
-	misc_register(&wcnss_usr_ctrl);
-
 	return misc_register(&wcnss_misc);
 
 }

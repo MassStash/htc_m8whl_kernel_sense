@@ -746,7 +746,6 @@ try_again:
 	   ((*rocr & 0x41000000) == 0x41000000)) {
 		err = mmc_set_signal_voltage(host, MMC_SIGNAL_VOLTAGE_180, true);
 		if (err) {
-			mmc_power_cycle(host);
 			ocr &= ~SD_OCR_S18R;
 			goto try_again;
 		}
@@ -961,10 +960,7 @@ static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
 	}
 
 	err = mmc_send_status(card, &status);
-	printk(KERN_INFO "%s: %s status : %#x, err = %#x, speed : %d\n",
-		mmc_hostname(host), __func__, status, err,
-		card->sw_caps.uhs_max_dtr ?
-			card->sw_caps.uhs_max_dtr : card->sw_caps.hs_max_dtr);
+	printk(KERN_INFO "%s: %s card status : %#x, err = %#x\n", mmc_hostname(host), __func__, status, err);
 
 	host->card = card;
 	return 0;
@@ -1064,7 +1060,7 @@ static int mmc_sd_suspend(struct mmc_host *host)
 
 static int mmc_sd_resume(struct mmc_host *host)
 {
-	int err = 0;
+	int err;
 #ifdef CONFIG_MMC_PARANOID_SD_INIT
 	int retries;
 	int delayTime;
@@ -1073,17 +1069,14 @@ static int mmc_sd_resume(struct mmc_host *host)
 	BUG_ON(!host);
 	BUG_ON(!host->card);
 
-	host->crc_count = 0;
-	
-	host->caps |= host->caps_uhs;
 	mmc_claim_host(host);
 #ifdef CONFIG_MMC_PARANOID_SD_INIT
 	retries = 5;
 	delayTime = 5;
 	while (retries) {
 		if (host->ops->get_cd && host->ops->get_cd(host) == 0) {
-			printk(KERN_ERR "%s(%s): find no card. Stop trying\n",
-				__func__, mmc_hostname(host));
+			printk(KERN_ERR "%s(%s): find no card (%d). Stop trying\n",
+				__func__, mmc_hostname(host), err);
 			break;
 		}
 		err = mmc_sd_init_card(host, host->ocr, host->card);

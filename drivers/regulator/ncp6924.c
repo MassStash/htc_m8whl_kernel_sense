@@ -507,9 +507,5 @@ MODULE_AUTHOR("Kenny Liu <kenny_liu@htc.com>");
 MODULE_DESCRIPTION("NCP6924 regulator driver");
 MODULE_LICENSE("GPL v2");
 
-#ifdef CONFIG_ARCH_MSM8974
-module_init(ncp6924_regulator_init);
-#else
 arch_initcall(ncp6924_regulator_init);
-#endif
 module_exit(ncp6924_regulator_exit);

@@ -65,10 +65,6 @@ static int support_dual_flashlight = 1;
 static int retry = 0;
 static int reg_init_fail = 0;
 
-static int regaddr = 0x00;
-static int regdata = 0x00;
-static int reg_buffered[256] = {0x00};
-
 static int tps61310_i2c_command(uint8_t, uint8_t);
 int tps61310_flashlight_control(int);
 int tps61310_flashlight_mode(int);
@@ -132,7 +128,7 @@ static int uncertain_support_dual_flashlight(void)
 static ssize_t support_dual_flashlight_show(struct device *dev, struct device_attribute *attr,
 		char *buf)
 {
-	return snprintf(buf, sizeof(support_dual_flashlight)+1, "%d\n", support_dual_flashlight);
+	return sprintf(buf, "%d \n", support_dual_flashlight);
 }
 
 static ssize_t support_dual_flashlight_store(
@@ -140,13 +136,10 @@ static ssize_t support_dual_flashlight_store(
 		const char *buf, size_t size)
 {
 	int input;
-	input = simple_strtoul(buf, NULL, 10);
-
-	if(input >= 0 && input < 2){
-		support_dual_flashlight = input;
-		FLT_INFO_LOG("%s: %d\n",__func__,support_dual_flashlight);
-	}else
-		FLT_INFO_LOG("%s: Input out of range\n",__func__);
+	input = 1;
+	sscanf(buf, "%d", &input);
+	FLT_INFO_LOG("%s: %d\n",__func__,input);
+	support_dual_flashlight = input;
 	return size;
 }
 
@@ -172,75 +165,10 @@ static ssize_t poweroff_store(
 static DEVICE_ATTR(poweroff, 0220,
 		   NULL, poweroff_store);
 
-static ssize_t sw_timeout_show(struct device *dev, struct device_attribute *attr,
-		char *buf)
-{
-	return snprintf(buf, sizeof(this_tps61310->flash_sw_timeout)+1, "%d\n", this_tps61310->flash_sw_timeout);
-}
-static ssize_t sw_timeout_store(
-		struct device *dev, struct device_attribute *attr,
-		const char *buf, size_t size)
-{
-	int input;
-	input = simple_strtoul(buf, NULL, 10);
-
-	if(input >= 0 && input < 1500){
-		this_tps61310->flash_sw_timeout = input;
-		FLT_INFO_LOG("%s: %d\n",__func__,this_tps61310->flash_sw_timeout);
-	}else
-		FLT_INFO_LOG("%s: Input out of range\n",__func__);
-	return size;
-}
-static DEVICE_ATTR(sw_timeout, S_IRUGO | S_IWUSR, sw_timeout_show, sw_timeout_store);
-
-static ssize_t regaddr_show(struct device *dev, struct device_attribute *attr,
-		char *buf)
-{
-	return snprintf(buf, 6, "0x%02x\n", regaddr);
-}
-static ssize_t regaddr_store(
-		struct device *dev, struct device_attribute *attr,
-		const char *buf, size_t size)
-{
-	int input;
-	input = simple_strtoul(buf, NULL, 16);
-
-	if(input >= 0 && input < 256){
-		regaddr = input;
-		FLT_INFO_LOG("%s: %d\n",__func__,regaddr);
-	}else
-		FLT_INFO_LOG("%s: Input out of range\n",__func__);
-	return size;
-}
-static DEVICE_ATTR(regaddr, S_IRUGO | S_IWUSR, regaddr_show, regaddr_store);
-
-static ssize_t regdata_show(struct device *dev, struct device_attribute *attr,
-		char *buf)
-{
-	return snprintf(buf, 6, "0x%02x\n", reg_buffered[regaddr]);
-}
-static ssize_t regdata_store(
-		struct device *dev, struct device_attribute *attr,
-		const char *buf, size_t size)
-{
-	int input;
-	input = simple_strtoul(buf, NULL, 16);
-
-	if(input >= 0 && input < 256){
-		regdata = input;
-		FLT_INFO_LOG("%s: %d\n",__func__,regdata);
-		tps61310_i2c_command(regaddr, regdata);
-	}else
-		FLT_INFO_LOG("%s: Input out of range\n",__func__);
-
-	return size;
-}
-static DEVICE_ATTR(regdata, S_IRUGO | S_IWUSR, regdata_show, regdata_store);
-
 static ssize_t switch_show(struct device *dev, struct device_attribute *attr,
 		char *buf)
 {
-	return snprintf(buf, sizeof("switch status:") + sizeof(switch_state) + 1, "switch status:%d\n", switch_state);
+	return sprintf(buf, "switch status:%d \n", switch_state);
 }
 
 static ssize_t switch_store(
@@ -249,13 +177,9 @@ static ssize_t switch_store(
 {
 	int switch_status;
 	switch_status = -1;
-	switch_status = simple_strtoul(buf, NULL, 10);
-
-	if(switch_status >= 0 && switch_status < 2){
-		switch_state = switch_status;
-		FLT_INFO_LOG("%s: %d\n",__func__,switch_state);
-	}else
-		FLT_INFO_LOG("%s: Input out of range\n",__func__);
+	sscanf(buf, "%d ",&switch_status);
+	FLT_INFO_LOG("%s: %d\n",__func__,switch_status);
+	switch_state = switch_status;
 	return size;
 }
 
@@ -265,9 +189,9 @@ static ssize_t max_current_show(struct device *dev, struct device_attribute *att
 		char *buf)
 {
 	if (this_tps61310->enable_FLT_1500mA)
-		return snprintf(buf, 6, "1500\n");
+		return sprintf(buf, "1500\n");
 	else
-		return snprintf(buf, 5, "750\n");
+		return sprintf(buf, "750\n");
 }
 static DEVICE_ATTR(max_current, S_IRUGO | S_IWUSR, max_current_show, NULL);
 static ssize_t flash_store(
@@ -275,13 +199,9 @@ static ssize_t flash_store(
 		const char *buf, size_t size)
 {
 	int val;
-	val = simple_strtoul(buf, NULL, 10);
-
-	if(val >= 0){
-		FLT_INFO_LOG("%s: %d\n",__func__,val);
-		tps61310_flashlight_mode(val);
-	}else
-		FLT_INFO_LOG("%s: Input out of range\n",__func__);
+	sscanf(buf, "%d ",&val);
+	FLT_INFO_LOG("%s: %d\n",__func__,val);
+	tps61310_flashlight_mode(val);
 	return size;
 }
 static DEVICE_ATTR(flash, S_IRUGO | S_IWUSR, NULL, flash_store);
@@ -319,8 +239,6 @@ static int tps61310_i2c_command(uint8_t address, uint8_t data)
 	uint8_t buffer[2];
 	int ret;
 	int err = 0;
-
-	reg_buffered[address] = data;
 
 	buffer[0] = address;
 	buffer[1] = data;
@@ -422,7 +340,7 @@ int tps61310_flashlight_mode(int mode)
 {
 	int err = 0;
 	uint8_t current_hex = 0x0;
-	FLT_INFO_LOG("camera flash current %d. ver: 0220\n", mode);
+	FLT_INFO_LOG("camera flash current %d\n", mode);
 	mutex_lock(&tps61310_mutex);
 	if (this_tps61310->reset && reg_init_fail) {
 		reg_init_fail = 0;
@@ -488,7 +406,7 @@ int tps61310_flashlight_mode2(int mode2, int mode13)
 {
 	int err = 0;
 	uint8_t current_hex = 0x0;
-	FLT_INFO_LOG("camera flash current %d+%d. ver: 0220\n", mode2, mode13);
+	FLT_INFO_LOG("camera flash current %d+%d\n", mode2, mode13);
 	mutex_lock(&tps61310_mutex);
 	if (this_tps61310->reset && reg_init_fail) {
 		reg_init_fail = 0;
@@ -1233,7 +1151,7 @@ static void fl_lcdev_brightness_set(struct led_classdev *led_cdev,
 static void flashlight_early_suspend(struct early_suspend *handler)
 {
 	FLT_INFO_LOG("%s\n", __func__);
-	if (this_tps61310->mode_status)
+	if (this_tps61310 != NULL && this_tps61310->mode_status)
 		flashlight_turn_off();
 	if (this_tps61310->power_save)
 		gpio_set_value_cansleep(this_tps61310->power_save, 0);
@@ -1547,10 +1465,8 @@ static int tps61310_probe(struct i2c_client *client,
 
 	
 		pdata =  kzalloc(sizeof(*pdata), GFP_KERNEL);
-		if (pdata == NULL){
+		if (pdata == NULL)
 			err = -ENOMEM;
-			return err;
-		}
 		err = tps61310_parse_dt(&client->dev, pdata);
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
@@ -1741,8 +1657,6 @@ static int tps61310_probe(struct i2c_client *client,
 		goto platform_data_null;
 	}
 
-	this_tps61310 = tps61310;
-
 	ret = register_reboot_notifier(&reboot_notifier);
 	if (err < 0) {
 		FLT_ERR_LOG("%s: Register reboot notifier failed(err=%d)\n", __func__, ret);
@@ -1754,6 +1668,7 @@ static int tps61310_probe(struct i2c_client *client,
 	tps61310->fl_early_suspend.resume  = flashlight_late_resume;
 	register_early_suspend(&tps61310->fl_early_suspend);
 #endif
+	this_tps61310 = tps61310;
 
 	rc = of_property_read_u32(node, "htc,dualflash", &support_dual_flashlight);
 	if (rc < 0)
@@ -1769,18 +1684,6 @@ static int tps61310_probe(struct i2c_client *client,
 	err = device_create_file(tps61310->fl_lcdev.dev, &dev_attr_poweroff);
 	if (err < 0) {
 		FLT_ERR_LOG("%s, create poweroff sysfs fail\n", __func__);
-	}
-	err = device_create_file(tps61310->fl_lcdev.dev, &dev_attr_sw_timeout);
-	if (err < 0) {
-		FLT_ERR_LOG("%s, create sw_timeout sysfs fail\n", __func__);
-	}
-	err = device_create_file(tps61310->fl_lcdev.dev, &dev_attr_regaddr);
-	if (err < 0) {
-		FLT_ERR_LOG("%s, create regaddr sysfs fail\n", __func__);
-	}
-	err = device_create_file(tps61310->fl_lcdev.dev, &dev_attr_regdata);
-	if (err < 0) {
-		FLT_ERR_LOG("%s, create regdata sysfs fail\n", __func__);
 	}
 	err = device_create_file(tps61310->fl_lcdev.dev, &dev_attr_function_switch);
 	if (err < 0) {
@@ -1803,7 +1706,7 @@ static int tps61310_probe(struct i2c_client *client,
 		tps61310_i2c_command(0x04, 0x10);
 	} else {
 		
-		tps61310_i2c_command(0x07, 0x76);
+		tps61310_i2c_command(0x07, 0xF6);
 	}
 	
 	if (this_tps61310->disable_tx_mask)

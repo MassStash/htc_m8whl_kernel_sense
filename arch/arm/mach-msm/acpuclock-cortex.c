@@ -401,6 +401,7 @@ static struct acpuclk_data acpuclk_cortex_data = {
 	.get_rate = acpuclk_cortex_get_rate,
 };
 
+uint32_t global_speed_bin;
 void __init get_speed_bin(void __iomem *base, struct bin_info *bin)
 {
 	u32 pte_efuse, redundant_sel;
@@ -413,6 +414,12 @@ void __init get_speed_bin(void __iomem *base, struct bin_info *bin)
 		bin->speed = (pte_efuse >> 27) & 0x7;
 
 	bin->speed_valid = !!(pte_efuse & BIT(3));
+	global_speed_bin = bin->speed_valid ? bin->speed : 0;
+}
+
+int msm_get_cpu_speed_bin(void)
+{
+	return global_speed_bin;
 }
 
 static struct clkctl_acpu_speed *__init select_freq_plan(void)

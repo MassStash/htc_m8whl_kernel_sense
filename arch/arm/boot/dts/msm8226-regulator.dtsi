@@ -82,7 +82,7 @@
 		qti,cpr-fuse-redun-target-quot = <24 12 0>;
 		qti,cpr-fuse-redun-ro-sel = <46 36 39>;
 
-/*		qti,cpr-enable; */
+		qti,cpr-enable;
 		qti,cpr-fuse-cond-min-volt-sel = <54 42 6 7 1>;
 		qti,cpr-cond-min-voltage = <1140000>;
 		qti,cpr-fuse-uplift-sel = <22 53 1 0 0>;

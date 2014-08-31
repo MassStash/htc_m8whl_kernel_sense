@@ -29,8 +29,6 @@ static DEFINE_MUTEX(mdss_mdp_sspp_lock);
 static DEFINE_MUTEX(mdss_mdp_smp_lock);
 
 static int mdss_mdp_pipe_free(struct mdss_mdp_pipe *pipe);
-static struct mdss_mdp_pipe *mdss_mdp_pipe_search_by_client_id(
-	struct mdss_data_type *mdata, int client_id);
 
 static inline void mdss_mdp_pipe_write(struct mdss_mdp_pipe *pipe,
 				       u32 reg, u32 val)
@@ -42,7 +40,7 @@ static inline u32 mdss_mdp_pipe_read(struct mdss_mdp_pipe *pipe, u32 reg)
 {
 	return readl_relaxed(pipe->base + reg);
 }
-static void mdss_mdp_smp_mmb_free(unsigned long *smp, bool write);
+
 static u32 mdss_mdp_smp_mmb_reserve(struct mdss_mdp_pipe_smp_map *smp_map,
 	size_t n)
 {
@@ -55,18 +53,8 @@ static u32 mdss_mdp_smp_mmb_reserve(struct mdss_mdp_pipe_smp_map *smp_map,
 	else
 		n -= fixed_cnt;
 
-	i = bitmap_weight(smp_map->allocated, SMP_MB_CNT);
-
-	if (i != 0 && n != i) {
-		pr_debug("Can't change mmb config, num_blks: %d alloc: %d\n",
-			n, i);
-		return 0;
-	}
-
-	mdss_mdp_smp_mmb_free(smp_map->reserved, false);
-
 	
-	for (; i < n; i++) {
+	for (i = bitmap_weight(smp_map->allocated, SMP_MB_CNT); i < n; i++) {
 		if (bitmap_full(mdata->mmb_alloc_map, SMP_MB_CNT))
 			break;
 
@@ -211,15 +199,6 @@ int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 	nlines = pipe->bwc_mode ? 1 : 2;
 
 	mutex_lock(&mdss_mdp_smp_lock);
-	for (i = (MAX_PLANES - 1); i >= ps.num_planes; i--) {
-		if (bitmap_weight(pipe->smp_map[i].allocated, SMP_MB_CNT)) {
-			pr_debug("Extra mmb identified for pnum=%d plane=%d\n",
-				pipe->num, i);
-			mutex_unlock(&mdss_mdp_smp_lock);
-			return -EAGAIN;
-		}
-	}
-
 	for (i = 0; i < ps.num_planes; i++) {
 		if (rot_mode) {
 			num_blks = 1;
@@ -296,54 +275,6 @@ int mdss_mdp_smp_setup(struct mdss_data_type *mdata, u32 cnt, u32 size)
 	mdata->smp_mb_size = size;
 
 	return 0;
-}
-
-int mdss_mdp_smp_handoff(struct mdss_data_type *mdata)
-{
-	int rc = 0;
-	int i, client_id, prev_id = 0;
-	u32 off, s, data;
-	struct mdss_mdp_pipe *pipe = NULL;
-
-	for (i = 0; i < SMP_MB_CNT; i++) {
-		off = (i / 3) * 4;
-		s = (i % 3) * 8;
-		data = MDSS_MDP_REG_READ(MDSS_MDP_REG_SMP_ALLOC_W0 + off);
-		client_id = (data >> s) & 0xFF;
-		if (test_bit(i, mdata->mmb_alloc_map)) {
-			if (pipe)
-				pr_debug("smp mmb %d already assigned to pipe %d (client_id %d)"
-					, i, pipe->num, client_id);
-			continue;
-		}
-
-		if (client_id) {
-			if (client_id != prev_id) {
-				pipe = mdss_mdp_pipe_search_by_client_id(mdata,
-					client_id);
-				prev_id = client_id;
-			}
-
-			if (!pipe) {
-				pr_warn("Invalid client id %d for SMP MMB %d\n",
-					client_id, i);
-				continue;
-			}
-
-			if (!pipe->is_handed_off) {
-				pr_warn("SMP MMB %d assigned to a pipe not marked for handoff (client id %d)"
-					, i, client_id);
-				continue;
-			}
-
-			pr_debug("Assigning smp mmb %d to pipe %d (client_id %d)\n"
-				, i, pipe->num, client_id);
-			set_bit(i, pipe->smp_map[0].allocated);
-			set_bit(i, mdata->mmb_alloc_map);
-		}
-	}
-
-	return rc;
 }
 
 void mdss_mdp_pipe_unmap(struct mdss_mdp_pipe *pipe)
@@ -485,29 +416,6 @@ error:
 	return pipe;
 }
 
-static struct mdss_mdp_pipe *mdss_mdp_pipe_search_by_client_id(
-	struct mdss_data_type *mdata, int client_id)
-{
-	u32 i;
-
-	for (i = 0; i < mdata->nrgb_pipes; i++) {
-		if (mdata->rgb_pipes[i].ftch_id == client_id)
-			return &mdata->rgb_pipes[i];
-	}
-
-	for (i = 0; i < mdata->nvig_pipes; i++) {
-		if (mdata->vig_pipes[i].ftch_id == client_id)
-			return &mdata->vig_pipes[i];
-	}
-
-	for (i = 0; i < mdata->ndma_pipes; i++) {
-		if (mdata->dma_pipes[i].ftch_id == client_id)
-			return &mdata->dma_pipes[i];
-	}
-
-	return NULL;
-}
-
 struct mdss_mdp_pipe *mdss_mdp_pipe_search(struct mdss_data_type *mdata,
 						  u32 ndx)
 {
@@ -535,20 +443,12 @@ static int mdss_mdp_pipe_free(struct mdss_mdp_pipe *pipe)
 	pr_debug("ndx=%x pnum=%d ref_cnt=%d\n", pipe->ndx, pipe->num,
 			atomic_read(&pipe->ref_cnt));
 
-	if (pipe->play_cnt) {
-		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
-		mdss_mdp_pipe_sspp_term(pipe);
-		mdss_mdp_smp_free(pipe);
-		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
-	} else {
-		mdss_mdp_smp_unreserve(pipe);
-	}
-
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
+	mdss_mdp_pipe_sspp_term(pipe);
+	mdss_mdp_smp_free(pipe);
 	pipe->flags = 0;
 	pipe->bwc_mode = 0;
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
-	pipe->mfd = NULL;
-	memset(&pipe->scale, 0, sizeof(struct mdp_scale_data));
 
 	return 0;
 }
@@ -568,52 +468,6 @@ int mdss_mdp_pipe_destroy(struct mdss_mdp_pipe *pipe)
 
 	return 0;
 
-}
-
-int mdss_mdp_pipe_handoff(struct mdss_mdp_pipe *pipe)
-{
-	int rc = 0;
-	u32 src_fmt, reg = 0, bpp = 0;
-
-	reg = mdss_mdp_pipe_read(pipe, MDSS_MDP_REG_SSPP_SRC_SIZE);
-	pipe->src.h = reg >> 16;
-	pipe->src.w = reg & 0xFFFF;
-	reg = mdss_mdp_pipe_read(pipe, MDSS_MDP_REG_SSPP_OUT_SIZE);
-	pipe->dst.h = reg >> 16;
-	pipe->dst.w = reg & 0xFFFF;
-
-	
-	reg = mdss_mdp_pipe_read(pipe, MDSS_MDP_REG_SSPP_SRC_FORMAT);
-	bpp = ((reg >> 9) & 0x3) + 1;
-	switch (bpp) {
-	case 4:
-		src_fmt = MDP_RGBA_8888;
-		break;
-	case 3:
-		src_fmt = MDP_RGB_888;
-		break;
-	case 2:
-		src_fmt = MDP_RGB_565;
-		break;
-	default:
-		pr_err("Invalid bpp=%d found\n", bpp);
-		rc = -EINVAL;
-		goto error;
-	}
-	pipe->src_fmt = mdss_mdp_get_format_params(src_fmt);
-
-	if (pipe->src_fmt)
-		pr_debug("Pipe settings: src.h=%d src.w=%d dst.h=%d dst.w=%d bpp=%d\n"
-			, pipe->src.h, pipe->src.w, pipe->dst.h, pipe->dst.w,
-			pipe->src_fmt->bpp);
-	else
-		pr_err("pipe->src_fmt was NULL\n");
-	pipe->is_handed_off = true;
-	pipe->play_cnt = 1;
-	atomic_inc(&pipe->ref_cnt);
-
-error:
-	return rc;
 }
 
 void mdss_mdp_crop_rect(struct mdss_mdp_img_rect *src_rect,
@@ -680,13 +534,14 @@ static int mdss_mdp_image_setup(struct mdss_mdp_pipe *pipe,
 	dst = pipe->dst;
 	src = pipe->src;
 
-	if (pipe->mixer->type == MDSS_MDP_MIXER_TYPE_INTF)
-		mdss_mdp_crop_rect(&src, &dst, &sci);
+	mdss_mdp_crop_rect(&src, &dst, &sci);
 
 	src_size = (src.h << 16) | src.w;
 	src_xy = (src.y << 16) | src.x;
 	dst_size = (dst.h << 16) | dst.w;
 	dst_xy = (dst.y << 16) | dst.x;
+
+	img_size = (height << 16) | width;
 
 	ystride0 =  (pipe->src_planes.ystride[0]) |
 			(pipe->src_planes.ystride[1] << 16);
@@ -694,25 +549,9 @@ static int mdss_mdp_image_setup(struct mdss_mdp_pipe *pipe,
 			(pipe->src_planes.ystride[3] << 16);
 
 	if (pipe->overfetch_disable) {
-		if (pipe->overfetch_disable & OVERFETCH_DISABLE_BOTTOM) {
-			height = pipe->src.h;
-			if (!(pipe->overfetch_disable & OVERFETCH_DISABLE_TOP))
-				height += pipe->src.y;
-		}
-		if (pipe->overfetch_disable & OVERFETCH_DISABLE_RIGHT) {
-			width = pipe->src.w;
-			if (!(pipe->overfetch_disable & OVERFETCH_DISABLE_LEFT))
-				width += pipe->src.x;
-		}
-		if (pipe->overfetch_disable & OVERFETCH_DISABLE_LEFT)
-			src_xy &= ~0xFFFF;
-		if (pipe->overfetch_disable & OVERFETCH_DISABLE_TOP)
-			src_xy &= ~(0xFFFF << 16);
-
-		pr_debug("overfetch w=%d/%d h=%d/%d src_xy=0x%08x\n", width,
-			pipe->img_width, height, pipe->img_height, src_xy);
+		img_size = src_size;
+		src_xy = 0;
 	}
-	img_size = (height << 16) | width;
 
 	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC_IMG_SIZE, img_size);
 	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC_SIZE, src_size);
@@ -823,17 +662,9 @@ static int mdss_mdp_src_addr_setup(struct mdss_mdp_pipe *pipe,
 	if (ret)
 		return ret;
 
-	if (pipe->overfetch_disable) {
-		u32 x = 0, y = 0;
-
-		if (pipe->overfetch_disable & OVERFETCH_DISABLE_LEFT)
-			x = pipe->src.x;
-		if (pipe->overfetch_disable & OVERFETCH_DISABLE_TOP)
-			y = pipe->src.y;
-
-		mdss_mdp_data_calc_offset(data, x, y,
+	if (pipe->overfetch_disable)
+		mdss_mdp_data_calc_offset(data, pipe->src.x, pipe->src.y,
 			&pipe->src_planes, pipe->src_fmt);
-	}
 
 	
 	if (mdata->mdp_rev < MDSS_MDP_HW_REV_102 &&

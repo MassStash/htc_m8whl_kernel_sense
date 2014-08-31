@@ -887,7 +887,7 @@ static __ref int do_hotplug(void *data)
 		return -EINVAL;
 
 	while (!kthread_should_stop()) {
-		wait_for_completion_interruptible(&hotplug_notify_complete);
+		wait_for_completion(&hotplug_notify_complete);
 		INIT_COMPLETION(hotplug_notify_complete);
 		mask = 0;
 
@@ -1315,7 +1315,7 @@ static __ref int do_freq_mitigation(void *data)
 	uint32_t cpu = 0, max_freq_req = 0, min_freq_req = 0;
 
 	while (!kthread_should_stop()) {
-		wait_for_completion_interruptible(&freq_mitigation_complete);
+		wait_for_completion(&freq_mitigation_complete);
 		INIT_COMPLETION(freq_mitigation_complete);
 
 		get_online_cpus();
@@ -1733,18 +1733,6 @@ int __devinit msm_thermal_init(struct msm_thermal_data *pdata)
 	int ret = 0;
 	uint32_t cpu;
 
-	for_each_possible_cpu(cpu) {
-		cpus[cpu].cpu = cpu;
-		cpus[cpu].offline = 0;
-		cpus[cpu].user_offline = 0;
-		cpus[cpu].hotplug_thresh_clear = false;
-		cpus[cpu].max_freq = false;
-		cpus[cpu].user_max_freq = UINT_MAX;
-		cpus[cpu].user_min_freq = 0;
-		cpus[cpu].limited_max_freq = UINT_MAX;
-		cpus[cpu].limited_min_freq = 0;
-		cpus[cpu].freq_thresh_clear = false;
-	}
 	BUG_ON(!pdata);
 	tsens_get_max_sensor_num(&max_tsens_num);
 	memcpy(&msm_thermal_info, pdata, sizeof(struct msm_thermal_data));
@@ -1755,6 +1743,10 @@ int __devinit msm_thermal_init(struct msm_thermal_data *pdata)
 		return -EINVAL;
 
 	enabled = 1;
+	for_each_possible_cpu(cpu) {
+		cpus[cpu].limited_max_freq = UINT_MAX;
+		cpus[cpu].limited_min_freq = 0;
+	}
 	ret = cpufreq_register_notifier(&msm_thermal_cpufreq_notifier,
 			CPUFREQ_POLICY_NOTIFIER);
 	if (ret)
@@ -2391,6 +2383,10 @@ static int probe_cc(struct device_node *node, struct msm_thermal_data *data,
 	}
 
 	for_each_possible_cpu(cpu) {
+		cpus[cpu].cpu = cpu;
+		cpus[cpu].offline = 0;
+		cpus[cpu].user_offline = 0;
+		cpus[cpu].hotplug_thresh_clear = false;
 		ret = of_property_read_string_index(node, key, cpu,
 				&cpus[cpu].sensor_type);
 		if (ret)
@@ -2424,6 +2420,7 @@ static int probe_freq_mitigation(struct device_node *node,
 {
 	char *key = NULL;
 	int ret = 0;
+	uint32_t cpu;
 
 	key = "qcom,freq-mitigation-temp";
 	ret = of_property_read_u32(node, key, &data->freq_mitig_temp_degc);
@@ -2447,6 +2444,14 @@ static int probe_freq_mitigation(struct device_node *node,
 		goto PROBE_FREQ_EXIT;
 
 	freq_mitigation_enabled = 1;
+	for_each_possible_cpu(cpu) {
+		cpus[cpu].max_freq = false;
+		cpus[cpu].user_max_freq = UINT_MAX;
+		cpus[cpu].user_min_freq = 0;
+		cpus[cpu].limited_max_freq = UINT_MAX;
+		cpus[cpu].limited_min_freq = 0;
+		cpus[cpu].freq_thresh_clear = false;
+	}
 
 PROBE_FREQ_EXIT:
 	if (ret) {

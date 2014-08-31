@@ -493,7 +493,9 @@ static void msm8226_ext_spk_power_amp_off(u32 spk)
 		pr_debug("%s Disable left and right speakers case spk = 0x%08x",
 			__func__, spk);
 
-		if(!(msm8226_ext_spk_pamp & spk))
+		msm8226_ext_spk_pamp &= ~spk;
+
+		if(!msm8226_ext_spk_pamp)
 			return;
 
 		mutex_lock(&htc_amp_mutex);
@@ -1345,6 +1347,9 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 		err = -ENOMEM;
 		goto out;
 	}
+
+	
+	gpio_tlmm_config(GPIO_CFG(GPIO_WCD_INTR2, 0,GPIO_CFG_OUTPUT,GPIO_CFG_PULL_DOWN,GPIO_CFG_2MA),GPIO_CFG_ENABLE);
 
 	adsp_state_notifier =
 		subsys_notif_register_notifier("adsp",
@@ -2341,19 +2346,6 @@ static struct snd_soc_dai_link msm8226_9306_dai[] = {
 		.be_hw_params_fixup = msm_be_mi2s_hw_params_fixup,
 		.ops = &msm8226_mi2s_be_ops,
 	},
-	{
-		.name = "MI2S TX Hostless Capture",
-		.stream_name = "MI2S TX Hostless Capture",
-		.cpu_dai_name	= "MI2S_TX_HOSTLESS",
-		.platform_name  = "msm-pcm-hostless",
-		.dynamic = 1,
-		.trigger = {SND_SOC_DPCM_TRIGGER_POST, SND_SOC_DPCM_TRIGGER_POST},
-		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
-		.ignore_suspend = 1,
-		.ignore_pmdown_time = 1, 
-		.codec_dai_name = "snd-soc-dummy-dai",
-		.codec_name = "snd-soc-dummy",
-	},
 };
 
 static struct snd_soc_dai_link msm8226_9302_dai[] = {
@@ -2822,7 +2814,7 @@ static __devinit int msm8226_asoc_machine_probe(struct platform_device *pdev)
 	if (!pdata) {
 		dev_err(&pdev->dev, "Can't allocate msm8226_asoc_mach_data\n");
 		ret = -ENOMEM;
-		goto err1;
+		goto err;
 	}
 
 	card = populate_snd_card_dailinks(&pdev->dev);

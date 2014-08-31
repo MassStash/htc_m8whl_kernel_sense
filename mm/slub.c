@@ -2132,7 +2132,7 @@ EXPORT_SYMBOL(kmem_cache_free);
 
 
 static int slub_min_order;
-static int slub_max_order;
+static int slub_max_order = PAGE_ALLOC_COSTLY_ORDER;
 static int slub_min_objects;
 
 static int slub_nomerge;
@@ -2798,10 +2798,6 @@ void kfree(const void *x)
 		return;
 
 	page = virt_to_head_page(x);
-	if (unlikely(!page)) {
-        kmemleak_free(x);
-		return;
-	}
 	if (unlikely(!PageSlab(page))) {
 		BUG_ON(!PageCompound(page));
 		kmemleak_free(x);

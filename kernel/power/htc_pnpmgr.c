@@ -74,7 +74,6 @@ static char activity_buf[MAX_BUF];
 static char non_activity_buf[MAX_BUF];
 static char media_mode_buf[MAX_BUF];
 static int app_timeout_expired;
-static int is_touch_boosted;;
 
 static void null_cb(const char *attr) {
 	do { } while (0);
@@ -292,37 +291,6 @@ int pnpmgr_battery_charging_enabled(int charging_enabled)
 	return 0;
 }
 
-static struct delayed_work touch_boost_work;
-static ssize_t
-touch_boost_show(struct kobject *kobj, struct kobj_attribute *attr,
-		char *buf)
-{
-	return sprintf(buf, "%d", is_touch_boosted);
-}
-static ssize_t
-touch_boost_store(struct kobject *kobj, struct kobj_attribute *attr,
-		const char *buf, size_t n)
-{
-	int val;
-	if (sscanf(buf, "%d", &val) > 0) {
-		if (val == 0) {
-			cancel_delayed_work(&touch_boost_work);
-			flush_scheduled_work();
-			is_touch_boosted = 0;
-			sysfs_notify(hotplug_kobj, NULL, "touch_boost");
-		}
-		else if (val && !is_touch_boosted){
-			is_touch_boosted = 1;
-			sysfs_notify(hotplug_kobj, NULL, "touch_boost");
-			schedule_delayed_work(&touch_boost_work,msecs_to_jiffies(val));
-		}
-		return n;
-	}
-	return -EINVAL;
-}
-power_attr(touch_boost);
-
-
 static struct attribute *cpufreq_g[] = {
 #ifdef CONFIG_PERFLOCK
 	&perflock_scaling_max_attr.attr,
@@ -347,7 +315,6 @@ static struct attribute *hotplug_g[] = {
 	&mp_util_high_or_attr.attr,
 	&mp_util_low_and_attr.attr,
 	&mp_util_low_or_attr.attr,
-	&touch_boost_attr.attr,
 #endif
 	NULL,
 };
@@ -517,20 +484,12 @@ static void app_timeout_handler(unsigned long data)
 	sysfs_notify(apps_kobj, NULL, "app_timeout");
 }
 
-static void touch_boost_handler(struct work_struct *work)
-{
-	is_touch_boosted = 0;
-	sysfs_notify(hotplug_kobj, NULL, "touch_boost");
-}
-
 static int __init pnpmgr_init(void)
 {
 	int ret;
 
 	init_timer(&app_timer);
 	app_timer.function = app_timeout_handler;
-
-	INIT_DELAYED_WORK(&touch_boost_work, touch_boost_handler);
 
 	pnpmgr_kobj = kobject_create_and_add("pnpmgr", power_kobj);
 

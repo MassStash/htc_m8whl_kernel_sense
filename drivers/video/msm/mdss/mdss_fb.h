@@ -18,7 +18,6 @@
 #include <linux/list.h>
 #include <linux/msm_mdp.h>
 #include <linux/types.h>
-#include <linux/notifier.h>
 
 #include "mdss_panel.h"
 
@@ -40,14 +39,6 @@
 #define  MIN(x, y) (((x) < (y)) ? (x) : (y))
 #endif
 
-enum mdp_notify_event {
-	MDP_NOTIFY_FRAME_BEGIN = 1,
-	MDP_NOTIFY_FRAME_READY,
-	MDP_NOTIFY_FRAME_FLUSHED,
-	MDP_NOTIFY_FRAME_DONE,
-	MDP_NOTIFY_FRAME_TIMEOUT,
-};
-
 struct disp_info_type_suspend {
 	int op_enable;
 	int panel_power_on;
@@ -65,17 +56,13 @@ struct msm_sync_pt_data {
 	char *fence_name;
 	u32 acq_fen_cnt;
 	struct sync_fence *acq_fen[MDP_MAX_FENCE_FD];
-
+	int cur_rel_fen_fd;
+	struct sync_pt *cur_rel_sync_pt;
+	struct sync_fence *cur_rel_fence;
 	struct sw_sync_timeline *timeline;
 	int timeline_value;
 	u32 threshold;
-
-	atomic_t commit_cnt;
-	bool flushed;
-	bool async_wait_fences;
-
 	struct mutex sync_mutex;
-	struct notifier_block notifier;
 };
 
 struct msm_fb_data_type;
@@ -116,11 +103,6 @@ struct mdss_fb_proc_info {
 	int pid;
 	u32 ref_cnt;
 	struct list_head list;
-};
-
-struct msm_fb_backup_type {
-	struct fb_info info;
-	struct mdp_display_commit disp_commit;
 };
 
 struct msm_fb_data_type {
@@ -178,13 +160,10 @@ struct msm_fb_data_type {
 	struct msm_sync_pt_data mdp_sync_pt_data;
 
 	
-	struct task_struct *disp_thread;
-	atomic_t commits_pending;
-	wait_queue_head_t commit_wait_q;
-	wait_queue_head_t idle_wait_q;
-	bool shutdown_pending;
-
-	struct msm_fb_backup_type msm_fb_backup;
+	struct completion commit_comp;
+	u32 is_committing;
+	struct work_struct commit_work;
+	void *msm_fb_backup;
 	struct completion power_set_comp;
 	u32 is_power_setting;
 	u32 is_active;
@@ -192,6 +171,11 @@ struct msm_fb_data_type {
 	u32 dcm_state;
 	struct list_head proc_list;
 	int pan_pid;
+};
+
+struct msm_fb_backup_type {
+	struct fb_info info;
+	struct mdp_display_commit disp_commit;
 };
 
 static inline void mdss_fb_update_notify_update(struct msm_fb_data_type *mfd)

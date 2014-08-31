@@ -47,7 +47,7 @@ unsigned int get_radio_flag_ex2(void)
 {
 	if (!has_config_data)
 		config_data_init();
-        return cfg_flag_index[RADIO_FLAG_EX2_INDEX];
+        return cfg_flag_index[RADIO_FLAG_EX1_INDEX];
 }
 
 static int config_data_init(void)

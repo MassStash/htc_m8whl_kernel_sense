@@ -41,7 +41,7 @@ static struct diag_request *htc_write_diag_req;
 #define TRX_REQ_BUF_SZ 8192
 #define DEBUG_DMBYTES_RECV 3
 
-#if defined(CONFIG_MACH_MECHA) || defined(CONFIG_MACH_VIGOR) || defined(CONFIG_ARCH_MSM8960) || defined(CONFIG_ARCH_MSM8974) || defined(CONFIG_ARCH_DUMMY)
+#if defined(CONFIG_MACH_MECHA) || defined(CONFIG_MACH_VIGOR) || defined(CONFIG_ARCH_MSM8960) || defined(CONFIG_ARCH_MSM8974)
 static	uint16_t nv7K9K_table[NV_TABLE_SZ] = {82,
 0, 4, 5, 20, 21, 37, 258, 318, 460, 461,
 462, 463, 464, 465, 466, 546, 707, 714, 854, 1943,
@@ -153,7 +153,7 @@ static struct usb_request *xpst_req_get(struct diag_context *ctxt,
 	return req;
 }
 
-#if defined(CONFIG_MACH_MECHA) || defined(CONFIG_MACH_VIGOR) || defined(CONFIG_ARCH_MSM8960) || defined(CONFIG_ARCH_MSM8974) || defined(CONFIG_ARCH_DUMMY)
+#if defined(CONFIG_MACH_MECHA) || defined(CONFIG_MACH_VIGOR) || defined(CONFIG_ARCH_MSM8960) || defined(CONFIG_ARCH_MSM8974)
 int decode_encode_hdlc(void*data, int *len, unsigned char *buf_hdlc, int remove, int pos)
 {
 	struct diag_send_desc_type send = { NULL, NULL, DIAG_STATE_START, 0 };
@@ -295,7 +295,7 @@ int checkcmd_modem_epst(unsigned char *buf)
 		return NO_PST;
 	}
 
-#elif defined(CONFIG_ARCH_MSM8960) || defined(CONFIG_ARCH_MSM8974) || defined(CONFIG_ARCH_DUMMY)
+#elif defined(CONFIG_ARCH_MSM8960) || defined(CONFIG_ARCH_MSM8974)
 	if (*buf == 0xc && radio_initialized == 0 && diag2arm9query) {
 		DIAG_INFO("%s: modem is ready\n", __func__);
 		radio_initialized = 1;
@@ -323,7 +323,7 @@ int modem_to_userspace(void *buf, int r, int type, int is9k)
 
 	struct diag_context *ctxt = get_modem_ctxt();
 	struct usb_request *req;
-#if defined(CONFIG_MACH_MECHA) || defined(CONFIG_MACH_VIGOR) || defined(CONFIG_ARCH_MSM8960) || defined(CONFIG_ARCH_MSM8974) || defined(CONFIG_ARCH_DUMMY)
+#if defined(CONFIG_MACH_MECHA) || defined(CONFIG_MACH_VIGOR) || defined(CONFIG_ARCH_MSM8960) || defined(CONFIG_ARCH_MSM8974)
 	unsigned char value;
 #endif
 
@@ -340,7 +340,7 @@ int modem_to_userspace(void *buf, int r, int type, int is9k)
 	}
 	memcpy(req->buf, buf, r);
 
-#if defined(CONFIG_MACH_MECHA) || defined(CONFIG_MACH_VIGOR) || defined(CONFIG_ARCH_MSM8960) || defined(CONFIG_ARCH_MSM8974) || defined(CONFIG_ARCH_DUMMY)
+#if defined(CONFIG_MACH_MECHA) || defined(CONFIG_MACH_VIGOR) || defined(CONFIG_ARCH_MSM8960) || defined(CONFIG_ARCH_MSM8974)
 	if (type == DM7K9KDIFF) {
 		value = *((uint8_t *)req->buf+1);
 		if ((value == 0x27) || (value == 0x26)) {
@@ -747,7 +747,7 @@ static int if_route_to_userspace(struct diag_context *ctxt, unsigned int cmd)
 	return 0;
 }
 
-#if defined(CONFIG_MACH_MECHA) || defined(CONFIG_MACH_VIGOR) || defined(CONFIG_ARCH_MSM8960) || defined(CONFIG_ARCH_MSM8974) || defined(CONFIG_ARCH_DUMMY)
+#if defined(CONFIG_MACH_MECHA) || defined(CONFIG_MACH_VIGOR) || defined(CONFIG_ARCH_MSM8960) || defined(CONFIG_ARCH_MSM8974)
 static int check_modem_type(void)
 {
 #if defined(CONFIG_DIAG_SDIO_PIPE)
@@ -1006,7 +1006,7 @@ static ssize_t diag2arm9_write(struct file *fp, const char __user *buf,
 	struct diag_context *ctxt = get_modem_ctxt();
 	int r = count;
 	int writed = 0;
-#if defined(CONFIG_MACH_MECHA) || defined(CONFIG_MACH_VIGOR) || defined(CONFIG_ARCH_MSM8960) || defined(CONFIG_ARCH_MSM8974) || defined(CONFIG_ARCH_DUMMY)
+#if defined(CONFIG_MACH_MECHA) || defined(CONFIG_MACH_VIGOR) || defined(CONFIG_ARCH_MSM8960) || defined(CONFIG_ARCH_MSM8974)
 	int path;
 	struct diag_hdlc_decode_type hdlc;
 	int ret;
@@ -1041,7 +1041,7 @@ static ssize_t diag2arm9_write(struct file *fp, const char __user *buf,
 		}
 #endif
 
-#if defined(CONFIG_MACH_MECHA) || defined(CONFIG_MACH_VIGOR) || defined(CONFIG_ARCH_MSM8960) || defined(CONFIG_ARCH_MSM8974) || defined(CONFIG_ARCH_DUMMY)
+#if defined(CONFIG_MACH_MECHA) || defined(CONFIG_MACH_VIGOR) || defined(CONFIG_ARCH_MSM8960) || defined(CONFIG_ARCH_MSM8974)
 		path = checkcmd_modem_epst(ctxt->DM_buf);
 
 		print_hex_dump(KERN_DEBUG, "DM Packet Data"
@@ -1250,6 +1250,9 @@ retry:
 		ret = wait_event_interruptible(ctxt->read_arm9_wq,
 				((req = xpst_req_get(ctxt, &ctxt->rx_arm9_done)) ||
 				 !ctxt->diag2arm9_opened));
+		if (ret < 0)
+			pr_info("wait_event_interruptible breaked ret=%d\n", ret);
+
 		if (!ctxt->diag2arm9_opened) {
 			if (req)
 				xpst_req_put(ctxt, &ctxt->rx_arm9_idle, req);
@@ -1285,8 +1288,6 @@ retry:
 	}
 done:
 	mutex_unlock(&ctxt->diag2arm9_read_lock);
-	if (ret < 0)
-		pr_info("wait_event_interruptible breaked ret=%d\n", ret);
 	return r;
 }
 static struct file_operations diag2arm9_fops = {
@@ -1295,7 +1296,7 @@ static struct file_operations diag2arm9_fops = {
 	.release = diag2arm9_release,
 	.write = diag2arm9_write,
 	.read = diag2arm9_read,
-#if defined(CONFIG_MACH_MECHA) || defined(CONFIG_MACH_VIGOR) || defined(CONFIG_ARCH_MSM8960) || defined(CONFIG_ARCH_MSM8974) || defined(CONFIG_ARCH_DUMMY)
+#if defined(CONFIG_MACH_MECHA) || defined(CONFIG_MACH_VIGOR) || defined(CONFIG_ARCH_MSM8960) || defined(CONFIG_ARCH_MSM8974)
 	.unlocked_ioctl = diag2arm9_ioctl,
 #endif
 };

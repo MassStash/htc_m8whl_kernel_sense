@@ -125,8 +125,6 @@ config s5k6a1gx
 	---help---
 		Support for s5k5e sensor driver.
 		
-
-
 config IMX135
 	bool "Sensor IMX135 (BAYER 12M)"
 	depends on MSMB_CAMERA
@@ -285,13 +283,6 @@ config S5K5E_ONELANE
 	---help---
 	  Support for S5K5E_ONELANE sensor driver.
 
-config S5K5E_TWOLANE
-	bool "Sensor S5K5E_TWOLANE"
-	depends on MSMB_CAMERA
-	default n
-	---help---
-	  Support for S5K5E_TWOLANE sensor driver.
-
 config s5k5e
 	bool "Sensor s5k5e"
 	depends on MSMB_CAMERA
@@ -355,10 +346,3 @@ config AR1820
 	default n
 	---help---
 	  Support for AR1820 sensor driver.
-
-config IMX214
-	bool "Sensor imx214"
-	depends on MSMB_CAMERA
-	default n
-	---help---
-	  Support for IMX214 sensor driver.

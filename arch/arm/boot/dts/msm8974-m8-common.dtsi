@@ -59,8 +59,6 @@
                         mcu,Cpu_wake_mcu-gpio    = <&msmgpio 76 0x00>;
                         mcu,Reset-gpio    = <&msmgpio 89 0x00>;
                         mcu,Chip_mode-gpio    = <&msmgpio 53 0x00>;
-                        mcu,ALS_goldh  = <0x17>;
-                        mcu,ALS_goldl  = <0x4D>;
                 };
         };
 
@@ -366,6 +364,17 @@
 	};
 /*Audio config end*/
 
+	qcom,pm8941@1 {
+		qcom,vib@c000 {
+			status = "okay";
+			compatible = "qcom,qpnp-vibrator";
+			reg = <0xc000 0x1000>;
+			label = "vibrator";
+			qcom,qpnp-vib-timeout-ms = <15000>;
+			qcom,qpnp-vib-vtg-level-mV = <3100>;
+		};
+	};
+
 	qcom,rpm-stats@fc19ffa0{
 		compatible = "qcom,rpm-stats";
 		reg = <0xfc19ffa0 0x60>;
@@ -374,14 +383,9 @@
 	};
 };
 
+
 &spmi_bus {
 	qcom,pm8941@1 {
-		qcom,vibrator@c000 {
-			/* M8 customized property for msm-pm8941.dtsi */
-			qcom,qpnp-vib-timeout-ms = <15000>;
-			qcom,qpnp-vib-vtg-level-mV = <3100>;
-		};
-
 		qcom,leds@d800 {
 			status = "disabled";
 			qcom,wled_0 {
@@ -562,7 +566,7 @@
 	qcom,min-fcc-learning-soc = <20>;
 	qcom,min-fcc-ocv-pc = <30>;
 	qcom,min-fcc-learning-samples = <5>;
-	qcom,fcc-resolution = <13>;
+	qcom,fcc-resolution = <10>;
 	qcom,shutdown-vol-criteria = <3400000>;
 	qcom,stored-batt-magic-num= <(-1)>;
 	qcom,stored-batt-soc= <(-1)>;
@@ -573,7 +577,6 @@
 	qcom,criteria-sw-est-ocv = <79200000>;
 	qcom,rconn-mohm-sw-est-ocv = <10>;
 	qcom,enable-batt-full-fake-ocv = <1>;
-	qcom,qb-mode-cc-criteria-uah = <10000>;
 	status = "ok";
 };
 
@@ -587,7 +590,7 @@
 	qcom,ibatterm-ma = <180>;
 	qcom,ibatsafe-ma = <1750>;
 	qcom,thermal-mitigation = <1500 700 600 225>;
-	qcom,cool-bat-decidegc = <0>;
+	qcom,cool-bat-decidegc = <1>;
 	qcom,cool-bat-mv = <4350>;
 	qcom,ibatmax-warm-ma = <1750>;
 	qcom,warm-bat-decidegc = <480>;
@@ -603,9 +606,7 @@
 	qcom,eoc-ibat-thre-ma = <50>;
 	qcom,is-embeded-batt = <1>;
 	qcom,regulate-vin-min-thr-mv = <4150>;
-	qcom,lower-vin-min = <4200>;
-	qcom,stored-pre-delta-vddmax-mv= <(-1)>;
-	qcom,stored-batt-magic-num= <(-1)>;
+	qcom,lower-vin-min = <4300>;
 
 	status = "ok";
 	qcom,charging-disabled;

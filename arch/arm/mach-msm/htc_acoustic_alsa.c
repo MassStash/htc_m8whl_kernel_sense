@@ -22,7 +22,6 @@
 #include <linux/slab.h>
 #include <linux/switch.h>
 #include <mach/htc_acoustic_alsa.h>
-#include <mach/htc_headset_mgr.h>
 
 struct device_info {
 	unsigned pcb_id;
@@ -36,7 +35,6 @@ static struct mutex api_lock;
 static struct acoustic_ops default_acoustic_ops;
 static struct acoustic_ops *the_ops = &default_acoustic_ops;
 static struct switch_dev sdev_beats;
-static struct switch_dev sdev_dq;
 static struct switch_dev sdev_listen_notification;
 
 static struct mutex hs_amp_lock;
@@ -51,8 +49,7 @@ static struct amp_power_ops *the_amp_power_ops = &default_amp_power_ops;
 static struct wake_lock htc_acoustic_wakelock;
 static struct wake_lock htc_acoustic_wakelock_timeout;
 static struct wake_lock htc_acoustic_dummy_wakelock;
-static struct hs_notify_t hs_plug_nt[HS_N_MAX] = {{0,NULL,NULL}};
-static struct mutex hs_nt_lock;
+
 
 static int hs_amp_open(struct inode *inode, struct file *file);
 static int hs_amp_release(struct inode *inode, struct file *file);
@@ -154,22 +151,6 @@ void htc_acoustic_register_hs_amp(int (*aud_hs_amp_f)(int, int), struct file_ope
 	mutex_unlock(&hs_amp_lock);
 }
 
-void htc_acoustic_register_hs_notify(enum HS_NOTIFY_TYPE type, struct hs_notify_t *notify)
-{
-	if(notify == NULL)
-		return;
-
-	mutex_lock(&hs_nt_lock);
-	if(hs_plug_nt[type].used) {
-		pr_err("%s: hs notification %d is reigstered\n",__func__,(int)type);
-	} else {
-		hs_plug_nt[type].private_data = notify->private_data;
-		hs_plug_nt[type].callback_f = notify->callback_f;
-		hs_plug_nt[type].used = 1;
-	}
-	mutex_unlock(&hs_nt_lock);
-}
-
 void htc_acoustic_register_ops(struct acoustic_ops *ops)
 {
         D("acoustic_register_ops \n");
@@ -217,7 +198,7 @@ acoustic_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	int rc = 0;
 	int hw_rev = 0;
 	int mode = -1;
-	char *mid = NULL;
+	char *mid;
 	mutex_lock(&api_lock);
 	switch (cmd) {
 	case ACOUSTIC_SET_Q6_EFFECT: {
@@ -293,24 +274,6 @@ acoustic_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 		sdev_beats.state = -1;
 		switch_set_state(&sdev_beats, new_state);
-		break;
-	}
-	case ACOUSTIC_UPDATE_DQ_STATUS: {
-		int new_state = -1;
-
-		if (copy_from_user(&new_state, (void *)arg, sizeof(new_state))) {
-			rc = -EFAULT;
-			break;
-		}
-		D("Update DQ Status : %d\n", new_state);
-		if (new_state < -1 || new_state > 1) {
-			E("Invalid Beats status update");
-			rc = -EINVAL;
-			break;
-		}
-
-		sdev_dq.state = -1;
-		switch_set_state(&sdev_dq, new_state);
 		break;
 	}
 	case ACOUSTIC_CONTROL_WAKELOCK: {
@@ -437,11 +400,6 @@ static ssize_t beats_print_name(struct switch_dev *sdev, char *buf)
 	return sprintf(buf, "Beats\n");
 }
 
-static ssize_t dq_print_name(struct switch_dev *sdev, char *buf)
-{
-	return sprintf(buf, "DQ\n");
-}
-
 static ssize_t listen_notification_print_name(struct switch_dev *sdev, char *buf)
 {
 	return sprintf(buf, "Listen_notification\n");
@@ -508,19 +466,6 @@ void htc_amp_power_enable(bool enable)
 		the_amp_power_ops->set_amp_power_enable(enable);
 }
 
-static int htc_acoustic_hsnotify(int on)
-{
-	int i = 0;
-	mutex_lock(&hs_nt_lock);
-	for(i=0; i<HS_N_MAX; i++) {
-		if(hs_plug_nt[i].used && hs_plug_nt[i].callback_f)
-			hs_plug_nt[i].callback_f(hs_plug_nt[i].private_data, on);
-	}
-	mutex_unlock(&hs_nt_lock);
-
-	return 0;
-}
-
 static struct file_operations acoustic_fops = {
 	.owner = THIS_MODULE,
 	.open = acoustic_open,
@@ -538,12 +483,9 @@ static int __init acoustic_init(void)
 {
 	int ret = 0;
 
-	struct headset_notifier notifier;
-
 	mutex_init(&api_lock);
 	mutex_init(&hs_amp_lock);
 	mutex_init(&spk_amp_lock);
-	mutex_init(&hs_nt_lock);
 	ret = misc_register(&acoustic_misc);
 	wake_lock_init(&htc_acoustic_wakelock, WAKE_LOCK_SUSPEND, "htc_acoustic");
 	wake_lock_init(&htc_acoustic_wakelock_timeout, WAKE_LOCK_SUSPEND, "htc_acoustic_timeout");
@@ -569,15 +511,6 @@ static int __init acoustic_init(void)
 		return ret;
 	}
 
-	sdev_dq.name = "DQ";
-	sdev_dq.print_name = dq_print_name;
-
-	ret = switch_dev_register(&sdev_dq);
-	if (ret < 0) {
-		pr_err("failed to register DQ switch device!\n");
-		return ret;
-	}
-
 	sdev_listen_notification.name = "Listen_notification";
 	sdev_listen_notification.print_name = listen_notification_print_name;
 
@@ -586,10 +519,6 @@ static int __init acoustic_init(void)
 		pr_err("failed to register listen_notification switch device!\n");
 		return ret;
 	}
-
-	notifier.id = HEADSET_REG_HS_INSERT;
-	notifier.func = htc_acoustic_hsnotify;
-	headset_notifier_register(&notifier);
 
 	return 0;
 }

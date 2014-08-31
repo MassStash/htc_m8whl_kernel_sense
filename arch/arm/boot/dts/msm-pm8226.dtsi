@@ -202,9 +202,9 @@
 			qcom,ocv-voltage-high-threshold-uv = <3750000>;
 			qcom,ocv-voltage-low-threshold-uv = <3650000>;
 			qcom,low-soc-calculate-soc-threshold = <15>;
-			qcom,low-voltage-calculate-soc-ms = <60000>;
-			qcom,low-soc-calculate-soc-ms = <60000>;
-			qcom,calculate-soc-ms = <60000>;
+			qcom,low-voltage-calculate-soc-ms = <1000>;
+			qcom,low-soc-calculate-soc-ms = <5000>;
+			qcom,calculate-soc-ms = <20000>;
 			qcom,chg-term-ua = <100000>;
 			qcom,batt-type = <0>;
 			qcom,tm-temp-margin = <5000>;
@@ -216,13 +216,6 @@
 			qcom,bms-vadc = <&pm8226_vadc>;
 			qcom,bms-iadc = <&pm8226_iadc>;
 			qcom,bms-adc_tm = <&pm8226_adc_tm>;
-			qcom,shutdown-vol-criteria = <3400000>;
-			qcom,stored-batt-magic-num= <(-1)>;
-			qcom,stored-batt-soc= <(-1)>;
-			qcom,stored-batt-ocv-uv= <(-1)>;
-			qcom,stored-batt-cc-uah= <(-1)>;
-			qcom,stored-batt-update-time= <(-1)>;
-			qcom,store-batt-data-soc-thre = <100>;
 
 			qcom,bms-iadc@3800 {
 				reg = <0x3800 0x100>;
@@ -875,7 +868,6 @@
 		};
 
 		qcom,vibrator@c000 {
-			status = "okay";
 			compatible = "qcom,qpnp-vibrator";
 			reg = <0xc000 0x100>;
 			label = "vibrator";
@@ -886,6 +878,11 @@
 			compatible = "qcom,qpnp-vibrator-pwm";
 			label = "vibrator";
 			linux,default-trigger = "vibrator";
+			htc,power_en = <&msmgpio 83 0x00>;
+			htc,ctrl_en = <&msmgpio 84 0x00>;
+			htc,pid_of_2nd_gpiotable = <290 298 297>;
+			htc,2nd_power_en = <&msmgpio 73 0x00>;
+			htc,2nd_ctrl_en = <&msmgpio 74 0x00>;
 			pwm-config = <0>;
 			lpg-select = <4>;
 			qcom,qpnp-vib-timeout-ms = <15000>;
@@ -940,135 +937,6 @@
                                 qcom,current = <120>;
                                 qcom,torch-enable;
                         };
-		};
-
-		modem_debug_pm8226: htc,modem-debug-pm8226 {
-			spmi-dev-container;
-			compatible = "htc,modem-debug-dump-pmic";
-			#address-cells = <1>;
-			#size-cells = <1>;
-			reg = <0>;
-			htc,dump-register =
-			/* PM8926 SMPS5(8926 ONLY) - VDD_MSS (8926 only) */
-			< 1 0x2008 >,
-			< 1 0x2040 >,
-			< 1 0x2041 >,
-			< 1 0x2045 >,
-			< 1 0x2046 >,
-			< 1 0x2048 >,
-			< 1 0x2250 >,
-			< 1 0x214A >,
-			< 1 0x214B >,
-			< 1 0x214C >,
-
-			/* PM8926 LDO1 - for analog */
-			< 1 0x4008 >,
-			< 1 0x4040 >,
-			< 1 0x4041 >,
-			< 1 0x4045 >,
-			< 1 0x4046 >,
-			< 1 0x4048 >,
-			< 1 0x404A >,
-
-			/* PM8926 LDO2 - for PLL */
-			< 1 0x4108 >,
-			< 1 0x4140 >,
-			< 1 0x4141 >,
-			< 1 0x4145 >,
-			< 1 0x4146 >,
-			< 1 0x4148 >,
-			< 1 0x414A >,
-
-			/* PM8926 LDO3 - for MX */
-			< 1 0x4208 >,
-			< 1 0x4240 >,
-			< 1 0x4241 >,
-			< 1 0x4245 >,
-			< 1 0x4246 >,
-			< 1 0x4248 >,
-			< 1 0x424A >,
-
-			/* PM8926 LDO10 - for BB_CLK */
-			< 1 0x4908 >,
-			< 1 0x4940 >,
-			< 1 0x4941 >,
-			< 1 0x4945 >,
-			< 1 0x4946 >,
-			< 1 0x4948 >,
-			< 1 0x494A >,
-
-			/* PM8926 LDO25 - parent for S4 */
-			< 1 0x5808 >,
-			< 1 0x5840 >,
-			< 1 0x5841 >,
-			< 1 0x5845 >,
-			< 1 0x5846 >,
-			< 1 0x5848 >,
-			< 1 0x584A >,
-
-			/* PM8926 SMPS1(FT) - for CX */
-			< 1 0x1408 >,
-			< 1 0x1409 >,
-			< 1 0x1440 >,
-			< 1 0x1441 >,
-			< 1 0x1445 >,
-			< 1 0x1446 >,
-			< 1 0x145B >,
-			< 1 0x1650 >,
-
-			/* PM8926 SMPS3 - parent for L1/L2/L3 */
-			< 1 0x1A08 >,
-			< 1 0x1A40 >,
-			< 1 0x1A41 >,
-			< 1 0x1A45 >,
-			< 1 0x1A46 >,
-			< 1 0x1A48 >,
-			< 1 0x1C50 >,
-			< 1 0x1B4A >,
-			< 1 0x1B4B >,
-			< 1 0x1B4C >,
-
-			/* PM8926 SMPS4 - parent for L10 */
-			< 1 0x1D08 >,
-			< 1 0x1D40 >,
-			< 1 0x1D41 >,
-			< 1 0x1D45 >,
-			< 1 0x1D46 >,
-			< 1 0x1D48 >,
-			< 1 0x1F50 >,
-			< 1 0x1E4A >,
-			< 1 0x1E4B >,
-			< 1 0x1E4C >,
-
-			/* BB_CLK1 */
-			< 0 0x5105 >,
-			< 0 0x5108 >,
-			< 0 0x5144 >,
-			< 0 0x5146 >,
-			< 0 0x5148 >,
-
-			/* BB_CLK2 */
-			< 0 0x5205 >,
-			< 0 0x5208 >,
-			< 0 0x5244 >,
-			< 0 0x5246 >,
-
-			/* XO */
-			< 0 0x5008 >,
-			< 0 0x5040 >,
-			< 0 0x5044 >,
-			< 0 0x5046 >,
-
-			/* Sleep_clk1 */
-			< 0 0x5A05 >,
-			< 0 0x5A08 >,
-			< 0 0x5A10 >,
-			< 0 0x5A44 >,
-
-			/* Clk Dist */
-			< 0 0x5905 >,
-			< 0 0x5940 >,
-			< 0 0x5943 >;
 		};
 	};
 };

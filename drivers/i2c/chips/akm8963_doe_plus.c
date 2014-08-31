@@ -1672,7 +1672,7 @@ int __devinit akm_compass_probe(struct i2c_client *client, const struct i2c_devi
 	err = akm8963_sr_ldo_init(1);
 	if (err) {
 		E("Sensor vreg configuration failed\n");
-		s_akm->power_LPM = NULL;
+		goto exit6_5;
 	}
 
 	err = akm8963_sr_lpm(0);
@@ -1690,16 +1690,13 @@ int __devinit akm_compass_probe(struct i2c_client *client, const struct i2c_devi
 		goto exit7;
 	}
 
-	if (pdata) {
-		kfree(pdata);
-		pdata = NULL;
-	}
 	dev_info(&client->dev, "successfully probed.");
 	return 0;
 
 exit7:
 	devm_regulator_put(s_akm->sr_1v8);
 	devm_regulator_put(s_akm->sr_2v85);
+exit6_5:
 	misc_deregister(&akm_compass_dev);
 exit6:
 	if (s_akm->irq)
@@ -1708,10 +1705,8 @@ exit5:
 	input_unregister_device(s_akm->input);
 exit4:
 exit3:
-	if (pdata) {
+	if (pdata)
 		kfree(pdata);
-		pdata = NULL;
-	}
 exit2:
 	if (s_akm)
 		kfree(s_akm);

@@ -633,6 +633,27 @@ int free_swap_and_cache(swp_entry_t entry)
 	return p != NULL;
 }
 
+#ifdef CONFIG_CGROUP_MEM_RES_CTLR
+int mem_cgroup_count_swap_user(swp_entry_t ent, struct page **pagep)
+{
+	struct page *page;
+	struct swap_info_struct *p;
+	int count = 0;
+
+	page = find_get_page(&swapper_space, ent.val);
+	if (page)
+		count += page_mapcount(page);
+	p = swap_info_get(ent);
+	if (p) {
+		count += swap_count(p->swap_map[swp_offset(ent)]);
+		spin_unlock(&swap_lock);
+	}
+
+	*pagep = page;
+	return count;
+}
+#endif
+
 #ifdef CONFIG_HIBERNATION
 int swap_type_of(dev_t device, sector_t offset, struct block_device **bdev_p)
 {

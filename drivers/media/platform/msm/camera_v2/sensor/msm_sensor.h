@@ -53,7 +53,6 @@ struct msm_sensor_fn_t {
     void (*sensor_yushanII_set_IQ)(struct msm_sensor_ctrl_t *sensor,int*,int*,int*,struct yushanii_cls*);
 	int (*sensor_i2c_read_fuseid)(struct sensorb_cfg_data *cdata, struct msm_sensor_ctrl_t *s_ctrl); 
     void (*sensor_yushanII_restart_stream)(void);
-    void (*sensor_yushanII_stop_restart_stream)(void);
 };
 
 struct msm_sensor_ctrl_t {

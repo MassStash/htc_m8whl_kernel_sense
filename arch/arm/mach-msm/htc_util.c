@@ -24,9 +24,6 @@
 #define BUFFER_WARN_LEN                         64
 #define BUFFER_TEMP_LEN                         32
 
-#define FORCE_CHARGE			(1<<2)
-#define Y_CABLE			(1<<26)
-
 struct process_monitor_statistic {
        unsigned int pid;
        char *ppid_name;
@@ -70,9 +67,6 @@ static int msm_htc_util_delay_time = 10000;
 module_param_named(kmonitor_delay, msm_htc_util_delay_time, int, S_IRUGO | S_IWUSR | S_IWGRP);
 static int msm_htc_util_top_delay_time = 60000;
 module_param_named(ktop_delay, msm_htc_util_top_delay_time, int, S_IRUGO | S_IWUSR | S_IWGRP);
-extern unsigned int get_tamper_sf(void);
-extern unsigned int get_radio_flag_ex1(void);
-extern unsigned int get_radio_flag_ex2(void);
 
 enum {
 	KERNEL_TOP,
@@ -355,14 +349,14 @@ static void htc_xo_vddmin_stat_show(void)
 
 	if (htc_get_xo_vddmin_info(&xo_count, &xo_time, &vddmin_count, &vddmin_time)) {
 		if (xo_count > prev_xo_count) {
-			pr_debug("[K] XO: %u, %llums\n", xo_count - prev_xo_count,
+			pr_info("[K] XO: %u, %llums\n", xo_count - prev_xo_count,
 							xo_time - prev_xo_time);
 			prev_xo_count = xo_count;
 			prev_xo_time = xo_time;
 		}
 
 		if (vddmin_count > prev_vddmin_count) {
-			pr_debug("[K] Vdd-min: %u, %llums\n", vddmin_count - prev_vddmin_count,
+			pr_info("[K] Vdd-min: %u, %llums\n", vddmin_count - prev_vddmin_count,
 							vddmin_time - prev_vddmin_time);
 			prev_vddmin_count = vddmin_count;
 			prev_vddmin_time = vddmin_time;
@@ -374,29 +368,17 @@ static void htc_idle_stat_show(void)
 {
 	int i = 0, cpu = 0;
 
-	pr_debug("[K] cpu_id\tcpu_state\tidle_count\tidle_time\n");
+	pr_info("[K] cpu_id\tcpu_state\tidle_count\tidle_time\n");
 	for (cpu = 0; cpu < CONFIG_NR_CPUS; cpu++) {
 		for (i = 0; i < 3; i++) {
 			if (htc_idle_stat[cpu][i].count) {
-				pr_debug("[K]\t%d\tC%d\t\t%d\t\t%dms\n", cpu, i,
+				pr_info("[K]\t%d\tC%d\t\t%d\t\t%dms\n", cpu, i,
 					htc_idle_stat[cpu][i].count, htc_idle_stat[cpu][i].time / 1000);
 			}
 		}
 	}
 	htc_xo_vddmin_stat_show();
 	msm_rpm_dump_stat();
-}
-
-static void htc_debug_flag_show(void)
-{
-
-	unsigned int cfg = 0 ;
-    
-	if(get_tamper_sf() == 0){
-		if((get_kernel_flag() & FORCE_CHARGE) || (get_kernel_flag() & Y_CABLE))
-			cfg = 1 ;
-		pr_info("[K] CFG:0x%x", cfg);
-	 }
 }
 
 #ifdef arch_idle_time
@@ -601,10 +583,10 @@ static void htc_kernel_top_show(struct _htc_kernel_top *ktop, int type)
 	int top_n_pid = 0, i;
 
 	
-	pr_debug("[K]%sCPU Usage\t\tPID\t\tName\n", type == KERNEL_TOP_ACCU ? "[KTOP]" : " ");
+	pr_info("[K]%sCPU Usage\t\tPID\t\tName\n", type == KERNEL_TOP_ACCU ? "[KTOP]" : " ");
 	for (i = 0; i < NUM_BUSY_THREAD_CHECK; i++) {
 		top_n_pid = ktop->top_loading_pid[i];
-		pr_debug("[K]%s%8lu%%\t\t%d\t\t%s\t\t%d\n", type == KERNEL_TOP_ACCU ? "[KTOP]" : " ",
+		pr_info("[K]%s%8lu%%\t\t%d\t\t%s\t\t%d\n", type == KERNEL_TOP_ACCU ? "[KTOP]" : " ",
 			ktop->curr_proc_delta[top_n_pid] * 100 / ktop->cpustat_time,
 			top_n_pid,
 			ktop->task_ptr_array[top_n_pid]->comm,
@@ -623,13 +605,13 @@ static void htc_pm_monitor_work_func(struct work_struct *work)
 	struct rtc_time tm;
 
 	if (!htc_pm_monitor_wq) {
-		pr_debug("[K] htc_pm_monitor_wq is unavaliable.\n");
+		pr_info("[K] htc_pm_monitor_wq is unavaliable.\n");
 		return;
 	}
 
 	getnstimeofday(&ts);
 	rtc_time_to_tm(ts.tv_sec - (sys_tz.tz_minuteswest * 60), &tm);
-	pr_debug("[K][PM] hTC PM Statistic start (%02d-%02d %02d:%02d:%02d)\n",
+	pr_info("[K][PM] hTC PM Statistic start (%02d-%02d %02d:%02d:%02d)\n",
 		tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
 
 	
@@ -650,10 +632,7 @@ static void htc_pm_monitor_work_func(struct work_struct *work)
 	queue_delayed_work(htc_pm_monitor_wq, &ktop->dwork, msecs_to_jiffies(msm_htc_util_delay_time));
 	htc_kernel_top_cal(ktop, KERNEL_TOP);
 	htc_kernel_top_show(ktop, KERNEL_TOP);
-
-	
-	htc_debug_flag_show();
-	pr_debug("[K][PM] hTC PM Statistic done\n");
+	pr_info("[K][PM] hTC PM Statistic done\n");
 }
 
 static void htc_kernel_top_accumulation_monitor_work_func(struct work_struct *work)
@@ -687,10 +666,9 @@ void htc_monitor_init(void)
 	struct _htc_kernel_top *htc_kernel_top;
 	struct _htc_kernel_top *htc_kernel_top_accu;
 
-	if ((get_kernel_flag() & KERNEL_FLAG_PM_MONITOR) ||
-		!(get_kernel_flag() & KERNEL_FLAG_TEST_PWR_SUPPLY)) {
+	if (get_kernel_flag() & KERNEL_FLAG_PM_MONITOR)
 		pm_monitor_enabled = 1;
-	} else
+	else
 		pm_monitor_enabled = 0;
 
 	if (pm_monitor_enabled) {
@@ -701,7 +679,7 @@ void htc_monitor_init(void)
 		if (!htc_pm_monitor_wq)
 			return;
 
-		pr_debug("[K] Success to create htc_pm_monitor_wq (0x%x).\n",
+		pr_info("[K] Success to create htc_pm_monitor_wq (0x%x).\n",
 						(unsigned int) htc_pm_monitor_wq);
 		htc_kernel_top = vmalloc(sizeof(*htc_kernel_top));
 		spin_lock_init(&htc_kernel_top->lock);
@@ -724,6 +702,7 @@ void htc_monitor_init(void)
 						msecs_to_jiffies(msm_htc_util_delay_time));
 	}
 
+	
 	if (htc_kernel_top_monitor_wq == NULL) {
 		
 		htc_kernel_top_monitor_wq = create_workqueue("htc_kernel_top_monitor_wq");

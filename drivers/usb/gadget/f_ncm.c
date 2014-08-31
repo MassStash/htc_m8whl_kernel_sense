@@ -1104,14 +1104,12 @@ ncm_bind(struct usb_configuration *c, struct usb_function *f)
 	if (!ep)
 		goto fail;
 	ncm->port.in_ep = ep;
-	ncm->port.in_ep->is_ncm = true;
 	ep->driver_data = cdev;	
 
 	ep = usb_ep_autoconfig(cdev->gadget, &fs_ncm_out_desc);
 	if (!ep)
 		goto fail;
 	ncm->port.out_ep = ep;
-	ncm->port.out_ep->is_ncm = true;
 	ep->driver_data = cdev;	
 
 	ep = usb_ep_autoconfig(cdev->gadget, &fs_ncm_notify_desc);
@@ -1197,8 +1195,6 @@ ncm_unbind(struct usb_configuration *c, struct usb_function *f)
 	usb_ep_free_request(ncm->notify, ncm->notify_req);
 
 	ncm_string_defs[1].s = NULL;
-	ncm->port.in_ep->is_ncm = false;
-	ncm->port.out_ep->is_ncm = false;
 	kfree(ncm);
 }
 

@@ -13,7 +13,6 @@
 #include "msm_sensor.h"
 #include <mach/devices_cmdline.h>
 #define OV4688_SENSOR_NAME "ov4688"
-#include <linux/completion.h>
 #ifdef CONFIG_RAWCHIPII
 #include "yushanII.h"
 #include "ilp0100_ST_api.h"
@@ -25,7 +24,6 @@ int GPIO_Camera_Sync = 85;
 static struct work_struct ov4688_work;
 struct msm_rawchip2_cfg_data cfg_data;
 void ov4688_do_restart_stream(struct work_struct *ws);
-atomic_t restart_is_running;
 DEFINE_MSM_MUTEX(ov4688_mut);
 
 static struct msm_sensor_ctrl_t ov4688_s_ctrl;
@@ -464,7 +462,6 @@ static int __init ov4688_init_module(void)
 	if (!rc) {
 		ov4688_sysfs_init();
 		INIT_WORK(&ov4688_work, ov4688_do_restart_stream);
-		atomic_set(&restart_is_running, 0);
 		return rc;
 	}
 	pr_err("%s:%d rc %d\n", __func__, __LINE__, rc);
@@ -781,48 +778,11 @@ static struct msm_camera_i2c_reg_setting stop_settings = {
   .delay = 0,
 };
 
-struct completion raw2_stream_on_complete;
-int raw2_wait_frame_ms = 600;
-
-void ov4688_stop_restart_stream(void)
-{
-    pr_info("%s:\n", __func__);
-    complete(&raw2_stream_on_complete);
-}
-
-
 void ov4688_do_restart_stream(struct work_struct *ws)
 {
-    int rc =0;
-
-	if (atomic_read(&restart_is_running)){
-		pr_info("%s: last restart is running %d, abort\n", __func__, atomic_read(&restart_is_running));
-		return;
-	}
-	pr_info("%s: wait %d ms\n", __func__, raw2_wait_frame_ms);
-	atomic_set(&restart_is_running, 1);
-
+	pr_info("%s: E\n", __func__);
 #ifdef CONFIG_RAWCHIPII
-	rc = wait_for_completion_interruptible_timeout(
-		&raw2_stream_on_complete,
-		msecs_to_jiffies(raw2_wait_frame_ms));
-	if (rc == 0) {
-		pr_err("%s: wait timeout\n", __func__);
-	} else {
-		atomic_set(&restart_is_running, 0);
-		pr_err("%s: abort\n", __func__);
-		return;
-	}
-
 	mutex_lock(ov4688_s_ctrl.msm_sensor_mutex);
-
-	if (ov4688_s_ctrl.sensor_state != MSM_SENSOR_POWER_UP) {
-		atomic_set(&restart_is_running, 0);
-		mutex_unlock(ov4688_s_ctrl.msm_sensor_mutex);
-		pr_info("%s: quit in sensor_state %d\n", __func__, ov4688_s_ctrl.sensor_state);
-		return;
-	}
-
 	if(YushanII_Get_reloadInfo() == 0){
 		pr_info("%s: stop YushanII first", __func__);
 		Ilp0100_stop();
@@ -840,7 +800,6 @@ void ov4688_do_restart_stream(struct work_struct *ws)
 		ov4688_s_ctrl.sensor_i2c_client, &start_settings);
 	mutex_unlock(ov4688_s_ctrl.msm_sensor_mutex);
 #endif
-    atomic_set(&restart_is_running, 0);
 	pr_info("%s: X\n", __func__);
 }
 
@@ -891,40 +850,25 @@ int32_t ov4688_sensor_config(struct msm_sensor_ctrl_t *s_ctrl,
 		if (s_ctrl->sensordata->htc_image != 1) 
 			break;
 
-		mutex_lock(s_ctrl->msm_sensor_mutex);
 		if (copy_from_user(&cfg_data, (void *)cdata->cfg.setting,
 			sizeof(struct msm_rawchip2_cfg_data))) {
 			pr_err("%s:%d failed\n", __func__, __LINE__);
 			rc = -EFAULT;
-			mutex_unlock(s_ctrl->msm_sensor_mutex);
 			break;
 		}
-		if (atomic_read(&restart_is_running)){
-			complete(&raw2_stream_on_complete);
-			pr_info("%s: last restart is running %d, stop it\n", __func__, atomic_read(&restart_is_running));
-		}
-		init_completion(&raw2_stream_on_complete);
 
 		pr_info("%s: CFG_RAWCHIPII_SETTING", __func__);
 		YushanII_Init(s_ctrl,&cfg_data);
-		mutex_unlock(s_ctrl->msm_sensor_mutex);
 		break;
 
 	case CFG_RAWCHIPII_STOP:
 		if (s_ctrl->sensordata->htc_image != 1) 
 			break;
 
-		mutex_lock(s_ctrl->msm_sensor_mutex);
-		if (atomic_read(&restart_is_running)){
-			complete(&raw2_stream_on_complete);
-			pr_info("%s: last restart is running %d, stop it\n", __func__, atomic_read(&restart_is_running));
-		}
-
 		if(YushanII_Get_reloadInfo() == 0){
 			pr_info("%s: stop YushanII first", __func__);
 			Ilp0100_stop();
 		}
-		mutex_unlock(s_ctrl->msm_sensor_mutex);
 
 		break;
 #endif
@@ -987,7 +931,6 @@ static struct msm_sensor_fn_t ov4688_sensor_func_tbl = {
 	.sensor_match_id = ov4688_sensor_match_id,
 	.sensor_i2c_read_fuseid = ov4688_read_fuseid,
 	.sensor_yushanII_restart_stream = ov4688_restart_stream,
-	.sensor_yushanII_stop_restart_stream = ov4688_stop_restart_stream,
 };
 
 static struct msm_sensor_ctrl_t ov4688_s_ctrl = {

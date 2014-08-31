@@ -16,8 +16,6 @@ enum meminfo_stat_item {
 	NR_MEMPOOL_ALLOC_PAGES,
 	NR_MEMINFO_STAT_ITEMS};
 
-extern unsigned long ftrace_total_pages(void);
-
 #ifdef CONFIG_HTC_DEBUG_REPORT_MEMINFO
 
 void kmalloc_count(struct page *page, int to_alloc);
@@ -43,15 +41,6 @@ static inline void pgd_free_count(unsigned long addr)
 }
 
 unsigned long meminfo_total_pages(enum meminfo_stat_item item);
-
-static inline unsigned long vmalloc_alloc_pages(void)
-{
-	return meminfo_total_pages(NR_VMALLOC_PAGES);
-}
-
-unsigned long cached_unmapped_pages(struct sysinfo *i);
-
-unsigned long kgsl_unmapped_pages(void);
 
 void inc_meminfo_total_pages(enum meminfo_stat_item item);
 
@@ -109,25 +98,6 @@ static inline void pgd_free_count(unsigned long addr)
 }
 
 static inline unsigned long meminfo_total_pages(enum meminfo_stat_item item)
-{
-	return 0UL;
-}
-
-static inline unsigned long vmalloc_alloc_pages(void)
-{
-	struct vmalloc_info vmi;
-
-	get_vmalloc_info(&vmi);
-
-	return vmi.alloc >> PAGE_SHIFT;
-}
-
-static inline unsigned long cached_unmapped_pages(struct sysinfo *i)
-{
-	return 0UL;
-}
-
-static inline unsigned long kgsl_unmapped_pages()
 {
 	return 0UL;
 }

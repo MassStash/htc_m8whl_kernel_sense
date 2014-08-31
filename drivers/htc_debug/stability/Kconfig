@@ -1,5 +1,5 @@
 config DIRTY_SYSTEM_DETECTOR
-        default y
+        default n
         bool "HTC dirty file detector for /system partition"
 
 config HTC_PROCESS_DEBUG
@@ -19,11 +19,3 @@ config HTC_DEBUG_REPORT_MEMINFO
         bool "HTC debug: Report memory usage which is not included in /proc/meminfo, such as kmalloc, dma, ftrace"
         help
           Enable this will get more memory report entries in /proc/meminfo
-
-config HTC_INIT_COREDUMP
-        depends on ELF_CORE
-        default n
-        bool "HTC debug: enable coredump for INIT"
-        help
-          Enable COREDUMP for INIT.
-

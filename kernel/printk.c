@@ -1001,12 +1001,6 @@ static int __init console_suspend_disable(char *str)
 	return 1;
 }
 __setup("no_console_suspend", console_suspend_disable);
-
-int suspend_console_deferred;
-module_param_named(
-	suspend_console_deferred, suspend_console_deferred, int, S_IRUGO | S_IWUSR | S_IWGRP
-);
-
 module_param_named(console_suspend, console_suspend_enabled,
 		bool, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(console_suspend, "suspend console during suspend"

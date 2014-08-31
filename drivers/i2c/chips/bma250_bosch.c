@@ -3521,7 +3521,7 @@ static int __devinit bma250_probe(struct i2c_client *client,
 	err = bma250_sr_ldo_init(1);
 	if (err) {
 		E("Sensor vreg configuration failed\n");
-		data->pdata->power_LPM = NULL;
+		goto err_ldo_init;
 	}
 
 	err = bma250_sr_lpm(0);
@@ -3558,13 +3558,12 @@ static int __devinit bma250_probe(struct i2c_client *client,
 		goto err_create_singlethread_workqueue;
 	}
 
-	bma250_set_mode(client, BMA250_MODE_SUSPEND);
-
 	I("%s: BMA250 BOSCH driver probe successful", __func__);
 
 	return 0;
 
 err_create_singlethread_workqueue:
+err_ldo_init:
 	sysfs_remove_group(&data->input->dev.kobj, &bma250_attribute_group);
 error_sysfs:
 	device_unregister(data->g_sensor_dev);
@@ -3663,10 +3662,10 @@ static int bma250_suspend(struct device *dev)
 
 #ifdef CONFIG_CIR_ALWAYS_READY
 	
-	if ((data->pdata->power_LPM) && !cir_flag){
+	if (data && (data->pdata->power_LPM) && !cir_flag){
 #else
 
-	if (data->pdata->power_LPM){
+	if (data && (data->pdata->power_LPM)){
 #endif
 	    I("suspend + power_LPM\n");
 		data->pdata->power_LPM(1);

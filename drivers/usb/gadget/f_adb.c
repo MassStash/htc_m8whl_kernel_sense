@@ -59,8 +59,6 @@ struct adb_dev {
 	wait_queue_head_t write_wq;
 	struct usb_request *rx_req;
 	int rx_done;
-	int read_err;
-	int write_err;
 };
 
 static struct usb_interface_descriptor adb_interface_desc = {
@@ -164,7 +162,6 @@ static struct adb_dev *_adb_dev;
 static struct timer_list adb_read_timer;
 
 int board_get_usb_ats(void);
-void board_set_usb_ats(int type);
 
 static inline struct adb_dev *func_to_adb(struct usb_function *f)
 {
@@ -330,20 +327,14 @@ static ssize_t adb_read(struct file *fp, char __user *buf,
 
 	pr_debug("adb_read(%d)\n", count);
 
-	if (!_adb_dev) {
-		printk(KERN_INFO "[USB] %s _adb_dev is NULL\n",__func__);
+	if (!_adb_dev)
 		return -ENODEV;
-	}
 
-	if (count > ADB_BULK_BUFFER_SIZE) {
-		_adb_dev->read_err = 1;
+	if (count > ADB_BULK_BUFFER_SIZE)
 		return -EINVAL;
-	}
 
-	if (adb_lock(&dev->read_excl)) {
-		_adb_dev->read_err = 2;
+	if (adb_lock(&dev->read_excl))
 		return -EBUSY;
-	}
 
 	
 	while (!(atomic_read(&dev->online) || atomic_read(&dev->error))) {
@@ -353,13 +344,11 @@ static ssize_t adb_read(struct file *fp, char __user *buf,
 			atomic_read(&dev->error)));
 		if (ret < 0) {
 			adb_unlock(&dev->read_excl);
-			_adb_dev->read_err = 3;
 			return ret;
 		}
 	}
 	if (atomic_read(&dev->error)) {
 		r = -EIO;
-		_adb_dev->read_err = 4;
 		goto done;
 	}
 
@@ -377,7 +366,6 @@ requeue_req:
 		pr_debug("adb_read: failed to queue req %p (%d)\n", req, ret);
 		r = -EIO;
 		atomic_set(&dev->error, 1);
-		_adb_dev->read_err = 5;
 		goto done;
 	} else {
 		pr_debug("rx %p queue\n", req);
@@ -390,7 +378,6 @@ requeue_req:
 	if (bugreport_debug) {
 		if (atomic_read(&dev->error)) {
 			r = -EIO;
-			_adb_dev->read_err = 6;
 			adb_read_timeout();
 			goto done;
 		}
@@ -398,12 +385,8 @@ requeue_req:
 	}
 
 	if (ret < 0) {
-		if (ret != -ERESTARTSYS) {
-			atomic_set(&dev->error, 1);
-			_adb_dev->read_err = 7;
-		} else {
-			_adb_dev->read_err = 8;
-		}
+		if (ret != -ERESTARTSYS)
+		atomic_set(&dev->error, 1);
 		r = ret;
 		usb_ep_dequeue(dev->ep_out, req);
 		goto done;
@@ -415,14 +398,11 @@ requeue_req:
 
 		pr_debug("rx %p %d\n", req, req->actual);
 		xfer = (req->actual < count) ? req->actual : count;
-		if (copy_to_user(buf, req->buf, xfer)) {
+		if (copy_to_user(buf, req->buf, xfer))
 			r = -EFAULT;
-			_adb_dev->read_err = 9;
-		}
-	} else {
-		_adb_dev->read_err = 10;
+
+	} else
 		r = -EIO;
-	}
 
 done:
 	if (atomic_read(&dev->error))
@@ -451,22 +431,17 @@ static ssize_t adb_write(struct file *fp, const char __user *buf,
 	int r = count, xfer;
 	int ret;
 
-	if (!_adb_dev) {
-		printk(KERN_INFO "[USB] %s _adb_dev is NULL\n",__func__);
+	if (!_adb_dev)
 		return -ENODEV;
-	}
 	pr_debug("adb_write(%d)\n", count);
 
-	if (adb_lock(&dev->write_excl)) {
-		_adb_dev->write_err = 1;
+	if (adb_lock(&dev->write_excl))
 		return -EBUSY;
-	}
 
 	while (count > 0) {
 		if (atomic_read(&dev->error)) {
 			pr_debug("adb_write dev->error\n");
 			r = -EIO;
-			_adb_dev->write_err = 2;
 			break;
 		}
 
@@ -481,7 +456,6 @@ static ssize_t adb_write(struct file *fp, const char __user *buf,
 
 		if (ret < 0) {
 			r = ret;
-			_adb_dev->write_err = 3;
 			break;
 		}
 
@@ -492,7 +466,6 @@ static ssize_t adb_write(struct file *fp, const char __user *buf,
 				xfer = count;
 			if (copy_from_user(req->buf, buf, xfer)) {
 				r = -EFAULT;
-				_adb_dev->write_err = 4;
 				break;
 			}
 
@@ -502,7 +475,6 @@ static ssize_t adb_write(struct file *fp, const char __user *buf,
 				pr_debug("adb_write: xfer error %d\n", ret);
 				atomic_set(&dev->error, 1);
 				r = -EIO;
-				_adb_dev->write_err = 5;
 				break;
 			}
 
@@ -540,15 +512,13 @@ static int adb_open(struct inode *ip, struct file *fp)
 
 	
 	atomic_set(&_adb_dev->error, 0);
-	_adb_dev->read_err = 0;
-	_adb_dev->write_err = 0;
 	return 0;
 }
 
 static int adb_release(struct inode *ip, struct file *fp)
 {
-	printk(KERN_INFO "[USB] adb_release: %s(parent:%s): tgid=%d read_err %d write_err %d\n",
-			current->comm, current->parent->comm, current->tgid,_adb_dev->read_err,_adb_dev->write_err);
+	printk(KERN_INFO "[USB] adb_release: %s(parent:%s): tgid=%d\n",
+			current->comm, current->parent->comm, current->tgid);
 
 	adb_unlock(&_adb_dev->open_excl);
 	return 0;

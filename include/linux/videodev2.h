@@ -518,7 +518,7 @@ struct v4l2_plane {
 };
 
 struct v4l2_buffer {
-	int			index;
+	__u32			index;
 	enum v4l2_buf_type      type;
 	__u32			bytesused;
 	__u32			flags;
@@ -1632,8 +1632,6 @@ enum v4l2_mpeg_vidc_video_decoder_multi_stream {
 
 #define V4L2_CID_MPEG_VIDC_VIDEO_VP8_MIN_QP (V4L2_CID_MPEG_MSM_VIDC_BASE + 36)
 #define V4L2_CID_MPEG_VIDC_VIDEO_VP8_MAX_QP (V4L2_CID_MPEG_MSM_VIDC_BASE + 37)
-#define V4L2_CID_MPEG_VIDC_VIDEO_CONCEAL_COLOR \
-		(V4L2_CID_MPEG_MSM_VIDC_BASE + 38)
 
 #define V4L2_CID_CAMERA_CLASS_BASE 	(V4L2_CTRL_CLASS_CAMERA | 0x900)
 #define V4L2_CID_CAMERA_CLASS 		(V4L2_CTRL_CLASS_CAMERA | 1)
@@ -2085,8 +2083,6 @@ struct v4l2_streamparm {
 		(V4L2_EVENT_MSM_VIDC_START + 6)
 #define V4L2_EVENT_MSM_VIDC_RELEASE_UNQUEUED_BUFFER \
 		(V4L2_EVENT_MSM_VIDC_START + 7)
-#define V4L2_EVENT_MSM_VIDC_HW_OVERLOAD (V4L2_EVENT_MSM_VIDC_START + 8)
-#define V4L2_EVENT_MSM_VIDC_MAX_CLIENTS (V4L2_EVENT_MSM_VIDC_START + 9)
 
 struct v4l2_event_vsync {
 	

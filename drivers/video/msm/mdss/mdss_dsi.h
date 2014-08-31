@@ -81,7 +81,6 @@ enum dsi_panel_bl_ctrl {
 	BL_PWM,
 	BL_WLED,
 	BL_DCS_CMD,
-	BL_I2C,
 	UNKNOWN_CTRL,
 };
 
@@ -306,7 +305,6 @@ struct mdss_dsi_pwrctrl {
 	int (*dsi_regulator_deinit) (struct platform_device *pdev);
 	int (*dsi_power_on) (struct mdss_panel_data *pdata, int enable);
 	void (*dsi_panel_reset) (struct mdss_panel_data *pdata, int enable);
-	void (*bkl_config) (struct mdss_panel_data *pdata, int enable);
 };
 
 enum {
@@ -394,14 +392,6 @@ struct mdss_dsi_ctrl_pdata {
 	struct dsi_panel_cmds cabc_ui_cmds;
 	struct dsi_panel_cmds cabc_video_cmds;
 	struct dsi_panel_cmds dimming_on_cmds;
-	struct dsi_panel_cmds frame_suffix_cmds;
-
-	int brt_dim;
-	int brt_min;
-	int brt_def;
-	int brt_high;
-	int brt_extra;
-	int brt_max;
 };
 
 int dsi_panel_device_register(struct device_node *pan_node,
@@ -460,14 +450,10 @@ void mdss_dsi_wait4video_done(struct mdss_dsi_ctrl_pdata *ctrl);
 void mdss_dsi_cmdlist_commit(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp);
 int mdss_dsi_cmdlist_put(struct mdss_dsi_ctrl_pdata *ctrl,
 				struct dcs_cmd_req *cmdreq);
-void mdss_dsi_read_commit(struct mdss_dsi_ctrl_pdata *ctrl,
-				struct dcs_cmd_req *cmdreq);
 struct dcs_cmd_req *mdss_dsi_cmdlist_get(struct mdss_dsi_ctrl_pdata *ctrl);
 void mdss_dsi_cmdlist_kickoff(int intf);
 
 int mdss_dsi_panel_init(struct device_node *node,
 		struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 		bool cmd_cfg_cont_splash);
-void mdss_set_tx_power_mode(int mode, struct mdss_panel_data *pdata);
-
 #endif 

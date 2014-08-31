@@ -3960,13 +3960,8 @@ static int voice_cvs_start_record(struct voice_data *v, uint32_t rec_mode)
 		cvs_start_record.hdr.token = 0;
 		cvs_start_record.hdr.opcode = VSS_IRECORD_CMD_START;
 
-		/* In order to enable stereo recording,
-		 * i.e. TX on the left and RX on the right
-		 * the respective ports need to be explicitly specified:
-		 * INCALL_RECORD_TX => 0x8003
-		 * INCALL_RECORD_RX => 0x8004 */
 		cvs_start_record.rec_mode.port_id =
-					VSS_IRECORD_PORT_ID_TX_RX;
+					VSS_IRECORD_PORT_ID_DEFAULT;
 		if (rec_mode == VOC_REC_UPLINK) {
 			cvs_start_record.rec_mode.rx_tap_point =
 					VSS_IRECORD_TAP_POINT_NONE;
@@ -3989,9 +3984,6 @@ static int voice_cvs_start_record(struct voice_data *v, uint32_t rec_mode)
 			ret = -EINVAL;
 			goto fail;
 		}
-
-		/* Request stereo recording */
-		cvs_start_record.rec_mode.mode = VSS_IRECORD_MODE_TX_RX_STEREO;
 
 		v->cvs_state = CMD_STATUS_FAIL;
 
@@ -5103,11 +5095,9 @@ int voc_set_ext_ec_ref(uint16_t port_id, bool state)
 		}
 		common.ec_port_id = port_id;
 		common.ec_ref_ext = true;
-		pr_info("%s: Enable external echo reference, port 0x%x.\n", __func__, port_id);
 	} else {
 		common.ec_ref_ext = false;
 		common.ec_port_id = port_id;
-		pr_info("%s: Disable external echo reference.\n", __func__);
 	}
 exit:
 	mutex_unlock(&common.common_lock);

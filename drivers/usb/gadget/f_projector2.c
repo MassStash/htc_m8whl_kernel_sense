@@ -53,7 +53,6 @@ unsigned short *test_frame;
 #define VDBG(x...) printk(KERN_INFO x)
 #endif
 
-static int touch_init_p2 = 0;
 
 #define TXN_MAX 16384
 #define RXN_MAX 4096
@@ -695,10 +694,7 @@ static int projector2_touch_init(struct projector2_dev *dev)
 	int y = PROJ2_TOUCH_HEIGHT;
 	int ret = 0;
 	struct input_dev *tdev = dev->touch_input;
-	if (touch_init_p2){
-		pr_info("%s already initial\n", __func__);
-		return 0;
-	}
+
 	dev->touch_input  = input_allocate_device();
 	if (dev->touch_input == NULL) {
 		printk(KERN_ERR "%s: Failed to allocate input device\n",
@@ -722,7 +718,6 @@ static int projector2_touch_init(struct projector2_dev *dev)
 		input_free_device(tdev);
 		return -1;
 	}
-	touch_init_p2 = 1;
 	printk(KERN_INFO "%s OK \n", __func__);
 	return 0;
 }
@@ -798,6 +793,11 @@ projector2_function_unbind(struct usb_configuration *c, struct usb_function *f)
 	if (atomic_read(&dev->prj2_enable_HSML) != 0) {
 		atomic_set(&dev->prj2_enable_HSML, 0);
 		schedule_work(&dev->notifier_setting_work);
+	}
+
+	if (dev->touch_input) {
+		input_unregister_device(dev->touch_input);
+		input_free_device(dev->touch_input);
 	}
 
 }
@@ -1120,13 +1120,6 @@ err_free:
 
 static void projector2_cleanup(void)
 {
-	struct projector2_dev *dev = prj2_dev;
-
-	if (dev->touch_input) {
-		input_unregister_device(dev->touch_input);
-		input_free_device(dev->touch_input);
-	}
-	touch_init_p2 = 0;
 	kfree(prj2_dev);
 }
 

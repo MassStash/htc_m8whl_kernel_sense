@@ -119,14 +119,7 @@ config MSM_KGSL_KILL_HANG_PROCESS
 	We only enable this config in CRC branch.
 
 config MSM_KGSL_DEFAULT_GPU_HUNG_NO_PANIC
-	int "Bypass HTC change for GPU hung, go QCT origin flow"
-	default 5
+	bool "Bypass HTC change for GPU hung, go QCT origin flow"
+	default n
 	---help---
-	positive number:
-		allow gpu fault n times.
-		If fault time over n, kgsl trigger panic.
-	zero:
-		trigger panic if gpu fault.
-	negative number:
-		always go to QCT recovery patch.
-		we set -1 for CRC stage.
+	We only enable this config in CRC branch.

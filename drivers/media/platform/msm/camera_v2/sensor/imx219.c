@@ -31,6 +31,12 @@ static struct msm_sensor_power_setting imx219_power_setting[] = {
 	},
 	{
 		.seq_type = SENSOR_VREG_NCP6924,
+		.seq_val = NCP6924_VANA,
+		.config_val = 1,
+		.delay = 1,
+	},
+	{
+		.seq_type = SENSOR_VREG_NCP6924,
 		.seq_val = NCP6924_VIO,
 		.config_val = 1,
 		.delay = 1,
@@ -38,12 +44,6 @@ static struct msm_sensor_power_setting imx219_power_setting[] = {
 	{
 		.seq_type = SENSOR_VREG_NCP6924,
 		.seq_val = NCP6924_VDIG,
-		.config_val = 1,
-		.delay = 1,
-	},
-	{
-		.seq_type = SENSOR_VREG_NCP6924,
-		.seq_val = NCP6924_VANA,
 		.config_val = 1,
 		.delay = 1,
 	},
@@ -164,104 +164,63 @@ static int imx219_read_fuseid(struct sensorb_cfg_data *cdata,
 	struct msm_sensor_ctrl_t *s_ctrl)
 {
 	int32_t rc = 0;
-	int i,j;
+	int i;
 	uint16_t read_data = 0;
-	static int32_t valid_layer = -1;
-	static uint8_t otp[14];
+	static uint8_t OTP[12] = {0,0,0,0,0,0,0,0,0,0,0,0};
 	static int first=true;
-
 	pr_info("%s called\n", __func__);
 
 	if (first) {
 		first = false;
 
-		for(j=6;j>0;j--){
-			rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->i2c_write(s_ctrl->sensor_i2c_client, 0x0100, 0x00, MSM_CAMERA_I2C_BYTE_DATA);
+		rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->i2c_write(s_ctrl->sensor_i2c_client, 0x3400, 0x01, MSM_CAMERA_I2C_BYTE_DATA);
+		if (rc < 0)
+			pr_err("%s: msm_camera_i2c_write 0x3400 failed\n", __func__);
+
+		
+		rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->i2c_write(s_ctrl->sensor_i2c_client, 0x3402, 0x01, MSM_CAMERA_I2C_BYTE_DATA);
+		if (rc < 0)
+			pr_err("%s: msm_camera_i2c_write 0x3402 failed\n", __func__);
+
+		for (i = 0; i < 12; i++) {
+			rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->i2c_read(s_ctrl->sensor_i2c_client, (0x3410 + i), &read_data, MSM_CAMERA_I2C_BYTE_DATA);
 			if (rc < 0)
-				pr_err("%s: i2c_write b 0x0100 fail\n", __func__);
+				pr_err("%s: msm_camera_i2c_read 0x%x failed\n", __func__, (0x3410 + i));
 
-			rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->i2c_write(s_ctrl->sensor_i2c_client, 0x4539, 0xff, MSM_CAMERA_I2C_BYTE_DATA);
-			if (rc < 0)
-				pr_err("%s: i2c_write b 0x4539 fail\n", __func__);
-
-			rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->i2c_write(s_ctrl->sensor_i2c_client, 0x3453, 0x0a, MSM_CAMERA_I2C_BYTE_DATA);
-			if (rc < 0)
-				pr_err("%s: i2c_write b 0x3453 fail\n", __func__);
-
-			rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->i2c_write(s_ctrl->sensor_i2c_client, 0x3200, 0x01, MSM_CAMERA_I2C_BYTE_DATA);
-			if (rc < 0)
-				pr_err("%s: msm_camera_i2c_write 0x3200 failed\n", __func__);
-
-			rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->i2c_write(s_ctrl->sensor_i2c_client, 0x3202, j--, MSM_CAMERA_I2C_BYTE_DATA);
-			if (rc < 0)
-				pr_err("%s: msm_camera_i2c_write 0x3202 failed\n", __func__);
-
-			msleep(10);
-
-			for (i = 0; i < 4; i++) {
-				rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->i2c_read(s_ctrl->sensor_i2c_client, (0x3204 + i), &read_data, MSM_CAMERA_I2C_BYTE_DATA);
-				if (rc < 0)
-					pr_err("%s: msm_camera_i2c_read 0x%x failed\n", __func__, (0x3204 + i));
-
-				otp[10+i] = (uint8_t)(read_data&0x00FF);
-				if (read_data)
-					valid_layer = j;
-				read_data = 0;
-			}
-
-			rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->i2c_write(s_ctrl->sensor_i2c_client, 0x3202, j, MSM_CAMERA_I2C_BYTE_DATA);
-			if (rc < 0)
-				pr_err("%s: msm_camera_i2c_write 0x3202 failed\n", __func__);
-			for (i = 0; i < 10; i++) {
-				rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->i2c_read(s_ctrl->sensor_i2c_client, (0x3204 + i), &read_data, MSM_CAMERA_I2C_BYTE_DATA);
-				if (rc < 0)
-					pr_err("%s: msm_camera_i2c_read 0x%x failed\n", __func__, (0x3204 + i));
-
-				otp[i] = (uint8_t)(read_data&0x00FF);
-				if (read_data)
-					valid_layer = j;
-				read_data = 0;
-			}
-			if (valid_layer!=-1)
-				break;
+			OTP[i] = (uint8_t)(read_data&0x00FF);
+			read_data = 0;
 		}
 	}
-	pr_info("%s: OTP valid layer = %d\n", __func__,  valid_layer);
 
-	
+
+	cdata->af_value.VCM_VENDOR = OTP[0];
+
+	pr_info("%s: VenderID=%x,LensID=%x,SensorID=%02x%02x\n", __func__,
+		OTP[0], OTP[1], OTP[2], OTP[3]);
+	pr_info("%s: ModuleFuseID= %02x%02x%02x%02x%02x%02x\n", __func__,
+		OTP[4], OTP[5], OTP[6], OTP[7], OTP[8], OTP[9]);
+
 	cdata->cfg.fuse.fuse_id_word1 = 0;
-	cdata->cfg.fuse.fuse_id_word2 = otp[0xA];
-	cdata->cfg.fuse.fuse_id_word3 = otp[0xB];
-	cdata->cfg.fuse.fuse_id_word4 = otp[0xC];
+	cdata->cfg.fuse.fuse_id_word2 = (OTP[0]);
+	cdata->cfg.fuse.fuse_id_word3 =
+		(OTP[4]<<24) |
+		(OTP[5]<<16) |
+		(OTP[6]<<8) |
+		(OTP[7]);
+	cdata->cfg.fuse.fuse_id_word4 =
+		(OTP[8]<<8) |
+		(OTP[9]);
 
-	
-	cdata->af_value.VCM_VENDOR_ID_VERSION = otp[8];
-	cdata->af_value.AF_INF_MSB = otp[0];
-	cdata->af_value.AF_INF_LSB = otp[1];
-	cdata->af_value.AF_MACRO_MSB = otp[2];
-	cdata->af_value.AF_MACRO_LSB = otp[3];
+	pr_info("imx219: fuse->fuse_id_word1:%d\n",
+		cdata->cfg.fuse.fuse_id_word1);
+	pr_info("imx219: fuse->fuse_id_word2:%d\n",
+		cdata->cfg.fuse.fuse_id_word2);
+	pr_info("imx219: fuse->fuse_id_word3:0x%08x\n",
+		cdata->cfg.fuse.fuse_id_word3);
+	pr_info("imx219: fuse->fuse_id_word4:0x%08x\n",
+		cdata->cfg.fuse.fuse_id_word4);
 
-	pr_info("%s: OTP Module vendor = 0x%x\n",               __func__,  otp[4]);
-	pr_info("%s: OTP LENS = 0x%x\n",                        __func__,  otp[5]);
-	pr_info("%s: OTP Sensor Version = 0x%x\n",              __func__,  otp[6]);
-	pr_info("%s: OTP Driver IC Vendor & Version = 0x%x\n",  __func__,  otp[7]);
-	pr_info("%s: OTP Actuator vender ID & Version = 0x%x\n",__func__,  otp[8]);
-
-	pr_info("IMX219: fuse->fuse_id : 0x%x 0x%x 0x%x 0x%x\n",
-	   cdata->cfg.fuse.fuse_id_word1,
-	   cdata->cfg.fuse.fuse_id_word2,
-	   cdata->cfg.fuse.fuse_id_word3,
-	   cdata->cfg.fuse.fuse_id_word4);
-
-	pr_info("%s: OTP Infinity position code (MSByte) = 0x%x\n", __func__,  cdata->af_value.AF_INF_MSB);
-	pr_info("%s: OTP Infinity position code (LSByte) = 0x%x\n", __func__,  cdata->af_value.AF_INF_LSB);
-	pr_info("%s: OTP Macro position code (MSByte) = 0x%x\n",    __func__,  cdata->af_value.AF_MACRO_MSB);
-	pr_info("%s: OTP Macro position code (LSByte) = 0x%x\n",    __func__,  cdata->af_value.AF_MACRO_LSB);
-
-	cdata->af_value.VCM_VENDOR = otp[4];
-
-    strlcpy(cdata->af_value.ACT_NAME, "ti201_act", sizeof("ti201_act"));
-    pr_info("%s: OTP Actuator Name = %s\n",__func__, cdata->af_value.ACT_NAME);
+	pr_info("%s: DriverIC=0x%x,VCM=0x%x\n", __func__, OTP[10], OTP[11]);
 
 	return 0;
 

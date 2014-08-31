@@ -340,8 +340,6 @@ struct mmc_card {
 #define MMC_QUIRK_INAND_DATA_TIMEOUT  (1<<8)    
 #define MMC_QUIRK_BROKEN_HPI (1 << 11)
 
-#define MMC_QUIRK_CACHE_DISABLE (1 << 14)       
-
 	unsigned int		erase_size;	
  	unsigned int		erase_shift;	
  	unsigned int		pref_erase;	

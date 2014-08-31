@@ -467,31 +467,16 @@ static int32_t qpnp_adc_tm_timer_interval_select(
 		struct qpnp_adc_tm_chip *chip, uint32_t btm_chan,
 		struct qpnp_vadc_chan_properties *chan_prop)
 {
-	int rc, chan_idx = 0, i = 0;
-	bool chan_found = false;
-	u8 meas_interval_timer2 = 0, timer_interval_store = 0;
+	int rc;
+	u8 meas_interval_timer2 = 0;
 	uint32_t btm_chan_idx = 0;
 
-	while (i < chip->max_channels_available) {
-		if (chip->sensor[i].btm_channel_num == btm_chan) {
-				chan_idx = i;
-				chan_found = true;
-				i++;
-		} else
-				i++;
-	}
-
-	if (!chan_found) {
-		pr_err("Channel not found\n");
-		return -EINVAL;
-	}
-
 	
-	switch (chip->sensor[chan_idx].timer_select) {
+	switch (chan_prop->timer_select) {
 	case ADC_MEAS_TIMER_SELECT1:
 		rc = qpnp_adc_tm_write_reg(chip,
 				QPNP_ADC_TM_MEAS_INTERVAL_CTL,
-				chip->sensor[chan_idx].meas_interval);
+				chan_prop->meas_interval1);
 		if (rc < 0) {
 			pr_err("timer1 configure failed\n");
 			return rc;
@@ -506,10 +491,9 @@ static int32_t qpnp_adc_tm_timer_interval_select(
 			pr_err("timer2 configure read failed\n");
 			return rc;
 		}
-		timer_interval_store = chip->sensor[chan_idx].meas_interval;
-		timer_interval_store <<= QPNP_ADC_TM_MEAS_INTERVAL_CTL2_SHIFT;
-		timer_interval_store &= QPNP_ADC_TM_MEAS_INTERVAL_CTL2_MASK;
-		meas_interval_timer2 |= timer_interval_store;
+		meas_interval_timer2 |=
+			(chan_prop->meas_interval2 <<
+			QPNP_ADC_TM_MEAS_INTERVAL_CTL2_SHIFT);
 		rc = qpnp_adc_tm_write_reg(chip,
 			QPNP_ADC_TM_MEAS_INTERVAL_CTL2,
 			meas_interval_timer2);
@@ -526,9 +510,8 @@ static int32_t qpnp_adc_tm_timer_interval_select(
 			pr_err("timer3 read failed\n");
 			return rc;
 		}
-		timer_interval_store = chip->sensor[chan_idx].meas_interval;
-		timer_interval_store &= QPNP_ADC_TM_MEAS_INTERVAL_CTL3_MASK;
-		meas_interval_timer2 |= timer_interval_store;
+		chan_prop->meas_interval2 = ADC_MEAS3_INTERVAL_1S;
+		meas_interval_timer2 |= chan_prop->meas_interval2;
 		rc = qpnp_adc_tm_write_reg(chip,
 			QPNP_ADC_TM_MEAS_INTERVAL_CTL2,
 			meas_interval_timer2);
@@ -548,18 +531,7 @@ static int32_t qpnp_adc_tm_timer_interval_select(
 		pr_err("Invalid btm channel idx\n");
 		return rc;
 	}
-	rc = qpnp_adc_tm_write_reg(chip,
-		adc_tm_data[btm_chan_idx].meas_interval_ctl,
-		chip->sensor[chan_idx].timer_select);
-	if (rc < 0) {
-		pr_err("TM channel timer configure failed\n");
-		return rc;
-	}
-
-	pr_debug("timer select:%d, timer_value_within_select:%d, channel:%x\n",
-		chip->sensor[chan_idx].timer_select,
-		chip->sensor[chan_idx].meas_interval,
-		btm_chan);
+	adc_tm_data[btm_chan_idx].meas_interval_ctl = chan_prop->timer_select;
 
 	return rc;
 }
@@ -975,6 +947,10 @@ static int qpnp_adc_tm_set_mode(struct thermal_zone_device *thermal,
 			chip->adc->adc_channels[channel].fast_avg_setup;
 		chip->adc->amux_prop->mode_sel =
 			ADC_OP_MEASUREMENT_INTERVAL << QPNP_OP_MODE_SHIFT;
+		chip->adc->amux_prop->chan_prop->timer_select =
+					ADC_MEAS_TIMER_SELECT1;
+		chip->adc->amux_prop->chan_prop->meas_interval1 =
+						ADC_MEAS1_INTERVAL_1S;
 		chip->adc->amux_prop->chan_prop->low_thr = adc_tm->low_thr;
 		chip->adc->amux_prop->chan_prop->high_thr = adc_tm->high_thr;
 		chip->adc->amux_prop->chan_prop->tm_channel_select =
@@ -1047,7 +1023,7 @@ static int qpnp_adc_tm_get_trip_type(struct thermal_zone_device *thermal,
 }
 
 static int qpnp_adc_tm_get_trip_temp(struct thermal_zone_device *thermal,
-				   int trip, long *temp)
+				   int trip, unsigned long *temp)
 {
 	struct qpnp_adc_tm_sensor *adc_tm_sensor = thermal->devdata;
 	struct qpnp_adc_tm_chip *chip = adc_tm_sensor->chip;
@@ -1593,7 +1569,7 @@ static irqreturn_t qpnp_adc_tm_low_thr_isr(int irq, void *data)
 }
 
 static int qpnp_adc_read_temp(struct thermal_zone_device *thermal,
-			     long *temp)
+			     unsigned long *temp)
 {
 	struct qpnp_adc_tm_sensor *adc_tm_sensor = thermal->devdata;
 	struct qpnp_adc_tm_chip *chip = adc_tm_sensor->chip;
@@ -1678,6 +1654,8 @@ int32_t qpnp_adc_tm_channel_measure(struct qpnp_adc_tm_chip *chip,
 			chip->adc->adc_channels[dt_index].fast_avg_setup;
 	chip->adc->amux_prop->mode_sel =
 		ADC_OP_MEASUREMENT_INTERVAL << QPNP_OP_MODE_SHIFT;
+	chip->adc->amux_prop->chan_prop->meas_interval1 =
+						ADC_MEAS1_INTERVAL_1S;
 	adc_tm_rscale_fn[scale_type].chan(chip->vadc_dev, param,
 			&chip->adc->amux_prop->chan_prop->low_thr,
 			&chip->adc->amux_prop->chan_prop->high_thr);
@@ -1685,6 +1663,8 @@ int32_t qpnp_adc_tm_channel_measure(struct qpnp_adc_tm_chip *chip,
 				chip->adc->amux_prop->chan_prop);
 	chip->adc->amux_prop->chan_prop->tm_channel_select =
 				chip->sensor[dt_index].btm_channel_num;
+	chip->adc->amux_prop->chan_prop->timer_select =
+					ADC_MEAS_TIMER_SELECT1;
 	chip->adc->amux_prop->chan_prop->state_request =
 					param->state_request;
 	rc = qpnp_adc_tm_configure(chip, chip->adc->amux_prop);
@@ -1881,7 +1861,7 @@ static int __devinit qpnp_adc_tm_probe(struct spmi_device *spmi)
 
 	for_each_child_of_node(node, child) {
 		char name[25];
-		int btm_channel_num, timer_select = 0;
+		int btm_channel_num;
 
 		rc = of_property_read_u32(child,
 				"qcom,btm-channel-number", &btm_channel_num);
@@ -1889,28 +1869,6 @@ static int __devinit qpnp_adc_tm_probe(struct spmi_device *spmi)
 			pr_err("Invalid btm channel number\n");
 			goto fail;
 		}
-		rc = of_property_read_u32(child,
-					  "qcom,meas-interval-timer-idx", &timer_select);
-		if (rc) {
-			   pr_debug("Default to timer1 with interval of 1 sec\n");
-			   chip->sensor[sen_idx].timer_select =
-										   ADC_MEAS_TIMER_SELECT1;
-			   chip->sensor[sen_idx].meas_interval =
-										   ADC_MEAS1_INTERVAL_1S;
-		} else {
-			   if (timer_select >= ADC_MEAS_TIMER_NUM) {
-					  pr_err("Invalid timer selection number\n");
-					  goto fail;
-			   }
-			   chip->sensor[sen_idx].timer_select = timer_select;
-			   if (timer_select == ADC_MEAS_TIMER_SELECT2)
-					  chip->sensor[sen_idx].meas_interval =
-									ADC_MEAS2_INTERVAL_500MS;
-			   if (timer_select == ADC_MEAS_TIMER_SELECT3)
-					  chip->sensor[sen_idx].meas_interval =
-									ADC_MEAS3_INTERVAL_4S;
-		}
-
 		chip->sensor[sen_idx].btm_channel_num = btm_channel_num;
 		chip->sensor[sen_idx].vadc_channel_num =
 				chip->adc->adc_channels[sen_idx].channel_num;

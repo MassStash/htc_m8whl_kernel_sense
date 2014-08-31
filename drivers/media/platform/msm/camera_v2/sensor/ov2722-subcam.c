@@ -11,13 +11,12 @@
  *
  */
 #include "msm_sensor.h"
-#include <mach/devices_cmdline.h>
 #define OV2722_SENSOR_NAME "ov2722-subcam"
 DEFINE_MSM_MUTEX(ov2722_mut);
 
 static struct msm_sensor_ctrl_t ov2722_s_ctrl;
 extern int g_subcam_SOF;
-extern int g_subcam_no_ack;
+int g_subcam_no_ack = 0;
 static struct msm_camera_i2c_reg_array restart_reg_array[] = {
   {0x0103, 0x01},
   {0x3718, 0x10},
@@ -179,50 +178,6 @@ static  struct msm_camera_i2c_reg_setting stop_settings = {
 };
 
 struct msm_sensor_power_setting ov2722_sub_power_setting[] = {
-#ifdef CONFIG_REGULATOR_NCP6924
-	{
-		.seq_type = SENSOR_GPIO,
-		.seq_val = SENSOR_GPIO_RESET,
-		.config_val = GPIO_OUT_HIGH,
-		.delay = 10,
-	},
-	{
-		.seq_type = SENSOR_GPIO,
-		.seq_val = SENSOR_GPIO_STANDBY,
-		.config_val = GPIO_OUT_HIGH,
-		.delay = 1,
-	},
-	{
-		.seq_type = SENSOR_VREG_NCP6924,
-		.seq_val = NCP6924_VIO,
-		.config_val = 1,
-		.delay = 1,
-	},
-	{
-		.seq_type = SENSOR_VREG_NCP6924,
-		.seq_val = NCP6924_VANA,
-		.config_val = 1,
-		.delay = 1,
-	},
-	{
-		.seq_type = SENSOR_CLK,
-		.seq_val = SENSOR_CAM_MCLK,
-		.config_val = 0,
-		.delay = 5,
-	},
-	{
-		.seq_type = SENSOR_GPIO,
-		.seq_val = SENSOR_GPIO_RESET,
-		.config_val = GPIO_OUT_LOW,
-		.delay = 20,
-	},
-	{
-		.seq_type = SENSOR_I2C_MUX,
-		.seq_val = 0,
-		.config_val = 0,
-		.delay = 0,
-	},
-#else
 	{
 		.seq_type = SENSOR_GPIO,
 		.seq_val = SENSOR_GPIO_RESET,
@@ -259,54 +214,9 @@ struct msm_sensor_power_setting ov2722_sub_power_setting[] = {
 		.config_val = 0,
 		.delay = 0,
 	},
-#endif
 };
 
 struct msm_sensor_power_setting ov2722_sub_power_down_setting[] = {
-#ifdef CONFIG_REGULATOR_NCP6924
-	{
-		.seq_type = SENSOR_GPIO,
-		.seq_val = SENSOR_GPIO_RESET,
-		.config_val = GPIO_OUT_HIGH,
-		.delay = 10,
-	},
-	{
-		.seq_type = SENSOR_GPIO,
-		.seq_val = SENSOR_GPIO_STANDBY,
-		.config_val = GPIO_OUT_HIGH,
-		.delay = 1,
-	},
-	{
-		.seq_type = SENSOR_VREG_NCP6924,
-		.seq_val = NCP6924_VIO,
-		.config_val = 1,
-		.delay = 1,
-	},
-	{
-		.seq_type = SENSOR_VREG_NCP6924,
-		.seq_val = NCP6924_VANA,
-		.config_val = 1,
-		.delay = 1,
-	},
-	{
-		.seq_type = SENSOR_CLK,
-		.seq_val = SENSOR_CAM_MCLK,
-		.config_val = 0,
-		.delay = 5,
-	},
-	{
-		.seq_type = SENSOR_GPIO,
-		.seq_val = SENSOR_GPIO_RESET,
-		.config_val = GPIO_OUT_HIGH,
-		.delay = 20,
-	},
-	{
-		.seq_type = SENSOR_I2C_MUX,
-		.seq_val = 0,
-		.config_val = 0,
-		.delay = 0,
-	},
-#else
 	{
 		.seq_type = SENSOR_GPIO,
 		.seq_val = SENSOR_GPIO_RESET,
@@ -343,7 +253,6 @@ struct msm_sensor_power_setting ov2722_sub_power_down_setting[] = {
 		.config_val = 0,
 		.delay = 0,
 	},
-#endif
 };
 static void ov2722_restart(struct msm_sensor_ctrl_t *s_ctrl)
 {
@@ -634,7 +543,6 @@ int32_t ov2722_sub_sensor_config(struct msm_sensor_ctrl_t *s_ctrl,
                 pr_err("%s:%d failed: invalid state %d\n", __func__,
 				__LINE__, s_ctrl->sensor_state);
                 rc = -EFAULT;
-                mutex_unlock(s_ctrl->msm_sensor_mutex);
                 break;
             }
 
@@ -643,14 +551,12 @@ int32_t ov2722_sub_sensor_config(struct msm_sensor_ctrl_t *s_ctrl,
 			sizeof(struct msm_camera_i2c_reg_setting))) {
 			pr_err("%s:%d failed\n", __func__, __LINE__);
 			rc = -EFAULT;
-			mutex_unlock(s_ctrl->msm_sensor_mutex);
 			break;
             }
 
             if (!conf_array.size) {
 			pr_err("%s:%d failed\n", __func__, __LINE__);
 			rc = -EFAULT;
-			mutex_unlock(s_ctrl->msm_sensor_mutex);
 			break;
             }
 
@@ -660,7 +566,6 @@ int32_t ov2722_sub_sensor_config(struct msm_sensor_ctrl_t *s_ctrl,
             if (!reg_setting) {
 			pr_err("%s:%d failed\n", __func__, __LINE__);
 			rc = -ENOMEM;
-			mutex_unlock(s_ctrl->msm_sensor_mutex);
 			break;
             }
 
@@ -670,7 +575,6 @@ int32_t ov2722_sub_sensor_config(struct msm_sensor_ctrl_t *s_ctrl,
 			pr_err("%s:%d failed\n", __func__, __LINE__);
 			kfree(reg_setting);
 			rc = -EFAULT;
-			mutex_unlock(s_ctrl->msm_sensor_mutex);
 			break;
             }
 
@@ -700,9 +604,6 @@ int32_t ov2722_sub_sensor_config(struct msm_sensor_ctrl_t *s_ctrl,
 
             if (start_stream == 1)
             {
-                if (board_mfg_mode())
-                pr_info("%s: MFG skip ov2722_check_SOF\n", __func__);
-                else
                 rc = ov2722_check_SOF(s_ctrl);
             }
             mutex_unlock(s_ctrl->msm_sensor_mutex);

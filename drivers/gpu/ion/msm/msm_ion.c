@@ -1159,7 +1159,7 @@ static int msm_ion_probe(struct platform_device *pdev)
 
 	if (!heaps) {
 		err = -ENOMEM;
-		goto freepdata;
+		goto out;
 	}
 
 	new_dev = ion_device_create(msm_ion_custom_ioctl);
@@ -1204,7 +1204,6 @@ static int msm_ion_probe(struct platform_device *pdev)
 
 freeheaps:
 	kfree(heaps);
-freepdata:
 	if (pdata_needs_to_be_freed)
 		free_pdata(pdata);
 out:

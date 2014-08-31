@@ -65,7 +65,6 @@ static inline void mmc_delay(unsigned int ms)
 }
 
 void mmc_rescan(struct work_struct *work);
-void mmc_enable_detection(struct work_struct *work);
 void mmc_stats(struct work_struct *work);
 void mmc_start_host(struct mmc_host *host);
 void mmc_stop_host(struct mmc_host *host);

@@ -71,13 +71,8 @@ static ssize_t print_switch_state(struct switch_dev *sdev, char *buf)
 static char *envp[3] = {"SWITCH_NAME=htcctusbcmd",
 			"SWITCH_STATE=Capture", 0};
 
-static char *vzw_cdrom_envp_type3[4] = {"SWITCH_NAME=htcctusbcmd",
-			"SWITCH_STATE=UNMOUNTEDCDROM",
-			"CDROM_TYPE=3", 0};
-
-static char *vzw_cdrom_envp_type4[4] = {"SWITCH_NAME=htcctusbcmd",
-			"SWITCH_STATE=UNMOUNTEDCDROM",
-			"CDROM_TYPE=4", 0};
+static char *vzw_cdrom_envp[3] = {"SWITCH_NAME=htcctusbcmd",
+			"SWITCH_STATE=UNMOUNTEDCDROM", 0};
 
 static const char ctusbcmd_switch_name[] = "htcctusbcmd";
 
@@ -92,11 +87,8 @@ static void ctusbcmd_do_work(struct work_struct *w)
 static void ctusbcmd_vzw_unmount_work(struct work_struct *w)
 {
 	struct usb_composite_dev *cdev = container_of(w, struct usb_composite_dev, cdusbcmd_vzw_unmount_work.work);
-	printk(KERN_INFO "%s: UNMOUNTEDCDROM !mask 0x%x\n", __func__,cdev->unmount_cdrom_mask);
-	if (cdev->unmount_cdrom_mask & 1 << 3)
-		kobject_uevent_env(&cdev->compositesdev.dev->kobj, KOBJ_CHANGE, vzw_cdrom_envp_type3);
-	if (cdev->unmount_cdrom_mask & 1 << 4)
-		kobject_uevent_env(&cdev->compositesdev.dev->kobj, KOBJ_CHANGE, vzw_cdrom_envp_type4);
+	printk(KERN_INFO "%s: UNMOUNTEDCDROM !\n", __func__);
+	kobject_uevent_env(&cdev->compositesdev.dev->kobj, KOBJ_CHANGE, vzw_cdrom_envp);
 }
 
 static void composite_disconnect(struct usb_gadget *gadget);
@@ -540,18 +532,13 @@ static void reset_config(struct usb_composite_dev *cdev)
 	struct usb_function		*f;
 
 	DBG(cdev, "reset config\n");
-#ifdef CONFIG_HTC_USB_DEBUG_FLAG
-	printk("[USB]%s disable+\n",__func__);
-#endif
+
 	list_for_each_entry(f, &cdev->config->functions, list) {
 		if (f->disable)
 			f->disable(f);
 
 		bitmap_zero(f->endpoints, 32);
 	}
-#ifdef CONFIG_HTC_USB_DEBUG_FLAG
-	printk("[USB]%s disable-\n",__func__);
-#endif
 	cdev->config = NULL;
 }
 
@@ -759,9 +746,6 @@ int usb_remove_config(struct usb_composite_dev *cdev,
 	spin_unlock_irqrestore(&cdev->lock, flags);
 	os_type = OS_NOT_YET;
 	fsg_update_mode(0);
-#ifdef CONFIG_HTC_USB_DEBUG_FLAG
-	printk("[USB]%s unbind+\n",__func__);
-#endif
 	return unbind_config(cdev, config);
 }
 

@@ -40,12 +40,7 @@ the GNU General Public License for more details at http://www.gnu.org/licenses/g
 #include "si_tpi_regs.h"
 #include "si_8240_8558_regs.h"
 #include "../mdss_hdmi_mhl.h"
-#include "../mdss_panel.h"
-#include "../mdss_hdmi_tx.h"
-#include "../mdss_hdmi_hdcp.h"
 
-extern bool ap_hdcp_success;
-extern struct hdmi_hdcp_ctrl *hdcp_ctrl_global;
 
 static	int	int_4_isr(struct drv_hw_context *hw_context, uint8_t int_4_status);
 static	int	int_5_isr(struct drv_hw_context *hw_context, uint8_t int_5_status);
@@ -474,18 +469,18 @@ static void si_mhl_tx_drv_reset_ddc_fifo(struct drv_hw_context *hw_context)
 }
 
 bool si_mhl_tx_drv_issue_edid_read_request(struct drv_hw_context *hw_context,
-						uint8_t block_number)
+										   uint8_t block_number)
 {
 	uint8_t reg_val;
 	reg_val = mhl_tx_read_reg(hw_context, REG_CBUS_STATUS);
 	if ( BIT_CBUS_HPD & reg_val ) {
 		MHL_TX_DBG_INFO(hw_context,
-				"\n\tRequesting EDID block:%d\n"	\
-				"\tcurrentEdidRequestBlock:%d\n"	\
-				"\tedidFifoBlockNumber:%d\n",
-				block_number,
-				hw_context->current_edid_request_block,
-				hw_context->edid_fifo_block_number);
+						"\n\tRequesting EDID block:%d\n"	\
+						"\tcurrentEdidRequestBlock:%d\n"	\
+						"\tedidFifoBlockNumber:%d\n",
+						block_number,
+						hw_context->current_edid_request_block,
+						hw_context->edid_fifo_block_number);
 
 		
 		mhl_tx_write_reg(hw_context, REG_EDID_CTRL
@@ -518,12 +513,12 @@ bool si_mhl_tx_drv_issue_edid_read_request(struct drv_hw_context *hw_context,
 		return true;
 	} else {
 		MHL_TX_DBG_INFO(hw_context,
-				"\n\tNo HPD for EDID block request:%d\n"	\
-				"\tcurrentEdidRequestBlock:%d\n"			\
-				"\tedidFifoBlockNumber:%d\n",
-				block_number,
-				hw_context->current_edid_request_block,
-				hw_context->edid_fifo_block_number);
+						"\n\tNo HPD for EDID block request:%d\n"	\
+						"\tcurrentEdidRequestBlock:%d\n"			\
+						"\tedidFifoBlockNumber:%d\n",
+						block_number,
+						hw_context->current_edid_request_block,
+						hw_context->edid_fifo_block_number);
 		return false;
 	}
 }
@@ -545,12 +540,6 @@ bool si_mhl_tx_drv_send_cbus_command(struct drv_hw_context *hw_context, struct c
 		mhl_tx_write_reg(hw_context, REG_CBUS_MSC_1ST_TRANSMIT_DATA, req->reg_data);
 		mhl_tx_write_reg(hw_context, REG_CBUS_MSC_COMMAND_START,
 				BIT_CBUS_MSC_WRITE_STAT_OR_SET_INT);
-#ifdef CONFIG_MHL_DONGLE_WORKAROUND
-		if((req->reg == MHL_RCHANGE_INT) && (req->reg_data == MHL_INT_DCAP_CHG)){
-			MHL_TX_DBG_INFO(hw_context,"Sleep 50ms for dongle reading DCAP");
-			msleep(50);
-		}
-#endif
 		break;
 
 	case MHL_WRITE_STAT:
@@ -656,21 +645,22 @@ bool si_mhl_tx_drv_send_cbus_command(struct drv_hw_context *hw_context, struct c
 void si_mhl_tx_drv_set_3d_mode(struct drv_hw_context *hw_context, bool do_3D,
 							   _3D_structure_e three_d_mode)
 {
+
 	if (do_3D) {
 		if (tdsFramePacking == three_d_mode) {
 			MHL_TX_DBG_INFO(hw_context, "using frame packing\n");
 
-			mhl_tx_write_reg(hw_context, REG_VID_OVRRD ,
-					REG_VID_OVRRD_DEFVAL |
-					BIT_VID_OVRRD_3DCONV_EN_FRAME_PACK);
-		} else {
+            mhl_tx_write_reg(hw_context, REG_VID_OVRRD ,
+							REG_VID_OVRRD_DEFVAL |
+							BIT_VID_OVRRD_3DCONV_EN_FRAME_PACK);
+        } else {
 			MHL_TX_DBG_INFO(hw_context, "NOT using frame packing\n");
-			mhl_tx_write_reg(hw_context, REG_VID_OVRRD, REG_VID_OVRRD_DEFVAL);
-		}
-	} else {
+            mhl_tx_write_reg(hw_context, REG_VID_OVRRD, REG_VID_OVRRD_DEFVAL);
+        }
+    } else {
 		MHL_TX_DBG_INFO(hw_context, "NOT using frame packing\n");
-		mhl_tx_write_reg(hw_context, REG_VID_OVRRD , REG_VID_OVRRD_DEFVAL);
-	}
+        mhl_tx_write_reg(hw_context, REG_VID_OVRRD , REG_VID_OVRRD_DEFVAL);
+    }
 }
 
 uint16_t si_mhl_tx_drv_get_incoming_horizontal_total(struct drv_hw_context *hw_context)
@@ -688,11 +678,11 @@ uint16_t si_mhl_tx_drv_get_incoming_vertical_total(struct drv_hw_context *hw_con
 
 	ret_val = (((uint16_t)mhl_tx_read_reg(hw_context, REG_VRESH)) <<8) |
 				(uint16_t)mhl_tx_read_reg(hw_context, REG_VRESL);
-	return ret_val;
+    return ret_val;
 }
 
 int si_mhl_tx_drv_get_edid_fifo_next_block(struct drv_hw_context *hw_context,
-					   uint8_t *edid_buf)
+										   uint8_t *edid_buf)
 {
 	int ret_val;
 	uint8_t offset;
@@ -700,7 +690,7 @@ int si_mhl_tx_drv_get_edid_fifo_next_block(struct drv_hw_context *hw_context,
 	offset = EDID_BLOCK_SIZE * (hw_context->edid_fifo_block_number & 0x01);
 
 	MHL_TX_DBG_INFO(hw_context, "%x %x",(unsigned int)hw_context,(unsigned int)edid_buf);
-	hw_context->edid_fifo_block_number++;
+    hw_context->edid_fifo_block_number++;
 
 	mhl_tx_write_reg(hw_context, REG_EDID_FIFO_ADDR, offset);
 
@@ -720,28 +710,37 @@ int si_mhl_tx_drv_get_edid_fifo_next_block(struct drv_hw_context *hw_context,
 		, EDID_BLOCK_SIZE
 		, edid_buf);
 
-	DUMP_EDID_BLOCK(0,edid_buf, EDID_BLOCK_SIZE)
+    DUMP_EDID_BLOCK(0,edid_buf, EDID_BLOCK_SIZE)
 	ret_val = mhl_tx_read_reg(hw_context,REG_CBUS_STATUS);
-	if (ret_val < 0) {
+	if (ret_val < 0)
+	{
 		MHL_TX_DBG_ERR(hw_context, "%d", ret_val);
 		return ne_NO_HPD;
-	} else if (BIT_CBUS_HPD & ret_val) {
+	}
+	else if (BIT_CBUS_HPD & ret_val)
+	{
 		MHL_TX_DBG_INFO(hw_context,
 					"Done reading EDID from FIFO using HW_ASSIST ret_val:0x%02x\n",ret_val);
 		return 0;
-	} else {
-		MHL_TX_DBG_INFO(hw_context, "No HPD ret_val:0x%02x\n",ret_val);
+	}
+	else
+	{
+		MHL_TX_DBG_INFO(hw_context,
+					"No HPD ret_val:0x%02x\n",ret_val);
 		return ne_NO_HPD;
 	}
 }
 
 int si_mhl_tx_drv_get_scratch_pad(struct drv_hw_context *hw_context,
-					uint8_t start_reg, uint8_t *data, uint8_t length)
+								  uint8_t start_reg, uint8_t *data,
+								  uint8_t length)
 {
 	if ((start_reg + length) > (int)MHL_SCRATCHPAD_SIZE)
 		return -1;
 
-	memcpy(data, &hw_context->write_burst_data[start_reg], length);
+	memcpy(data,
+		   &hw_context->write_burst_data[start_reg],
+		   length);
 
 	return 0;
 }
@@ -751,6 +750,7 @@ static	bool packed_pixel_available(struct mhl_dev_context *dev_context)
 	if ((MHL_DEV_VID_LINK_SUPP_PPIXEL & DEVCAP_VAL_VID_LINK_MODE) &&
 		(dev_context->dev_cap_cache.mdc.vid_link_mode &
 		 MHL_DEV_VID_LINK_SUPP_PPIXEL)) {
+
 		return true;
 	}
 	return false;
@@ -761,14 +761,16 @@ static uint8_t calculate_avi_info_frame_checksum(hw_avi_payload_t *payload)
 	uint8_t checksum;
 
 	checksum = 0x82 + 0x02 + 0x0D;	
-	return calculate_generic_checksum(payload->ifData, checksum, SIZE_AVI_INFOFRAME);
+    return calculate_generic_checksum(payload->ifData, checksum,
+										SIZE_AVI_INFOFRAME);
 }
 static int is_valid_avi_info_frame(struct mhl_dev_context *dev_context,
-					avi_info_frame_t *avif)
+								   avi_info_frame_t *avif)
 {
 	uint8_t	checksum;
 
-	checksum = calculate_generic_checksum((uint8_t *)avif, 0, sizeof(*avif));
+	checksum = calculate_generic_checksum((uint8_t *)avif, 0,
+										  sizeof(*avif));
 	if (0 != checksum) {
 		MHL_TX_DBG_ERR(dev_context, "AVI info frame checksum is: 0x%02x "
 					   "should be 0\n", checksum);
@@ -804,7 +806,7 @@ static int is_valid_vsif(struct mhl_dev_context *dev_context,
 		checksum = calculate_generic_checksum((uint8_t *)vsif, 0,
 			sizeof(vsif->header) + vsif->header.length
 			+ sizeof(vsif->payLoad.checksum));
-		if (0 != checksum) {
+		if (0 != checksum){
 			MHL_TX_DBG_ERR(dev_context, "VSIF info frame checksum "
 					"(adjusted for checksum itself) is: 0x%02x "
 						   "should be 0\n", checksum);
@@ -849,24 +851,24 @@ static	void	print_vic_modes(struct drv_hw_context *hw_context,uint8_t vic)
 	};
 #define	NUM_VIC_NAMES	(sizeof(vic_name_table)/sizeof(vic_name_table[0]) )
 	
-	for (i = 0; i < (NUM_VIC_NAMES - 1); i++) {
-		if (vic == vic_name_table[i].vic) {
+	for(i = 0; i < (NUM_VIC_NAMES - 1); i++) {
+		if(vic == vic_name_table[i].vic) {
 			break;
 		}
 	}
 	MHL_TX_DBG_ERR(hw_context, "VIC = %d (%s)\n", vic, vic_name_table[i].name);
 }
-
-static void set_mhl_zone_settings(struct mhl_dev_context *dev_context,
-					uint32_t pixel_clock_frequency)
+static void set_mhl_zone_settings(struct mhl_dev_context *dev_context
+								, uint32_t pixel_clock_frequency
+								)
 {
-	struct drv_hw_context	*hw_context = (struct drv_hw_context *)&dev_context->drv_context;
+	struct drv_hw_context			*hw_context = (struct drv_hw_context *)&dev_context->drv_context;
 	if (pixel_clock_frequency > 75000000) {
-		MHL_TX_DBG_INFO(hw_context,"zone control: D0\n");
-		mhl_tx_write_reg(hw_context,REG_ZONE_CTRL_SW_RST,0xD0);
+			MHL_TX_DBG_INFO(hw_context,"zone control: D0\n");
+			mhl_tx_write_reg(hw_context,REG_ZONE_CTRL_SW_RST,0xD0);
 	} else {
-		MHL_TX_DBG_INFO(hw_context,"zone control: E0\n");
-		mhl_tx_write_reg(hw_context,REG_ZONE_CTRL_SW_RST,0xE0);
+			MHL_TX_DBG_INFO(hw_context,"zone control: E0\n");
+			mhl_tx_write_reg(hw_context,REG_ZONE_CTRL_SW_RST,0xE0);
 	}
 
 	MHL_TX_DBG_INFO(hw_context,"pixel clock:%d %04x rev %02x\n",
@@ -880,7 +882,7 @@ static void set_mhl_zone_settings(struct mhl_dev_context *dev_context,
 			mhl_tx_write_reg(hw_context, REG_TXMZ_CTRL2, 0x00);
 	}
 	si_mhl_tx_set_status(dev_context, MHL_STATUS_REG_LINK_MODE,
-				dev_context->link_mode);
+									dev_context->link_mode);
 
 }
 
@@ -899,14 +901,14 @@ static u8 get_swing_value(struct mhl_dev_context *dev_context, uint32_t pixel_cl
 
 static int	set_hdmi_params(struct mhl_dev_context *dev_context)
 {
-	uint32_t			pixel_clock_frequency;
-	uint32_t			threeDPixelClockRatio;
-	uint8_t				packedPixelNeeded = 0;
-	uint8_t				fp_3d_mode;
-	AviColorSpace_e			input_clr_spc = acsRGB;
-	uint8_t				output_clr_spc =acsRGB;
+	uint32_t						pixel_clock_frequency;
+	uint32_t						threeDPixelClockRatio;
+	uint8_t							packedPixelNeeded=0;
+	uint8_t							fp_3d_mode;
+	AviColorSpace_e					input_clr_spc =acsRGB;
+	uint8_t							output_clr_spc =acsRGB;
 	avi_info_frame_data_byte_4_t	input_video_code;
-	struct drv_hw_context		*hw_context = (struct drv_hw_context *)&dev_context->drv_context;
+	struct drv_hw_context			*hw_context = (struct drv_hw_context *)&dev_context->drv_context;
 	enum {
 		 use_avi_vic
 		,use_hardware_totals
@@ -926,7 +928,7 @@ static int	set_hdmi_params(struct mhl_dev_context *dev_context)
 			
 			MHL_TX_DBG_ERR(,"HDMI extended resolution not supported for 8240/8558\n");
 			return false;
-		} else {
+		}else{
 			print_vic_modes(hw_context, (uint8_t) input_video_code.VIC);
 			if (0 == input_video_code.VIC) {
 				MHL_TX_DBG_ERR(,"AVI VIC is zero!!!\n");
@@ -950,12 +952,12 @@ static int	set_hdmi_params(struct mhl_dev_context *dev_context)
 		if (0 == input_video_code.VIC) {
 			timing_info_basis = use_hardware_totals;
 			MHL_TX_DBG_WARN(,"no VSIF and AVI VIC is zero!!! trying HTOTAL/VTOTAL\n");
-		} else {
+		}else{
 			print_vic_modes(hw_context, (uint8_t) input_video_code.VIC);
 		}
 	}
 
-	mhl_tx_write_reg(hw_context, REG_VID_OVRRD, fp_3d_mode);
+    mhl_tx_write_reg(hw_context, REG_VID_OVRRD, fp_3d_mode);
 	
 	hw_context->valid_vsif = 0;
 	hw_context->valid_avif = 0;
@@ -964,18 +966,18 @@ static int	set_hdmi_params(struct mhl_dev_context *dev_context)
 	hw_context->outgoingAviPayLoad  = hw_context->current_avi_info_frame.payLoad.hwPayLoad;
 
 	
-	switch (timing_info_basis) {
+	switch(timing_info_basis){
 	case use_avi_vic:
 		pixel_clock_frequency = si_edid_find_pixel_clock_from_AVI_VIC(
-								dev_context->edid_parser_context,
-								hw_context->current_avi_info_frame.
-								payLoad.hwPayLoad.namedIfData.
-								ifData_u.bitFields.VIC.VIC);
+											dev_context->edid_parser_context,
+											hw_context->current_avi_info_frame.
+											payLoad.hwPayLoad.namedIfData.
+											ifData_u.bitFields.VIC.VIC);
 		break;
 	case use_hardware_totals:
 		pixel_clock_frequency = si_mhl_tx_find_timings_from_totals(
 				dev_context->edid_parser_context);
-		if (0 == pixel_clock_frequency) {
+		if (0 == pixel_clock_frequency){
 			MHL_TX_DBG_ERR(,"VIC was zero and totals not supported\n");
 			return false;
 		}
@@ -1039,8 +1041,8 @@ static int	set_hdmi_params(struct mhl_dev_context *dev_context)
 					, REG_VID_MODE_DEFVAL | BIT_VID_MODE_m1080p_ENABLE);
 
 			mhl_tx_modify_reg(hw_context, REG_MHLTX_CTL4,
-						BIT_MHLTX_CTL4_MHL_CLK_RATIO_MASK | BIT_DATA_SWING_CTL_MASK,
-						BIT_MHLTX_CTL4_MHL_CLK_RATIO_2X | swing_value);
+							  BIT_MHLTX_CTL4_MHL_CLK_RATIO_MASK | BIT_DATA_SWING_CTL_MASK,
+							  BIT_MHLTX_CTL4_MHL_CLK_RATIO_2X | swing_value);
 
 			mhl_tx_write_reg(hw_context, REG_MHLTX_CTL6, 0x60);
 
@@ -1085,18 +1087,19 @@ static int	set_hdmi_params(struct mhl_dev_context *dev_context)
 	}
 
 	set_mhl_zone_settings(dev_context,pixel_clock_frequency);
-	hw_context->outgoingAviPayLoad.namedIfData.checksum = 0;
-	hw_context->outgoingAviPayLoad.namedIfData.ifData_u.bitFields.pb1.colorSpace
-		= output_clr_spc;
-	hw_context->outgoingAviPayLoad.namedIfData.checksum =
-		calculate_avi_info_frame_checksum(&hw_context->outgoingAviPayLoad);
+    hw_context->outgoingAviPayLoad.namedIfData.checksum = 0;
+    hw_context->outgoingAviPayLoad.namedIfData.ifData_u.bitFields.pb1.colorSpace
+				= output_clr_spc;
+    hw_context->outgoingAviPayLoad.namedIfData.checksum =
+				calculate_avi_info_frame_checksum(&hw_context->outgoingAviPayLoad);
 
 	return true;
 }
 
 
-void process_info_frame_change(struct drv_hw_context *hw_context,
-				vendor_specific_info_frame_t *vsif, avi_info_frame_t *avif)
+void process_info_frame_change(struct drv_hw_context *hw_context
+									, vendor_specific_info_frame_t *vsif
+									, avi_info_frame_t *avif)
 {
 	bool mode_change = false;
 	struct mhl_dev_context	*dev_context;
@@ -1117,17 +1120,17 @@ void process_info_frame_change(struct drv_hw_context *hw_context,
 			mode_change = true;
 		}
 	}
-	if (mode_change) {
+    if (mode_change) {
 		int cstat_p3;
 		int bits_of_interest;
 		cstat_p3 = mhl_tx_read_reg(hw_context, REG_TMDS_CSTAT_P3);
 		bits_of_interest = cstat_p3 & (BIT_TMDS_CSTAT_P3_PDO_MASK |BIT_TMDS_CSTAT_P3_SCDT);
 
 		if ((BIT_TMDS_CSTAT_P3_PDO_CLOCK_DETECTED |BIT_TMDS_CSTAT_P3_SCDT)
-				== bits_of_interest) {
-			start_video(hw_context,dev_context->edid_parser_context);
+			== bits_of_interest){
+	        start_video(hw_context,dev_context->edid_parser_context);
 		}
-	}
+    }
 }
 
 #define dump_edid_fifo(hw_context, block_number) 
@@ -1147,8 +1150,8 @@ static int init_rx_regs(struct drv_hw_context *hw_context)
 	mhl_tx_write_reg(hw_context, REG_PKT_FILTER_1, 0xFF);
 
 	mhl_tx_modify_reg(hw_context, REG_HDMI_CLR_BUFFER,
-				BIT_HDMI_CLR_BUFFER_RX_HDMI_VSI_CLR_EN_MASK,
-				BIT_HDMI_CLR_BUFFER_RX_HDMI_VSI_CLR_EN_CLEAR);
+					  BIT_HDMI_CLR_BUFFER_RX_HDMI_VSI_CLR_EN_MASK,
+					  BIT_HDMI_CLR_BUFFER_RX_HDMI_VSI_CLR_EN_CLEAR);
 
 	return 0;
 }
@@ -1213,10 +1216,10 @@ static int drive_hpd_low(struct drv_hw_context *hw_context)
 int si_mhl_tx_drv_set_upstream_edid(struct drv_hw_context *hw_context,
 									uint8_t *edid, uint16_t length)
 {
-	uint8_t	reg_val;
+	uint8_t					reg_val;
 
 	reg_val = mhl_tx_read_reg(hw_context, REG_CBUS_STATUS);
-	if (!(BIT_CBUS_HPD & reg_val)) {
+	if (!(BIT_CBUS_HPD & reg_val)){
 		return -1;
 	}
 
@@ -1697,7 +1700,8 @@ static	int start_video(struct drv_hw_context *hw_context, void *edid_parser_cont
 
 	if ((0 == hw_context->video_path)
 			|| (0 == get_cbus_connection_status(hw_context))
-			|| (false == dev_context->misc_flags.flags.rap_content_on)) {
+			|| (false == dev_context->misc_flags.flags.rap_content_on)
+		) {
 		return false;
 	}
 	if (get_config(hw_context,TRANSCODE_MODE)) {
@@ -1752,25 +1756,6 @@ static int hdcp_isr(struct drv_hw_context *hw_context, uint8_t tpi_int_status)
 	if (BIT_TPI_INTR_ST0_BKSV_DONE & tpi_int_status) {
 		if (PROTECTION_TYPE_MASK & query_data) {
 			int temp;
-			if (!ap_hdcp_success) {
-				if (!hdmi_hpd_status()) {
-					pr_info("sii8240: HDMI hpd is low\n");
-				} else {
-					pr_info("sii8240: workaround for drm\n");
-					mhl_tx_modify_reg(hw_context,REG_DCTL,BIT_DCTL_EXT_DDC_SEL,BIT_DCTL_EXT_DDC_SEL);
-					hdmi_hdcp_set_state(HDCP_STATE_AUTHENTICATING);
-					if (hdmi_hdcp_authentication_from_mhl()) {
-						pr_err("%s: HDMI HDCP Auth Part I failed\n", __func__);
-						ap_hdcp_success = false;
-					} else {
-						ap_hdcp_success = true;
-					}
-					mhl_tx_modify_reg(hw_context,REG_DCTL,BIT_DCTL_EXT_DDC_SEL,0);
-					hdmi_hdcp_set_state(HDCP_STATE_AUTHENTICATED);
-					msleep(100);
-				}
-			}
-
 			do{
 				temp = mhl_tx_read_reg(hw_context,REG_TPI_HW_DBG6) & 0x1F;
 			} while (temp == 2);
@@ -1787,44 +1772,47 @@ static int hdcp_isr(struct drv_hw_context *hw_context, uint8_t tpi_int_status)
 					  BIT_TPI_HDCP_CONTROL_DATA_COPP_PROTLEVEL_MAX
 					| BIT_TPI_HDCP_CONTROL_DATA_DOUBLE_RI_CHECK_ENABLE);
 		}
-	} else if ( BIT_TPI_INTR_ST0_BKSV_ERR & tpi_int_status) {
+	}
+	else if ( BIT_TPI_INTR_ST0_BKSV_ERR & tpi_int_status) {
 		hdcp_bksv_err_count++;
 		start_hdcp(hw_context);
-	} else if (BIT_TPI_INTR_ST0_HDCP_SECURITY_CHANGE_EVENT & tpi_int_status) {
+	}
+	else if (BIT_TPI_INTR_ST0_HDCP_SECURITY_CHANGE_EVENT & tpi_int_status) {
 		int link_status;
 
 		link_status = query_data & LINK_STATUS_MASK;
 
 		switch (link_status) {
-		case LINK_STATUS_NORMAL:
-			unmute_video(hw_context);
-			break;
+			case LINK_STATUS_NORMAL:
+				unmute_video(hw_context);
+				break;
 
-		case LINK_STATUS_LINK_LOST:
-			hdcp_link_err_count++;
-			start_hdcp(hw_context);
-			break;
-		case LINK_STATUS_RENEGOTIATION_REQ:
-			MHL_TX_DBG_INFO(hw_context
-					, "tpi BSTATUS2: 0x%x\n"
-					, mhl_tx_read_reg(hw_context,REG_TPI_BSTATUS2)
-					);
-			hdcp_reneg_err_count++;
-			
-			mhl_tx_modify_reg(hw_context
-					, TPI_SYSTEM_CONTROL_DATA_REG
-					, AV_MUTE_MASK
-					, AV_MUTE_MUTED);
+			case LINK_STATUS_LINK_LOST:
+				hdcp_link_err_count++;
+				start_hdcp(hw_context);
+				break;
+			case LINK_STATUS_RENEGOTIATION_REQ:
+				MHL_TX_DBG_INFO(hw_context
+						, "tpi BSTATUS2: 0x%x\n"
+						, mhl_tx_read_reg(hw_context,REG_TPI_BSTATUS2)
+						);
+				hdcp_reneg_err_count++;
+				
+				mhl_tx_modify_reg(hw_context
+						, TPI_SYSTEM_CONTROL_DATA_REG
+						, AV_MUTE_MASK
+						, AV_MUTE_MUTED);
 
-			
-			mhl_tx_write_reg(hw_context, TPI_HDCP_CONTROL_DATA_REG, 0);
-			break;
-		case LINK_STATUS_LINK_SUSPENDED:
-			hdcp_suspend_err_count++;
-			start_hdcp(hw_context);
-			break;
+				
+				mhl_tx_write_reg(hw_context, TPI_HDCP_CONTROL_DATA_REG, 0);
+				break;
+			case LINK_STATUS_LINK_SUSPENDED:
+				hdcp_suspend_err_count++;
+				start_hdcp(hw_context);
+				break;
 		}
-	} 
+	}
+	
 	else if (BIT_TPI_INTR_ST0_HDCP_AUTH_STATUS_CHANGE_EVENT & tpi_int_status) {
 		uint8_t new_link_prot_level;
 
@@ -1833,16 +1821,16 @@ static int hdcp_isr(struct drv_hw_context *hw_context, uint8_t tpi_int_status)
 							LOCAL_LINK_PROTECTION_MASK));
 
 		switch (new_link_prot_level) {
-		case (EXTENDED_LINK_PROTECTION_NONE | LOCAL_LINK_PROTECTION_NONE):
-			hdcp_link_err_count++;
-			start_hdcp(hw_context);
-			break;
+			case (EXTENDED_LINK_PROTECTION_NONE | LOCAL_LINK_PROTECTION_NONE):
+				hdcp_link_err_count++;
+				start_hdcp(hw_context);
+				break;
 
-		case EXTENDED_LINK_PROTECTION_SECURE:
-		case LOCAL_LINK_PROTECTION_SECURE:
-		case (EXTENDED_LINK_PROTECTION_SECURE | LOCAL_LINK_PROTECTION_SECURE):
-			unmute_video(hw_context);
-			break;
+			case EXTENDED_LINK_PROTECTION_SECURE:
+			case LOCAL_LINK_PROTECTION_SECURE:
+			case (EXTENDED_LINK_PROTECTION_SECURE | LOCAL_LINK_PROTECTION_SECURE):
+				unmute_video(hw_context);
+				break;
 		}
 	}
 	return 0;
@@ -1851,7 +1839,7 @@ static int hdcp_isr(struct drv_hw_context *hw_context, uint8_t tpi_int_status)
 static int int_8_isr(struct drv_hw_context *hw_context, uint8_t intr_8_status)
 {
 	vendor_specific_info_frame_t	vsif;
-	avi_info_frame_t		avif;
+	avi_info_frame_t				avif;
 
 	
 	if (BIT_INTR8_CEA_NEW_VSI & intr_8_status) {
@@ -1886,7 +1874,8 @@ static int int_8_isr(struct drv_hw_context *hw_context, uint8_t intr_8_status)
 						);
 	}
 
-	switch (intr_8_status &(BIT_INTR8_CEA_NEW_VSI|BIT_INTR8_CEA_NEW_AVI)) {
+	switch(intr_8_status &(BIT_INTR8_CEA_NEW_VSI|BIT_INTR8_CEA_NEW_AVI))
+	{
         case BIT_INTR8_CEA_NEW_VSI:
             process_info_frame_change(hw_context,&vsif,NULL);
             break;
@@ -1894,7 +1883,9 @@ static int int_8_isr(struct drv_hw_context *hw_context, uint8_t intr_8_status)
             process_info_frame_change(hw_context,NULL,&avif);
             break;
         case (BIT_INTR8_CEA_NEW_VSI|BIT_INTR8_CEA_NEW_AVI):
-            process_info_frame_change(hw_context ,&vsif ,&avif);
+            process_info_frame_change(hw_context
+									,&vsif
+                                    ,&avif);
             break;
 	}
 	return 0;
@@ -1902,9 +1893,9 @@ static int int_8_isr(struct drv_hw_context *hw_context, uint8_t intr_8_status)
 
 static int int_9_isr(struct drv_hw_context *hw_context, uint8_t int_9_status)
 {
-	if (int_9_status) {
-		mhl_tx_write_reg(hw_context, g_intr_tbl[INTR_EDID].stat_page,
-					g_intr_tbl[INTR_EDID].stat_offset, int_9_status);
+	if (int_9_status)
+	{
+		mhl_tx_write_reg(hw_context, g_intr_tbl[INTR_EDID].stat_page, g_intr_tbl[INTR_EDID].stat_offset, int_9_status);
 		if (BIT_INTR9_DEVCAP_DONE & int_9_status) {
 			hw_context->intr_info->flags |= DRV_INTR_FLAG_MSC_DONE;
 			hw_context->intr_info->msc_done_data = 0;
@@ -1917,11 +1908,12 @@ static int int_9_isr(struct drv_hw_context *hw_context, uint8_t int_9_status)
 
 				
 				if (!si_mhl_tx_drv_issue_edid_read_request(hw_context,
-					hw_context->current_edid_request_block=0)) {
-					hw_context->intr_info->flags |= DRV_INTR_FLAG_MSC_DONE;
-					hw_context->intr_info->msc_done_data =1;
+									hw_context->current_edid_request_block=0)) {
+						hw_context->intr_info->flags |= DRV_INTR_FLAG_MSC_DONE;
+						hw_context->intr_info->msc_done_data =1;
 				}
-			} else {
+			}
+			else {
 				int num_extensions;
 
 				MHL_TX_DBG_INFO(hw_context, "EDID block read complete\n");
@@ -1947,10 +1939,10 @@ static int int_9_isr(struct drv_hw_context *hw_context, uint8_t int_9_status)
 				} else if (hw_context->current_edid_request_block < num_extensions) {
 					
 					if (!si_mhl_tx_drv_issue_edid_read_request(hw_context,
-						++hw_context->current_edid_request_block)) {
-						
-						hw_context->intr_info->flags |= DRV_INTR_FLAG_MSC_DONE;
-						hw_context->intr_info->msc_done_data =1;
+							++hw_context->current_edid_request_block)) {
+							
+							hw_context->intr_info->flags |= DRV_INTR_FLAG_MSC_DONE;
+							hw_context->intr_info->msc_done_data =1;
 					}
 				} else {
 					
@@ -1988,9 +1980,9 @@ static int int_9_isr(struct drv_hw_context *hw_context, uint8_t int_9_status)
 }
 
 void si_mhl_tx_read_devcap_fifo(struct drv_hw_context *hw_context,
-					MHLDevCap_u *dev_cap_buf)
+								MHLDevCap_u *dev_cap_buf)
 {
-	MHL_TX_DBG_INFO(hw_context,"called\n");
+    MHL_TX_DBG_INFO(hw_context,"called\n");
 
     
 	enable_intr(hw_context, INTR_EDID,
@@ -2014,20 +2006,22 @@ void si_mhl_tx_read_devcap_fifo(struct drv_hw_context *hw_context,
 						  DEVCAP_SIZE, dev_cap_buf->devcap_cache);
 	MHL_TX_DBG_INFO(hw_context, "\n\ngot DEVCAP\n\n");
 }
-static int get_cbus_connection_status(struct drv_hw_context *hw_context)
+static	int		get_cbus_connection_status(struct drv_hw_context *hw_context)
 {
 	return (BIT_CBUS_HPD & mhl_tx_read_reg(hw_context, REG_CBUS_STATUS));
 }
 
-static int mhl_cbus_err_isr(struct drv_hw_context *hw_context, uint8_t cbus_err_int)
+static int mhl_cbus_err_isr(struct drv_hw_context *hw_context,
+							uint8_t cbus_err_int)
 {
 	int	ret_val = 0;
 	uint8_t ddc_abort_reason = 0;
 	uint8_t msc_abort_reason = 0;
 
-	if (cbus_err_int & BIT_CBUS_DDC_ABRT) {
+	if(cbus_err_int & BIT_CBUS_DDC_ABRT) {
 
-		ddc_abort_reason = mhl_tx_read_reg(hw_context, REG_CBUS_DDC_ABORT_INT);
+		ddc_abort_reason = mhl_tx_read_reg(hw_context,
+											REG_CBUS_DDC_ABORT_INT);
 
 		MHL_TX_DBG_ERR(hw_context, "CBUS DDC ABORT. Reason = %02X\n",
 						ddc_abort_reason);
@@ -2044,20 +2038,22 @@ static int mhl_cbus_err_isr(struct drv_hw_context *hw_context, uint8_t cbus_err_
 						);
 		}
 	}
-	if (cbus_err_int & BIT_CBUS_MSC_ABORT_RCVD) {
+	if(cbus_err_int & BIT_CBUS_MSC_ABORT_RCVD) {
 		hw_context->intr_info->flags |= DRV_INTR_FLAG_CBUS_ABORT;
 
-		msc_abort_reason = mhl_tx_read_reg(hw_context, REG_MSC_RCV_ERROR);
+		msc_abort_reason = mhl_tx_read_reg(hw_context,
+								REG_MSC_RCV_ERROR);
 
 		++msc_abort_count;
 
 		MHL_TX_DBG_ERR(hw_context, "#%d: ABORT during MSC RCV. Reason = %02X\n",
 				msc_abort_count, msc_abort_reason);
 	}
-	if (cbus_err_int & BIT_CBUS_CMD_ABORT) {
+	if(cbus_err_int & BIT_CBUS_CMD_ABORT) {
 		hw_context->intr_info->flags |= DRV_INTR_FLAG_CBUS_ABORT;
 
-		msc_abort_reason = mhl_tx_read_reg(hw_context, REG_CBUS_MSC_MT_ABORT_INT);
+		msc_abort_reason = mhl_tx_read_reg(hw_context,
+								REG_CBUS_MSC_MT_ABORT_INT);
 
 		MHL_TX_DBG_ERR(hw_context, "CBUS ABORT during MSC SEND. Reason = %02X\n",
 						msc_abort_reason);
@@ -2087,190 +2083,192 @@ static int mhl_cbus_err_isr(struct drv_hw_context *hw_context, uint8_t cbus_err_
 static int mhl_cbus_isr(struct drv_hw_context *hw_context, uint8_t cbus_int)
 {
 
-	if (cbus_int & ~BIT_CBUS_HPD_RCVD) {
-		mhl_tx_write_reg(hw_context, REG_CBUS_INT_0,cbus_int & ~BIT_CBUS_HPD_RCVD);
-	}
-
-	if (BIT_CBUS_HPD_RCVD & cbus_int) {
-		uint8_t cbus_status;
-		uint8_t status;
-
-		
-		cbus_status = mhl_tx_read_reg(hw_context, REG_CBUS_STATUS);
-		status = cbus_status & BIT_CBUS_HPD;
-
-		if (BIT_CBUS_HPD & (hw_context->cbus_status ^ cbus_status)) {
-
-			mhl_tx_write_reg(hw_context, REG_CBUS_INT_0, BIT_CBUS_HPD_RCVD);
-			MHL_TX_DBG_INFO(hw_context, "HPD change\n");
-		} else {
-			MHL_TX_DBG_ERR(hw_context, "missed HPD change\n");
-
-			
-			status ^= BIT_CBUS_HPD;
-			cbus_status ^= BIT_CBUS_HPD;
+		if (cbus_int & ~BIT_CBUS_HPD_RCVD){
+			mhl_tx_write_reg(hw_context, REG_CBUS_INT_0,cbus_int & ~BIT_CBUS_HPD_RCVD);
 		}
 
-		MHL_TX_DBG_INFO(hw_context, "DS HPD changed to %02X\n", status);
+		if (BIT_CBUS_HPD_RCVD & cbus_int) {
+			uint8_t cbus_status;
+			uint8_t status;
 
-		hw_context->intr_info->flags |= DRV_INTR_FLAG_HPD_CHANGE;
-		hw_context->intr_info->hpd_status = status;
-
-		if (0 == get_config(hw_context, TRANSCODE_MODE)) {
 			
-			if (0 == status) {
-				struct mhl_dev_context	*dev_context;
-				dev_context = get_mhl_device_context(hw_context);
-				MHL_TX_DBG_ERR(hw_context, "got CLR_HPD\n\n");
-				drive_hpd_low(hw_context);
+			cbus_status = mhl_tx_read_reg(hw_context, REG_CBUS_STATUS);
+			status = cbus_status & BIT_CBUS_HPD;
+
+			if(BIT_CBUS_HPD & (hw_context->cbus_status ^ cbus_status)) {
+
+				mhl_tx_write_reg(hw_context, REG_CBUS_INT_0, BIT_CBUS_HPD_RCVD);
+				MHL_TX_DBG_INFO(hw_context, "HPD change\n");
+			}
+			else{
+				MHL_TX_DBG_ERR(hw_context, "missed HPD change\n");
+
+				
+				status ^= BIT_CBUS_HPD;
+				cbus_status ^= BIT_CBUS_HPD;
+			}
+
+			MHL_TX_DBG_INFO(hw_context, "DS HPD changed to %02X\n", status);
+
+			hw_context->intr_info->flags |= DRV_INTR_FLAG_HPD_CHANGE;
+			hw_context->intr_info->hpd_status = status;
+
+			if (0 == get_config(hw_context, TRANSCODE_MODE)) {
+				
+				if ( 0 == status) {
+					struct mhl_dev_context	*dev_context;
+					dev_context = get_mhl_device_context(hw_context);
+					MHL_TX_DBG_ERR(hw_context, "got CLR_HPD\n\n");
+					drive_hpd_low(hw_context);
 
 				if (hw_context->chip_device_id == DEVICE_ID_8558) {
-					mhl_tx_write_reg(hw_context, REG_POWER_CTRL, 0x5D);
-				} else {
-					mhl_tx_write_reg(hw_context, REG_POWER_CTRL, 0x55);
+						mhl_tx_write_reg(hw_context, REG_POWER_CTRL, 0x5D);
+					} else {
+						mhl_tx_write_reg(hw_context, REG_POWER_CTRL, 0x55);
+					}
+					hw_context->current_edid_request_block = 0;
+#ifdef ENABLE_GEN2 
+					disable_gen2_write_burst(hw_context);
+#endif 
+					hw_context->ready_for_mdt = false;
+
+					
+					hw_context->video_ready = false;
+					hw_context->video_path = 1;
+					si_edid_reset(dev_context->edid_parser_context);
 				}
-				hw_context->current_edid_request_block = 0;
-#ifdef ENABLE_GEN2 
-				disable_gen2_write_burst(hw_context);
-#endif 
-				hw_context->ready_for_mdt = false;
-
+				else {
+					MHL_TX_DBG_INFO(hw_context, "\n\nGot SET_HPD\n\n");
+				}
 				
-				hw_context->video_ready = false;
-				hw_context->video_path = 1;
-				si_edid_reset(dev_context->edid_parser_context);
-			} else {
-				MHL_TX_DBG_INFO(hw_context, "\n\nGot SET_HPD\n\n");
-			}
-			
-			stop_video(hw_context);
-		}
-		hw_context->cbus_status = cbus_status;
-	}
-
-	if (BIT_CBUS_MSC_MT_DONE & cbus_int) {
-		MHL_TX_DBG_INFO(hw_context, "MSC_REQ_DONE\n");
-
-		hw_context->intr_info->flags |= DRV_INTR_FLAG_MSC_DONE;
-		hw_context->intr_info->msc_done_data =
-			mhl_tx_read_reg(hw_context, REG_CBUS_PRI_RD_DATA_1ST);
-
-#ifdef ENABLE_GEN2 
-		
-		enable_gen2_write_burst(hw_context);
-#endif 
-	}
-	if (BIT_CBUS_MSC_MT_DONE_NACK & cbus_int){
-		MHL_TX_DBG_ERR(hw_context,"MSC_MT_DONE_NACK\n");
-		hw_context->intr_info->flags |= DRV_INTR_FLAG_MSC_NAK;
-	}
-
-	if (BIT_CBUS_MSC_MR_WRITE_STAT & cbus_int) {
-
-		
-		mhl_tx_read_reg_block(hw_context, REG_CBUS_WRITE_STAT_0,
-				ARRAY_SIZE(hw_context->intr_info->write_stat),
-				hw_context->intr_info->write_stat);
-
-		if(MHL_STATUS_DCAP_RDY & hw_context->intr_info->write_stat[0]) {
-			MHL_TX_DBG_INFO(hw_context, "\n\ngot DCAP_RDY\n\n");
-
-			
-			enable_intr(hw_context, INTR_EDID,
-					( BIT_INTR9_DEVCAP_DONE_MASK
-					  | BIT_INTR9_EDID_DONE_MASK
-					  | BIT_INTR9_EDID_ERROR
-					));
-		}
-		hw_context->intr_info->flags |= DRV_INTR_FLAG_WRITE_STAT;
-	}
-
-	if ((BIT_CBUS_MSC_MR_MSC_MSG & cbus_int)) {
-		hw_context->intr_info->flags |= DRV_INTR_FLAG_MSC_RECVD;
-		mhl_tx_read_reg_block(hw_context,
-				REG_CBUS_MSC_MR_MSC_MSG_RCVD_1ST_DATA,
-				ARRAY_SIZE(hw_context->intr_info->msc_msg),
-				hw_context->intr_info->msc_msg);
-
-		MHL_TX_DBG_INFO(hw_context, "MSC MSG: %02X %02X\n",
-				hw_context->intr_info->msc_msg[0],
-				hw_context->intr_info->msc_msg[1]);
-	}
-
-	if(BIT_CBUS_MSC_MR_SET_INT & cbus_int) {
-		MHL_TX_DBG_INFO(hw_context, "MHL INTR Received\n");
-		hw_context->intr_info->flags |= DRV_INTR_FLAG_SET_INT;
-		mhl_tx_read_reg_block(hw_context,
-				REG_CBUS_SET_INT_0,
-				ARRAY_SIZE(hw_context->intr_info->int_msg),
-				hw_context->intr_info->int_msg);
-
-		mhl_tx_write_reg_block(hw_context,
-				REG_CBUS_SET_INT_0,
-				ARRAY_SIZE(hw_context->intr_info->int_msg),
-				hw_context->intr_info->int_msg);
-
-		if (MHL_INT_EDID_CHG & hw_context->intr_info->int_msg[1]) {
-			MHL_TX_DBG_INFO(hw_context, "\n\ngot EDID_CHG\n\n");
-			if (get_config(hw_context, TRANSCODE_MODE)) {
-				drive_hpd_low(hw_context);
-				msleep(110);
-				drive_hpd_high(hw_context);
-
-			} else {
-				int reg_val;
-
-				
-				mhl_tx_modify_reg(hw_context,REG_TPI_INFO_FSEL
-						,BIT_TPI_INFO_RPT
-						,0
-						);
-
-				
-				drive_hpd_low(hw_context);
-
 				stop_video(hw_context);
-
-				
-				reg_val = mhl_tx_read_reg(hw_context, REG_TPI_SEL);
-				MHL_TX_DBG_INFO(hw_context, "REG_TPI_SEL:%02x\n",
-						reg_val);
-				reg_val &= ~BIT_TPI_SEL_SW_TPI_EN_MASK;
-				reg_val |= BIT_TPI_SEL_SW_TPI_EN_NON_HW_TPI;
-				mhl_tx_write_reg(hw_context, REG_TPI_SEL, reg_val);
-
-				
-				MHL_TX_DBG_INFO(hw_context, "REG_TPI_SEL:%02x\n",
-						reg_val);
-				reg_val &= ~BIT_TPI_SEL_SW_TPI_EN_MASK;
-				reg_val |= BIT_TPI_SEL_SW_TPI_EN_HW_TPI;
-				mhl_tx_write_reg(hw_context, REG_TPI_SEL, reg_val);
-
-				mhl_tx_write_reg(hw_context, g_intr_tbl[INTR_HDCP].stat_page,
-						g_intr_tbl[INTR_HDCP].stat_offset,
-						0xff);
 			}
-		} else if (MHL_INT_DSCR_CHG & hw_context->intr_info->int_msg[0]) {
-			MHL_TX_DBG_INFO(hw_context, "got DSCR_CHG\n");
-			if (hw_context->gen2_write_burst) {
-				MHL_TX_DBG_INFO(hw_context,
-						"Ignored DSCR_CHG since MDT is enabled\n");
-			} else {
-				mhl_tx_read_reg_block(hw_context, REG_CBUS_MHL_SCRPAD_0,
-						ARRAY_SIZE(hw_context->write_burst_data),
-						hw_context->write_burst_data);
-			}
-		} else if (MHL_INT_DCAP_CHG & hw_context->intr_info->int_msg[0]) {
-			MHL_TX_DBG_INFO(hw_context, "\n\ngot DCAP_CHG\n\n");
+			hw_context->cbus_status = cbus_status;
 		}
-	}
+
+		if (BIT_CBUS_MSC_MT_DONE & cbus_int) {
+			MHL_TX_DBG_INFO(hw_context, "MSC_REQ_DONE\n");
+
+	    	hw_context->intr_info->flags |= DRV_INTR_FLAG_MSC_DONE;
+	    	hw_context->intr_info->msc_done_data =
+	    			mhl_tx_read_reg(hw_context, REG_CBUS_PRI_RD_DATA_1ST);
+
+#ifdef ENABLE_GEN2 
+	    	
+	    	enable_gen2_write_burst(hw_context);
+#endif 
+		}
+		if (BIT_CBUS_MSC_MT_DONE_NACK & cbus_int){
+			MHL_TX_DBG_ERR(hw_context,"MSC_MT_DONE_NACK\n");
+	    	hw_context->intr_info->flags |= DRV_INTR_FLAG_MSC_NAK;
+		}
+
+		if (BIT_CBUS_MSC_MR_WRITE_STAT & cbus_int) {
+
+			
+			mhl_tx_read_reg_block(hw_context, REG_CBUS_WRITE_STAT_0,
+								  ARRAY_SIZE(hw_context->intr_info->write_stat),
+								  hw_context->intr_info->write_stat);
+
+			if(MHL_STATUS_DCAP_RDY & hw_context->intr_info->write_stat[0]) {
+				MHL_TX_DBG_INFO(hw_context, "\n\ngot DCAP_RDY\n\n");
+
+			    
+				enable_intr(hw_context, INTR_EDID,
+							   ( BIT_INTR9_DEVCAP_DONE_MASK
+							    | BIT_INTR9_EDID_DONE_MASK
+							    | BIT_INTR9_EDID_ERROR
+							   ));
+			}
+			hw_context->intr_info->flags |= DRV_INTR_FLAG_WRITE_STAT;
+		}
+
+		if ((BIT_CBUS_MSC_MR_MSC_MSG & cbus_int)) {
+			hw_context->intr_info->flags |= DRV_INTR_FLAG_MSC_RECVD;
+			mhl_tx_read_reg_block(hw_context,
+								  REG_CBUS_MSC_MR_MSC_MSG_RCVD_1ST_DATA,
+								  ARRAY_SIZE(hw_context->intr_info->msc_msg),
+								  hw_context->intr_info->msc_msg);
+
+			MHL_TX_DBG_INFO(hw_context, "MSC MSG: %02X %02X\n",
+							hw_context->intr_info->msc_msg[0],
+							hw_context->intr_info->msc_msg[1]);
+		}
+
+		if(BIT_CBUS_MSC_MR_SET_INT & cbus_int) {
+			MHL_TX_DBG_INFO(hw_context, "MHL INTR Received\n");
+			hw_context->intr_info->flags |= DRV_INTR_FLAG_SET_INT;
+			mhl_tx_read_reg_block(hw_context,
+								  REG_CBUS_SET_INT_0,
+								  ARRAY_SIZE(hw_context->intr_info->int_msg),
+								  hw_context->intr_info->int_msg);
+
+			mhl_tx_write_reg_block(hw_context,
+								   REG_CBUS_SET_INT_0,
+								   ARRAY_SIZE(hw_context->intr_info->int_msg),
+								   hw_context->intr_info->int_msg);
+
+			if (MHL_INT_EDID_CHG & hw_context->intr_info->int_msg[1]) {
+				MHL_TX_DBG_INFO(hw_context, "\n\ngot EDID_CHG\n\n");
+				if (get_config(hw_context, TRANSCODE_MODE)) {
+					drive_hpd_low(hw_context);
+					msleep(110);
+					drive_hpd_high(hw_context);
+
+				} else {
+					int reg_val;
+
+					
+					mhl_tx_modify_reg(hw_context,REG_TPI_INFO_FSEL
+							,BIT_TPI_INFO_RPT
+							,0
+							);
+
+					
+					drive_hpd_low(hw_context);
+
+					stop_video(hw_context);
+
+					
+					reg_val = mhl_tx_read_reg(hw_context, REG_TPI_SEL);
+					MHL_TX_DBG_INFO(hw_context, "REG_TPI_SEL:%02x\n",
+									reg_val);
+					reg_val &= ~BIT_TPI_SEL_SW_TPI_EN_MASK;
+					reg_val |= BIT_TPI_SEL_SW_TPI_EN_NON_HW_TPI;
+					mhl_tx_write_reg(hw_context, REG_TPI_SEL, reg_val);
+
+					
+					MHL_TX_DBG_INFO(hw_context, "REG_TPI_SEL:%02x\n",
+									reg_val);
+					reg_val &= ~BIT_TPI_SEL_SW_TPI_EN_MASK;
+					reg_val |= BIT_TPI_SEL_SW_TPI_EN_HW_TPI;
+					mhl_tx_write_reg(hw_context, REG_TPI_SEL, reg_val);
+
+					mhl_tx_write_reg(hw_context, g_intr_tbl[INTR_HDCP].stat_page,
+							g_intr_tbl[INTR_HDCP].stat_offset,
+							0xff);
+				}
+			} else if (MHL_INT_DSCR_CHG & hw_context->intr_info->int_msg[0]) {
+				MHL_TX_DBG_INFO(hw_context, "got DSCR_CHG\n");
+				if(hw_context->gen2_write_burst) {
+					MHL_TX_DBG_INFO(hw_context,
+							"Ignored DSCR_CHG since MDT is enabled\n");
+				} else {
+					mhl_tx_read_reg_block(hw_context, REG_CBUS_MHL_SCRPAD_0,
+							ARRAY_SIZE(hw_context->write_burst_data),
+							hw_context->write_burst_data);
+				}
+			} else if (MHL_INT_DCAP_CHG & hw_context->intr_info->int_msg[0]) {
+				MHL_TX_DBG_INFO(hw_context, "\n\ngot DCAP_CHG\n\n");
+			}
+		}
 	return -1;
 }
 
 static int int_5_isr(struct drv_hw_context *hw_context, uint8_t int_5_status)
 {
-	uint8_t	new_ckdt;
-	int	ret_val = 0;
+	uint8_t					new_ckdt;
+	int						ret_val = 0;
 	uint8_t temp;
 
 	
@@ -2302,12 +2300,12 @@ static int int_5_isr(struct drv_hw_context *hw_context, uint8_t int_5_status)
 							hw_context->saved_reg_mhltx_ctl2 &
 								~BIT_MHL_TX_CTL2_TX_OE_MASK);
 					mhl_tx_modify_reg(hw_context, REG_TMDS_CCTRL,
-								BIT_TMDS_CCTRL_TMDS_OE,
-								BIT_TMDS_CCTRL_TMDS_OE);
+										 BIT_TMDS_CCTRL_TMDS_OE,
+										 BIT_TMDS_CCTRL_TMDS_OE);
 
 					
 					mhl_tx_modify_reg(hw_context, REG_MHLTX_CTL2,
-								BIT_MHL_TX_CTL2_TX_OE_MASK, 0);
+									  BIT_MHL_TX_CTL2_TX_OE_MASK, 0);
 
 					hw_context->ckdt_done   = 1;
 				}
@@ -2361,7 +2359,7 @@ static int int_5_isr(struct drv_hw_context *hw_context, uint8_t int_5_status)
 
 static void audio_disconnect(struct drv_hw_context *hw_context)
 {
-	if (hw_context->audio_poll_enabled == false) {
+	if (hw_context->audio_poll_enabled == false){
 		MHL_TX_DBG_INFO(hw_context, "Turn off invalid\n");
 		return;
 	}
@@ -2369,15 +2367,22 @@ static void audio_disconnect(struct drv_hw_context *hw_context)
 	
 	mhl_tx_write_reg(hw_context, REG_ASW_TEST_CTRL,
 					 (VAL_ADC_MEAS_3_TIMES | VAL_ADC_RETRY_8_TIMES));
-	hw_context->audio_poll_enabled 	= false;
+	hw_context->audio_poll_enabled = false;
 	hw_context->accessory_type	= ACCESSORY_DISCONNECTED;
-	mdt_destroy(container_of((void *)hw_context, struct mhl_dev_context, drv_context));
+	mdt_destroy(
+				container_of((void *)hw_context
+							, struct mhl_dev_context
+							, drv_context
+							)
+				);
 
 	
 	mhl_tx_write_reg(hw_context, REG_ASW_MANUAL_CTRL, 0x00);
 	mhl_tx_write_reg(hw_context, REG_ASW_TEST_CTRL,(BIT_ID_DEGLITCH_PAUSE_ENABLE| asw_test_ctrl_default_bits));
-	mhl_tx_write_reg(hw_context , REG_ASW_INT1_MASK,
-			BIT_VBUS_CHG_INT | BIT_ID_CHG_INT | BIT_WKUP_HIGH_INT);
+	mhl_tx_write_reg(hw_context
+					, REG_ASW_INT1_MASK
+					, BIT_VBUS_CHG_INT | BIT_ID_CHG_INT | BIT_WKUP_HIGH_INT
+					);
 }
 
 static int manual_strap_measurement(struct drv_hw_context *hw_context,int pin)
@@ -2421,7 +2426,7 @@ static int manual_strap_measurement(struct drv_hw_context *hw_context,int pin)
 	high = num_entries-1;
 	low = 0;
 	status = 0;
-	do {
+	do{
 		mid = (high+low)/2 + (status>>7);
 		MHL_TX_DBG_INFO(hw_context,"h:0x%02x m:0x%02x l:0x%02x\n",high,mid,low);
 		mhl_tx_write_reg(hw_context,REG_RID8,sans_strobe);
@@ -2429,40 +2434,40 @@ static int manual_strap_measurement(struct drv_hw_context *hw_context,int pin)
 		mhl_tx_write_reg(hw_context,REG_RID9,ret_val);
 		mhl_tx_write_reg(hw_context,REG_RID8,with_strobe);
 		status = 0x80 & mhl_tx_read_reg(hw_context,REG_RIDB);
-		if (status) {
+		if(status){
 			low=mid;
-		} else {
+		}else{
 			high=mid-1;
 		}
-	} while((high>low) || !status);
+	}while((high>low) || !status);
 	
 	mhl_tx_write_reg(hw_context,REG_RID8,0);
 
-	if (0x80 & status) {
-		switch (pin) {
+	if (0x80 & status){
+		switch(pin){
 		case BIT_RID8_FW_ADC_SEL_BC_CTRL:
-			if (ret_val > BITS_RID9_RESERVED_THRESHOLD) {
+			if (ret_val > BITS_RID9_RESERVED_THRESHOLD){
 				ret_val = BIT_RET_MON0_BC_CTRL_RESERVED;
-			} else if (ret_val > BITS_RID9_BYPASS_THRESHOLD) {
+			}else if (ret_val > BITS_RID9_BYPASS_THRESHOLD){
 				ret_val = BIT_RET_MON0_BC_CTRL_BYPASS;
-			} else if (ret_val > BITS_RID9_FW_TRIG_THRESHOLD) {
+			}else if (ret_val > BITS_RID9_FW_TRIG_THRESHOLD){
 				ret_val = BIT_RET_MON0_BC_CTRL_FW_TRIG;
-			} else if (ret_val > BITS_RID9_VBAT_THRESHOLD) {
+			}else if (ret_val > BITS_RID9_VBAT_THRESHOLD){
 				ret_val = BIT_RET_MON0_BC_CTRL_VBAT;
-			} else {
+			}else{
 				ret_val = -1;
 			}
 			break;
 		case BIT_RID8_FW_ADC_SEL_ID:
 			
-			if (1 == ret_val) {
+			if (1 == ret_val){
 				ret_val = BIT_ADC_VALUE_MHL;
-			} else {
+			}else{
 				ret_val >>=1;
 			}
 			break;
 		}
-	} else {
+	}else{
 		ret_val = -1;
 	}
 	MHL_TX_DBG_INFO(hw_context,"manual strap measurement: 0x%x\n",ret_val);
@@ -2470,7 +2475,8 @@ static int manual_strap_measurement(struct drv_hw_context *hw_context,int pin)
 }
 #define ALL_THESE_BITS_SET(pattern,status) ((pattern) == ((pattern) & status))
 
-static int acc_switch_int_0(struct drv_hw_context *hw_context, uint8_t reg_asw_int0)
+static int acc_switch_int_0(struct drv_hw_context *hw_context,
+							uint8_t reg_asw_int0)
 {
 	if (reg_asw_int0) {
 		mhl_tx_write_reg(hw_context, REG_ASW_INT0, reg_asw_int0);
@@ -2483,9 +2489,7 @@ static int acc_switch_int_0(struct drv_hw_context *hw_context, uint8_t reg_asw_i
 			
 			MHL_TX_DBG_ERR(,"RID Measure Error -> Re-measure\n");
 			mhl_tx_write_reg(hw_context,REG_ASW_INT0, BIT_RID_MSR_ERR_INT | BIT_RID_MSR_DONE_INT);
-			mhl_tx_modify_reg(hw_context,REG_ASW_CTRL,
-						BIT_ASW_CTRL_RID_MEASUREMENT_REQUEST_STROBE,
-						BIT_ASW_CTRL_RID_MEASUREMENT_REQUEST_STROBE);
+			mhl_tx_modify_reg(hw_context,REG_ASW_CTRL, BIT_ASW_CTRL_RID_MEASUREMENT_REQUEST_STROBE, BIT_ASW_CTRL_RID_MEASUREMENT_REQUEST_STROBE);
 		} else if (BIT_RID_MSR_DONE_INT & reg_asw_int0) {
 			uint8_t regAdcValue;
 			uint8_t regAdcTable;
@@ -2497,7 +2501,7 @@ static int acc_switch_int_0(struct drv_hw_context *hw_context, uint8_t reg_asw_i
 			if(BIT_ADC_VALUE_VALID & regAdcValue) {
 				int reg_pin_mon;
 				reg_pin_mon = mhl_tx_read_reg(hw_context,REG_PIN_MON);
-				if (regAdcValue & BIT_ADC_VALUE_MHL) {
+				if(regAdcValue & BIT_ADC_VALUE_MHL) {
 
 					
 					power_up(hw_context);
@@ -2584,22 +2588,22 @@ static int acc_switch_int_0(struct drv_hw_context *hw_context, uint8_t reg_asw_i
 					MHL_TX_DBG_ERR(, "ACCESSORY_BOOT_DEVICE\n");
 					return reg_asw_int0;
 				}
-				if (rid_index == hw_context->boot_usb_impedance_reference) {
+				if (rid_index == hw_context->boot_usb_impedance_reference){
 					
 					hw_context->accessory_type = ACCESSORY_BOOT_DEVICE;
 					MHL_TX_DBG_ERR(, "ACCESSORY_BOOT_DEVICE\n");
 					return reg_asw_int0;
-				} else if (rid_index == hw_context->boot_uart_impedance_reference) {
+				}else if (rid_index == hw_context->boot_uart_impedance_reference){
 					
 					hw_context->accessory_type = ACCESSORY_BOOT_DEVICE;
 					MHL_TX_DBG_ERR(, "ACCESSORY_BOOT_DEVICE\n");
 					return reg_asw_int0;
-				} else if (rid_index == (1 + hw_context->boot_usb_impedance_reference)) {
+				}else if (rid_index == (1 + hw_context->boot_usb_impedance_reference)){
 					
 					hw_context->accessory_type = ACCESSORY_BOOT_DEVICE;
 					MHL_TX_DBG_ERR(, "ACCESSORY_BOOT_DEVICE\n");
 					return reg_asw_int0;
-				} else if (rid_index == (1 + hw_context->boot_uart_impedance_reference)) {
+				}else if (rid_index == (1 + hw_context->boot_uart_impedance_reference)){
 					
 					hw_context->accessory_type = ACCESSORY_BOOT_DEVICE;
 					MHL_TX_DBG_ERR(, "ACCESSORY_BOOT_DEVICE\n");
@@ -2628,8 +2632,8 @@ static int acc_switch_int_0(struct drv_hw_context *hw_context, uint8_t reg_asw_i
 				}
 				if (( flag_audio_button
 					| flag_no_buttons
-					) & rid_table[regAdcValue].flags) {
-				} else if (flag_audio_poll & rid_table[regAdcValue].flags) {
+					) & rid_table[regAdcValue].flags){
+				} else if (flag_audio_poll & rid_table[regAdcValue].flags){
 
 					MHL_TX_DBG_ERR(hw_context, "Start/Enable Audio "\
 									"Polling. Enable audio pop "\
@@ -2682,66 +2686,66 @@ static int acc_switch_int_0(struct drv_hw_context *hw_context, uint8_t reg_asw_i
 					audio_disconnect(hw_context);
 					MHL_TX_DBG_ERR(hw_context, "INPUT_DEV_ACCESSORY - R_ID DONE\n");
 					switch (regAdcValue) {
-					case 0x1C:		
-						
-						set_pin(hw_context, USB_LED, GPIO_LED_OFF);
-
-						
-					case 0x00:		
-						
-
-						
-						
-
-
-						reg_pin_mon = mhl_tx_read_reg(hw_context,REG_PIN_MON);
-						MHL_TX_DBG_ERR(hw_context,"VBUS_CHG detected."
-							" VBUS pin is %s\n",
-							(BIT_PIN_STATUS_VBUS & reg_pin_mon)?"HIGH":"LOW");
-
-						if ((BIT_PIN_STATUS_VBUS & reg_pin_mon) != 0) {
-							MHL_TX_DBG_ERR(hw_context,"INPUT_DEV_ACCESSORY - USB HOST - VBUS PWR DETECTED; OFF\n");
-							mhl_tx_vbus_control(VBUS_OFF);
-							hw_context->accessory_type = ACCESSORY_OTG_HOST;
+						case 0x1C:		
+							
+							set_pin(hw_context, USB_LED, GPIO_LED_OFF);
 
 							
-							MHL_TX_DBG_ERR(hw_context,"INPUT_DEV_ACCESSORY - USB_VBUS <==> VBUS\n");
-							set_pin(hw_context,M2U_VBUS_CTRL_M,1);
-						} else {
-							MHL_TX_DBG_ERR(hw_context,"INPUT_DEV_ACCESSORY - USB DEV - USB_VBUS < != > VBUS\n");
+						case 0x00:		
+							
+
+							
+							
+
+
+							reg_pin_mon = mhl_tx_read_reg(hw_context,REG_PIN_MON);
+							MHL_TX_DBG_ERR(hw_context,"VBUS_CHG detected."
+								" VBUS pin is %s\n",
+								(BIT_PIN_STATUS_VBUS & reg_pin_mon)?"HIGH":"LOW");
+
+							if ((BIT_PIN_STATUS_VBUS & reg_pin_mon) != 0) {
+								MHL_TX_DBG_ERR(hw_context,"INPUT_DEV_ACCESSORY - USB HOST - VBUS PWR DETECTED; OFF\n");
+								mhl_tx_vbus_control(VBUS_OFF);
+								hw_context->accessory_type = ACCESSORY_OTG_HOST;
+
+								
+								MHL_TX_DBG_ERR(hw_context,"INPUT_DEV_ACCESSORY - USB_VBUS <==> VBUS\n");
+								set_pin(hw_context,M2U_VBUS_CTRL_M,1);
+							} else {
+								MHL_TX_DBG_ERR(hw_context,"INPUT_DEV_ACCESSORY - USB DEV - USB_VBUS < != > VBUS\n");
+								set_pin(hw_context,M2U_VBUS_CTRL_M,0);
+								
+								
+								
+								MHL_TX_DBG_ERR(hw_context,"INPUT_DEV_ACCESSORY - USB DEV -VBUS PWR ON\n");
+								mhl_tx_vbus_control(VBUS_ON);
+								hw_context->accessory_type = ACCESSORY_USB_DEVICE;
+							}
+							mhl_tx_write_reg(hw_context,REG_ASW_INT0_MASK, 0);
+							mhl_tx_write_reg(hw_context,REG_ASW_INT0, mhl_tx_read_reg(hw_context,REG_ASW_INT0));
+
+							
+							mhl_tx_write_reg(hw_context,REG_ASW_INT1_MASK, BIT_ID_CHG_INT);
+							mhl_tx_write_reg(hw_context,REG_ASW_INT1, mhl_tx_read_reg(hw_context,REG_ASW_INT1));
+
+							
+							MHL_TX_DBG_ERR(hw_context,"INPUT_DEV_ACCESSORY - USB SW ON - ACTIVATE SW\n");
+							mhl_tx_modify_reg(hw_context,REG_ASW_CTRL
+								,BIT_ASW_CTRL_MODE_MASK
+								,BIT_ASW_CTRL_MODE_MANUAL);
+
+
+							
+							
+							
+							
+							
+							break;
+						case 0x0F:	
+							MHL_TX_DBG_ERR(hw_context,"INPUT_DEV_ACCESSORY - UART - USB_VBUS < != > VBUS\n");
 							set_pin(hw_context,M2U_VBUS_CTRL_M,0);
-							
-							
-							
-							MHL_TX_DBG_ERR(hw_context,"INPUT_DEV_ACCESSORY - USB DEV -VBUS PWR ON\n");
-							mhl_tx_vbus_control(VBUS_ON);
-							hw_context->accessory_type = ACCESSORY_USB_DEVICE;
-						}
-						mhl_tx_write_reg(hw_context,REG_ASW_INT0_MASK, 0);
-						mhl_tx_write_reg(hw_context,REG_ASW_INT0, mhl_tx_read_reg(hw_context,REG_ASW_INT0));
 
-						
-						mhl_tx_write_reg(hw_context,REG_ASW_INT1_MASK, BIT_ID_CHG_INT);
-						mhl_tx_write_reg(hw_context,REG_ASW_INT1, mhl_tx_read_reg(hw_context,REG_ASW_INT1));
-
-						
-						MHL_TX_DBG_ERR(hw_context,"INPUT_DEV_ACCESSORY - USB SW ON - ACTIVATE SW\n");
-						mhl_tx_modify_reg(hw_context,REG_ASW_CTRL
-							,BIT_ASW_CTRL_MODE_MASK
-							,BIT_ASW_CTRL_MODE_MANUAL);
-
-
-						
-						
-						
-						
-						
-						break;
-					case 0x0F:	
-						MHL_TX_DBG_ERR(hw_context,"INPUT_DEV_ACCESSORY - UART - USB_VBUS < != > VBUS\n");
-						set_pin(hw_context,M2U_VBUS_CTRL_M,0);
-
-						break;
+							break;
 					}
 
 					return reg_asw_int0;
@@ -2754,18 +2758,18 @@ static int acc_switch_int_0(struct drv_hw_context *hw_context, uint8_t reg_asw_i
 			}
 		}
 
-		if (BIT_RSTRAP_MSR_DONE_INT & reg_asw_int0) {
+		if(BIT_RSTRAP_MSR_DONE_INT & reg_asw_int0) {
 			MHL_TX_DBG_ERR(hw_context, "INTR_RSTRAP_MSR_DONE detected. "\
 						   "0x352 = %02X, 0x353 = %02X\n",
 						   mhl_tx_read_reg(hw_context, REG_RET_MON0),
 						   mhl_tx_read_reg(hw_context, REG_RET_MON1));
 		}
 
-		if (BIT_ASW_ATTACH_INT & reg_asw_int0) {
+		if(BIT_ASW_ATTACH_INT & reg_asw_int0) {
 			MHL_TX_DBG_ERR(hw_context, "INTR_ASW_ATTACH detected\n");
 		}
 
-		if (BIT_ASW_DETACH_INT & reg_asw_int0) {
+		if(BIT_ASW_DETACH_INT & reg_asw_int0) {
 			firmware_triggered_bc_detection_state = waiting_for_bc_done_fw_trig;
 			MHL_TX_DBG_ERR(hw_context, "INTR_ASW_DETACH detected\n");
 
@@ -3271,8 +3275,8 @@ int get_device_id()
 	static int device_id = 0;
 	uint16_t number;
 
-	if (!device_id) {
-		ret_val = mhl_tx_read_reg(NULL, REG_DEV_IDH_AON);
+	if(!device_id) {
+		ret_val =  mhl_tx_read_reg(NULL, REG_DEV_IDH_AON);
 		if (ret_val < 0) {
 			MHL_TX_DBG_ERR(NULL, "I2C error 0x%x\n", ret_val);
 			return ret_val;
@@ -3384,7 +3388,8 @@ static void clear_and_disable_on_disconnect(struct drv_hw_context *hw_context)
 {
 	uint8_t	intr_num;
 	
-	for(intr_num = 0; intr_num < MAX_INTR; intr_num++) {
+	for(intr_num = 0; intr_num < MAX_INTR; intr_num++)
+	{
 		if(DEVICE_ID_8558 == hw_context->chip_device_id) {
 			if(INTR_ASW0 != intr_num && INTR_ASW1 != intr_num) {
 				
@@ -3439,8 +3444,8 @@ static void disconnect_mhl(struct drv_hw_context *hw_context,bool do_interrupt_c
 	drive_hpd_low(hw_context);
 
 	mhl_tx_write_reg(hw_context, REG_MHLTX_CTL1,
-				BIT_MHLTX_CTL1_TX_TERM_MODE_OFF |
-				BIT_MHLTX_CTL1_DISC_OVRIDE_ON);
+						 BIT_MHLTX_CTL1_TX_TERM_MODE_OFF |
+						 BIT_MHLTX_CTL1_DISC_OVRIDE_ON);
 
 	if(DEVICE_ID_8558 == hw_context->chip_device_id) {
 		
@@ -3449,7 +3454,7 @@ static void disconnect_mhl(struct drv_hw_context *hw_context,bool do_interrupt_c
 		
 		mhl_tx_write_reg(hw_context, REG_DISC_CTRL2, 0xAD);
 
-		if (discovery_enable) {
+		if(discovery_enable) {
 			
 			mhl_tx_write_reg(hw_context, REG_DISC_CTRL1,
 					VAL_DISC_CTRL1_DEFAULT |
@@ -3474,7 +3479,7 @@ static void disconnect_mhl(struct drv_hw_context *hw_context,bool do_interrupt_c
 static int int_4_isr(struct drv_hw_context *hw_context, uint8_t int_4_status)
 {
 	int	ret_val = 0; 
-	struct 	mhl_dev_context	*dev_context = get_mhl_device_context(hw_context);
+	struct mhl_dev_context	*dev_context = get_mhl_device_context(hw_context);
 
 	if ((BIT_INTR4_CBUS_DISCONNECT  & int_4_status) ||
 		(BIT_INTR4_NON_MHL_EST & int_4_status)) {
@@ -3581,7 +3586,7 @@ static int int_4_isr(struct drv_hw_context *hw_context, uint8_t int_4_status)
 	return ret_val;
 }
 
-static int g2wb_isr(struct drv_hw_context *hw_context, uint8_t intr_stat)
+static	int	g2wb_isr(struct drv_hw_context *hw_context, uint8_t intr_stat)
 {
 	uint8_t	ret_val = 0;
 	uint8_t	mdt_buffer[20] = {0};
@@ -3626,11 +3631,11 @@ static void enable_intr(struct drv_hw_context *hw_context, uint8_t intr_num, uin
 {
 	g_intr_tbl[intr_num].mask = intr_mask;
 	mhl_tx_write_reg(hw_context, g_intr_tbl[intr_num].mask_page,
-				g_intr_tbl[intr_num].mask_offset, intr_mask);
+					g_intr_tbl[intr_num].mask_offset, intr_mask);
 }
 
 void si_mhl_tx_drv_device_isr(struct drv_hw_context *hw_context,
-				struct interrupt_info *intr_info)
+							  struct interrupt_info *intr_info)
 {
 	uint8_t	intr_num;
 
@@ -3709,7 +3714,7 @@ static void trigger_retention(struct drv_hw_context *hw_context)
 
 static void check_strapping_mode(struct drv_hw_context *hw_context)
 {
-	if (hw_context->suspend_strapped_mode) {
+	if (hw_context->suspend_strapped_mode){
 		int ret_data_0;
 		int dummy;
 		
@@ -3747,7 +3752,7 @@ static void check_strapping_mode(struct drv_hw_context *hw_context)
 			,mhl_tx_read_reg(hw_context,REG_RET_MON0)
 			,mhl_tx_read_reg(hw_context,REG_ASW_MON)
 			);
-	} else {
+	}else{
 		trigger_retention(hw_context);
 	}
 }
@@ -3760,7 +3765,8 @@ int si_mhl_tx_chip_initialize(struct drv_hw_context *hw_context, bool discovery_
 	hw_context->mcpc_button_on=0;
 	hw_context->suspend_strapped_mode = false;
 	set_pin(hw_context,TX_FW_WAKE, LOW);
-
+	board_reset(hw_context,TX_HW_RESET_PERIOD,TX_HW_RESET_DELAY);
+	
 	if (get_device_id() == DEVICE_ID_8558) {
 		int ret_mon0;
 
@@ -3826,7 +3832,8 @@ int si_mhl_tx_chip_initialize(struct drv_hw_context *hw_context, bool discovery_
 		hw_context->chip_rev_id = (uint8_t)ret_val;
 
 		ret_val = get_device_id();
-		if (ret_val > 0) {
+		if (ret_val > 0)
+		{
 			hw_context->chip_device_id = (uint16_t)ret_val;
 
 			MHL_TX_DBG_ERR(hw_context, "Found SiI%04X rev: %01X.%01X\n",
@@ -3855,13 +3862,13 @@ int si_mhl_tx_chip_initialize(struct drv_hw_context *hw_context, bool discovery_
 					MHL_TX_DBG_ERR(hw_context
 						,"MCPC mode! Using tableOneMCPC"
 						 " and loose R_ID checking\n");
-				} else {
+				}else{
 					mhl_tx_write_reg(hw_context
 							, REG_RID2
 							, (DEF_VAL_RID2 & ~BIT_RID2_STRICT_ERROR_MASK)
 							  | BIT_RID2_STRICT_ERROR_STRICT
 							);
-					switch (regAdcTable) {
+					switch(regAdcTable){
 					case 0:
 						rid_table = tableOne;
 						MHL_TX_DBG_ERR(hw_context,"using table 1\n");
@@ -3913,7 +3920,7 @@ int si_mhl_tx_chip_initialize(struct drv_hw_context *hw_context, bool discovery_
 				disconnect_mhl(hw_context, true, discovery_enable);
 				
 				check_strapping_mode(hw_context);
-			} else {
+			}else{
 				
 				disconnect_mhl(hw_context, true, discovery_enable);
 			}
@@ -3936,13 +3943,15 @@ int si_mhl_tx_get_accessory_switch_config(struct drv_hw_context *hw_context,char
 void si_mhl_tx_set_accessory_switch_config(struct drv_hw_context *hw_context,int config)
 {
 	rid_index =RID_INDEX_USER;
-	mhl_tx_write_reg(hw_context, REG_ASW_MANUAL_CTRL, (uint8_t)config);
+	mhl_tx_write_reg(hw_context
+					, REG_ASW_MANUAL_CTRL
+					, (uint8_t)config);
 }
 
 void si_mhl_tx_id_impedance_measurement(struct drv_hw_context *hw_context)
 {
-	int dummy;
-	bool fw_wake_state;
+int dummy;
+bool fw_wake_state;
 	
 	fw_wake_state = get_config(hw_context,TX_FW_WAKE);
 
@@ -3964,7 +3973,7 @@ void si_mhl_tx_id_impedance_measurement(struct drv_hw_context *hw_context)
 
 int si_mhl_tx_get_retention_range(struct drv_hw_context *hw_context,retention_data_t values)
 {
-	int ret_val,dummy;
+int ret_val,dummy;
 	mhl_tx_modify_reg(hw_context,REG_ASW_TEST_CTRL,BIT_RET_ADDR_CLR,BIT_RET_ADDR_CLR);
 	ret_val = mhl_tx_read_reg_block(hw_context,REG_RETENTION_READ,NUM_RETENTION_REGS,values);
 
@@ -3980,7 +3989,7 @@ int si_mhl_tx_get_retention_range(struct drv_hw_context *hw_context,retention_da
 
 int si_mhl_tx_set_retention_range(struct drv_hw_context *hw_context,retention_data_t values)
 {
-	int ret_val,dummy;
+int ret_val,dummy;
 	mhl_tx_modify_reg(hw_context,REG_ASW_TEST_CTRL,BIT_RET_ADDR_CLR,BIT_RET_ADDR_CLR);
 	ret_val = mhl_tx_write_reg_block(hw_context,REG_RETENTION_WRITE,NUM_RETENTION_REGS,values);
 
@@ -3992,8 +4001,9 @@ int si_mhl_tx_set_retention_range(struct drv_hw_context *hw_context,retention_da
 
 void si_mhl_tx_drv_shutdown(struct drv_hw_context *hw_context)
 {
-	if(is_reset_on_exit_requested()) {
-		if (hw_context->suspend_strapped_mode) {
+	if( is_reset_on_exit_requested() )
+	{
+		if (hw_context->suspend_strapped_mode){
 			int dummy;
 			int ret_data_0;
 			set_pin(hw_context,TX_FW_WAKE, LOW);
@@ -4006,7 +4016,7 @@ void si_mhl_tx_drv_shutdown(struct drv_hw_context *hw_context)
 			dummy = mhl_tx_read_reg(hw_context,REG_RET_MON0);
 			board_reset(hw_context,TX_HW_RESET_PERIOD,TX_HW_RESET_DELAY);
 			set_pin(hw_context,TX_FW_WAKE, HIGH);
-		} else {
+		}else{
 			board_reset(hw_context,TX_HW_RESET_PERIOD,TX_HW_RESET_DELAY);
 		}
 		MHL_TX_DBG_ERR(hw_context, "MHL hardware was reset\n");

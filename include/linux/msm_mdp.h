@@ -165,7 +165,6 @@ enum {
 
 #define MDSS_MDP_ROT_ONLY		0x80
 #define MDSS_MDP_RIGHT_MIXER		0x100
-#define MDSS_MDP_DUAL_PIPE		0x200
 
 #define MDP_ROT_NOP 0
 #define MDP_FLIP_LR 0x1
@@ -177,7 +176,6 @@ enum {
 #define MDP_BLUR 0x10
 #define MDP_BLEND_FG_PREMULT 0x20000
 #define MDP_IS_FG 0x40000
-#define MDP_SOLID_FILL 0x00001000
 #define MDP_DEINTERLACE 0x80000000
 #define MDP_SHARPENING  0x40000000
 #define MDP_NO_DMA_BARRIER_START	0x20000000
@@ -204,9 +202,6 @@ enum {
 #define MDP_DECIMATION_EN		0x00000800
 #define MDP_TRANSP_NOP 0xffffffff
 #define MDP_ALPHA_NOP 0xff
-
-#define PANEL_PARTIAL_UPDATE_ENABLED	0x1
-#define PANEL_EVEN_ROI_UPDATE		0x2
 
 #define MDP_FB_PAGE_PROTECTION_NONCACHED         (0)
 #define MDP_FB_PAGE_PROTECTION_WRITECOMBINE      (1)
@@ -384,32 +379,6 @@ struct mdp_pa_cfg {
 	uint32_t sat_adj;
 	uint32_t val_adj;
 	uint32_t cont_adj;
-};
-
-struct mdp_pa_mem_col_cfg {
-	uint32_t color_adjust_p0;
-	uint32_t color_adjust_p1;
-	uint32_t hue_region;
-	uint32_t sat_region;
-	uint32_t val_region;
-};
-
-#define MDP_SIX_ZONE_LUT_SIZE		384
-
-struct mdp_pa_v2_data {
-	
-	uint32_t flags;
-	uint32_t global_hue_adj;
-	uint32_t global_sat_adj;
-	uint32_t global_val_adj;
-	uint32_t global_cont_adj;
-	uint32_t six_zone_len;
-	uint32_t *six_zone_curve_p0;
-	uint32_t *six_zone_curve_p1;
-	uint32_t six_zone_thresh;
-	struct mdp_pa_mem_col_cfg skin_cfg;
-	struct mdp_pa_mem_col_cfg sky_cfg;
-	struct mdp_pa_mem_col_cfg fol_cfg;
 };
 
 struct mdp_igc_lut_data {
@@ -813,7 +782,6 @@ struct mdss_hw_caps {
 	uint8_t vig_pipes;
 	uint8_t dma_pipes;
 	uint32_t features;
-	uint8_t partial_update;
 };
 
 struct msmfb_metadata {

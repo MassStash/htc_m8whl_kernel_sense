@@ -66,10 +66,8 @@ static int mmc_host_runtime_resume(struct device *dev)
 	if (!mmc_use_core_runtime_pm(host))
 		return 0;
 
-	if (mmc_is_sd_host(host)) {
-		host->crc_count = 0;
+	if (mmc_is_sd_host(host))
 		return 0;
-	}
 	ret = mmc_resume_host(host);
 	if (ret < 0) {
 		pr_err("%s: %s: resume host: failed: ret: %d\n",
@@ -357,7 +355,6 @@ struct mmc_host *mmc_alloc_host(int extra, struct device *dev)
 	wake_lock_init(&host->detect_wake_lock, WAKE_LOCK_SUSPEND,
 			host->wlock_name);
 	INIT_DELAYED_WORK(&host->detect, mmc_rescan);
-	INIT_DELAYED_WORK(&host->enable_detect, mmc_enable_detection);
 	INIT_DELAYED_WORK(&host->stats_work, mmc_stats);
 	INIT_DELAYED_WORK(&host->remove, mmc_remove_sd_card);
 #ifdef CONFIG_PM

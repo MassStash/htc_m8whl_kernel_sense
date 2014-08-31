@@ -454,7 +454,7 @@ void YushanII_init_backcam(struct msm_sensor_ctrl_t *sensor,struct msm_rawchip2_
 
 	}else{
 		
-		Ilp0100_interruptEnable(INTR_START_OF_FRAME , INTR_PIN_0);
+		Ilp0100_interruptEnable(ENABLE_NO_INTR, INTR_PIN_0);
 		Ilp0100_interruptEnable(ENABLE_RECOMMENDED_DEBUG_INTR_PIN1, INTR_PIN_1);
 		if (cfg_data->yushanII_switch_virtual_channel) {
 	        Ilp0100_setVirtualChannelShortOrNormal(0);
@@ -480,7 +480,7 @@ void YushanII_Reset(void)
 	pr_info("[CAM]YushanII_Reset +\n");
 	rc = gpio_request(YushanIICtrl->pdata->rawchip_reset, "YushanII");
 	if (rc < 0) {
-		pr_err("YushanII_Reset GPIO(%d) request failed\n", YushanIICtrl->pdata->rawchip_reset);
+		pr_err("[v]YushanII_Reset GPIO(%d) request failed\n", YushanIICtrl->pdata->rawchip_reset);
 		return ;
 	}
 	gpio_direction_output(YushanIICtrl->pdata->rawchip_reset, 0);
@@ -498,10 +498,8 @@ void YushanII_Reset(void)
 	YushanII_reload_firmware();
 	pr_info("[CAM]YushanII_Reset -\n");
 }
-atomic_t sof_counter;
 void YushanII_Init(struct msm_sensor_ctrl_t *sensor,struct msm_rawchip2_cfg_data *cfg_data)
 {
-		atomic_set(&sof_counter, 0);
 		YushanII_init_backcam(sensor,cfg_data);
 }
 
@@ -885,15 +883,6 @@ int YushanII_got_INT0(void __user *argp){
 		case MODE_CHANGE_COMPLETE:
 			pr_info("[CAM]%s, MODE_CHANGE_COMPLETE", __func__);
 			break;
-		case INTR_START_OF_FRAME:
-			if (atomic_read(&sof_counter) < 3)
-				pr_info("[CAM]%s, INTR_START_OF_FRAME %d", __func__, atomic_read(&sof_counter));
-			if (YushanIICtrl->raw2_stop_restart_stream && (atomic_read(&sof_counter) ==1) &&((pInterruptId2 & 0x10C)==0))
-				YushanIICtrl->raw2_stop_restart_stream();
-			if (atomic_read(&sof_counter) < 10)
-			    atomic_inc(&sof_counter);
-			break;
-
 	}
 	if(copy_to_user((void *)argp, &event, sizeof(struct yushanii_stats_event_ctrl))){
 		pr_err("[CAM]%s, copy to user error\n", __func__);
@@ -903,25 +892,25 @@ int YushanII_got_INT0(void __user *argp){
 }
 
 int YushanII_got_INT1(void){
+	static uint32_t last_pInterruptId2 = 0;
+	static uint32_t err_cnt = 0;
 	
 	Ilp0100_interruptReadStatus(&pInterruptId2, INTR_PIN_1);
 	pr_info("[CAM]pInterruptId2 : 0x%x",pInterruptId2);
 
 	
-	    if(pInterruptId2 & 0x03){
-		   Ilp0100_interruptDisable(0x03, INTR_PIN_1);
-		   pr_info("[CAM]disable pInterruptId2 : 0x%x ",pInterruptId2);
-		   atomic_set(&sof_counter, 0);
+	if(last_pInterruptId2 == pInterruptId2) {
+	    if(++err_cnt > 5){
+		   Ilp0100_interruptDisable(pInterruptId2, INTR_PIN_1);
+		   pr_info("[CAM]disable pInterruptId2 : 0x%x cnt=%d",pInterruptId2, err_cnt);
+		   err_cnt = 0;
 		   if (YushanIICtrl->raw2_restart_stream)
 		       YushanIICtrl->raw2_restart_stream();
 	    }
-	    if(pInterruptId2 & 0x10C){
-		   Ilp0100_interruptDisable(0x10C, INTR_PIN_1);
-		   pr_info("[CAM]disable pInterruptId2 : 0x%x ",pInterruptId2);
-		   atomic_set(&sof_counter, 0);
-		   if (YushanIICtrl->raw2_restart_stream)
-		       YushanIICtrl->raw2_restart_stream();
-	    }
+	} else {
+		err_cnt = 0;
+		last_pInterruptId2 = pInterruptId2;
+	}
 	
 
 	Ilp0100_interruptClearStatus(pInterruptId2, INTR_PIN_1);
@@ -1703,9 +1692,6 @@ int YushanII_set_sensor_specific_function(struct msm_sensor_fn_t *sensor_func_tb
 
 	if(sensor_func_tbl->sensor_yushanII_restart_stream)
 		YushanIICtrl->raw2_restart_stream = sensor_func_tbl->sensor_yushanII_restart_stream;
-
-	if(sensor_func_tbl->sensor_yushanII_stop_restart_stream)
-		YushanIICtrl->raw2_stop_restart_stream = sensor_func_tbl->sensor_yushanII_stop_restart_stream;
 
 	return 0;
 }

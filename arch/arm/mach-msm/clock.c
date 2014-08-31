@@ -43,10 +43,6 @@ static LIST_HEAD(handoff_vdd_list);
 
 static DEFINE_MUTEX(msm_clock_init_lock);
 
-#ifdef CONFIG_ARCH_DUMMY
-extern int pming;
-#endif
-
 int find_vdd_level(struct clk *clk, unsigned long rate)
 {
 	int level;
@@ -325,10 +321,6 @@ int clk_enable(struct clk *clk)
 			goto err_enable_clock;
 	}
 	clk->count++;
-#ifdef CONFIG_ARCH_DUMMY
-	if (!strcmp(clk->dbg_name, "a7sspll") && pming)
-		pr_info("[PP2]%s: Enable a7sspll clock, count = %d\n", __func__, clk->count);
-#endif
 	spin_unlock_irqrestore(&clk->lock, flags);
 
 	return 0;
@@ -367,10 +359,6 @@ void clk_disable(struct clk *clk)
 		clk_disable(parent);
 	}
 	clk->count--;
-#ifdef CONFIG_ARCH_DUMMY
-	if (!strcmp(clk->dbg_name, "a7sspll") && pming)
-		pr_info("[PP2]%s: Disable a7sspll clock, count = %d\n", __func__, clk->count);
-#endif
 out:
 	spin_unlock_irqrestore(&clk->lock, flags);
 }

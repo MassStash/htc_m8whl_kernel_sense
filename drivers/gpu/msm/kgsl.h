@@ -112,7 +112,6 @@ struct kgsl_driver {
 	struct list_head process_list;
 	
 	struct list_head pagetable_list;
-	struct list_head destroy_list;
 	
 	spinlock_t ptlock;
 	

@@ -261,8 +261,6 @@ config ARCH_MSM8974
 	select MSM_GPIOMUX
 	select MULTI_IRQ_HANDLER
 	select MSM_MULTIMEDIA_USE_ION
-	select PM_DEVFREQ
-	select MSM_DEVFREQ_CPUBW
 	select MSM_PIL
 	select MSM_SPM_V2
 	select MSM_L2_SPM
@@ -311,15 +309,11 @@ config ARCH_APQ8084
 	select MSM_SPM_V2
 	select MSM_L2_SPM
 	select MSM_RPM_SMD
-	select PM_DEVFREQ
-	select MSM_DEVFREQ_CPUBW
 	select ENABLE_VMALLOC_SAVINGS
 
 config ARCH_MPQ8092
 	bool "MPQ8092"
 	select ARCH_MSM_KRAITMP
-	select PM_DEVFREQ
-	select MSM_DEVFREQ_CPUBW
 	select GPIO_MSM_V3
 	select ARM_GIC
 	select MULTI_IRQ_HANDLER
@@ -338,8 +332,6 @@ config ARCH_FSM9900
 	select MSM_SCM
 	select MSM_GPIOMUX
 	select MULTI_IRQ_HANDLER
-	select PM_DEVFREQ
-	select MSM_DEVFREQ_CPUBW
 	select MSM_PIL
 	select MSM_NATIVE_RESTART
 	select MSM_RESTART_V2
@@ -443,8 +435,6 @@ config ARCH_MSMKRYPTON
 	select MEMORY_HOLE_CARVEOUT
 	select QMI_ENCDEC
 	select MSM_CORTEX_A7
-	select PM_DEVFREQ
-	select MSM_DEVFREQ_CPUBW
 
 config ARCH_MSM8610
 	bool "MSM8610"
@@ -474,8 +464,6 @@ config ARCH_MSM8610
 	select MSM_CORTEX_A7
 	select CPU_FREQ_MSM
 	select CPU_FREQ
-	select PM_DEVFREQ
-	select MSM_DEVFREQ_CPUBW
 	select MSM_PIL
 	select MSM_RUN_QUEUE_STATS
 	select ARM_HAS_SG_CHAIN
@@ -487,6 +475,7 @@ config ARCH_MSM8610
 	select MSM_RPM_LOG
 	select MSM_IOMMU_SYNC
 	select MSM_RPM_STATS_LOG
+	select ENABLE_VMALLOC_SAVINGS
 
 config ARCH_MSMSAMARIUM
 	bool "MSMSAMARIUM"
@@ -495,8 +484,6 @@ config ARCH_MSMSAMARIUM
 	select ARM_GIC
 	select CPU_V7
 	select MSM_SCM
-	select PM_DEVFREQ
-	select MSM_DEVFREQ_CPUBW
 	select MSM_PIL
 	select MSM_GPIOMUX
 	select MULTI_IRQ_HANDLER
@@ -546,7 +533,6 @@ config  ARCH_MSM_SCORPION
 config  ARCH_MSM_KRAIT
 	bool
 	select ARM_L1_CACHE_SHIFT_6
-	select DEVFREQ_GOV_MSM_CPUBW_HWMON
 
 config  MSM_CORTEX_A7
 	bool
@@ -1488,14 +1474,6 @@ config HTC_HEADSET_ONE_WIRE
 	default n
 	help
 	  Provides support of HTC 1-wire headset detection.
-
-config HTC_HEADSET_INT_REDETECT
-	tristate "HTC headset key interrupt re-detection"
-	depends on HTC_HEADSET_MGR
-	default n
-	help
-	  Support key interrupt re-detection
-
 config TROUT_BATTCHG
 	depends on MACH_TROUT && POWER_SUPPLY
 	default y
@@ -1967,26 +1945,6 @@ config MSM_CPU_FREQ_MIN
 	default 245760
 
 endif # CPU_FREQ_MSM
-
-config MSM_DEVFREQ_CPUBW
-	bool "Devfreq device for CPU<->DDR IB/AB BW voting"
-	depends on PM_DEVFREQ
-	select DEVFREQ_GOV_PERFORMANCE
-	select DEVFREQ_GOV_POWERSAVE
-	select DEVFREQ_GOV_USERSPACE
-	select DEVFREQ_GOV_MSM_CPUFREQ
-	default n
-	help
-	  Different devfreq governors use this devfreq device to make CPU to
-	  DDR IB/AB bandwidth votes. This driver provides a SoC topology
-	  agnostic interface to so that some of the devfreq governors can be
-	  shared across SoCs.
-
-config MSM_CPU_VOLTAGE_CONTROL
-	bool "Userspace CPU Voltage Control"
-	default y
-	help
-	  This enables userspace CPU Voltage Control.
 
 config MSM_AVS_HW
 	bool "Enable Adaptive Voltage Scaling (AVS)"
@@ -3095,13 +3053,6 @@ config MSM_CPU_PWRCTL
 	  stand alone power collapse operation. Selecting this option
 	  ensures that they are always off.
 
-config FORCE_FAST_CHARGE
-	bool "Increase input current limit to 1100mA when charging via USB"
-	default y
-	help
-	  A simple sysfs interface to increase input current limit to
-	  1100mA when charging via USB.
-
 config MSM_UARTDM_Core_v14
 	bool "Use MSM BLSP based HSUART Core v1.4"
 	depends on SERIAL_MSM_HS
@@ -3164,30 +3115,17 @@ config HTC_POWER_DEBUG
 	 clock/gpio/qpnp pin dump, wakeup source, kerenl top and autosuspend
 	 stage footprint
 
-config HTC_PANEL_PWR_REG
-        depends on ARCH_MSM8226
-        bool "Register DSI Panel Power"
-		default y if ARCH_MSM8226
-
-
 config MACH_M8
         depends on ARCH_MSM8974
         bool "MSM8974 M8"
         help
           Support for HTC MSM8974 M8
 
-config PROJECT_NAME
-        string "Project Name"
-        default ""
-        help
-          Support for Project Name
-
-config MACH_M8_WHL
+config MACH_M8_WL
         depends on ARCH_MSM8974
-        bool "MSM8974 M8_WHL"
+        bool "MSM8974 M8_WL"
         help
-          Support for HTC MSM8974 M8_WHL
-
+          Support for HTC MSM8974 M8_WL
 
 endif
 
@@ -3197,13 +3135,3 @@ config PERFLOCK
     default n
     bool "HTC Performance Lock"
 
-config HTC_DEBUG_RBCPR_8226
-    depends on ARCH_MSM8226
-    default n
-    bool "HTC RBCPR debug"
-
-config MSM_SLEEPER
-    bool "Limit max frequency while screen is off"
-    default y
-    help
-      Limit max frequency while screen is off

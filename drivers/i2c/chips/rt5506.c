@@ -123,7 +123,7 @@ static int set_rt5506_regulator(enum AMP_REG_MODE mode)
 
 	return 0;
 }
-static int rt5506_headset_detect(void *private_data, int on)
+static int rt5506_headset_detect(int on)
 {
 
 	if(!rt5506Connect)
@@ -204,7 +204,7 @@ static int rt5506_headset_detect(void *private_data, int on)
 
 				gpio_set_value(pdata->gpio_rt5506_enable, 1);
 				closegpio = 1;
-				usleep_range(20000,20000);
+				msleep(1);
 			}
 			pr_info("%s: reset rt5501\n",__func__);
 			rt5506_write_reg(0x0,0x4);
@@ -242,13 +242,13 @@ static int rt5506_headset_detect(void *private_data, int on)
 static void rt5506_register_hs_notification(void)
 {
 #if 1
-	struct hs_notify_t notifier;
-	notifier.private_data = NULL;
-	notifier.callback_f = rt5506_headset_detect;
-	htc_acoustic_register_hs_notify(HS_AMP_N, &notifier);
+	struct headset_notifier notifier;
+	notifier.id = HEADSET_REG_HS_INSERT;
+	notifier.func = rt5506_headset_detect;
+	headset_notifier_register(&notifier);
 #else
 
-	rt5506_headset_detect(NULL,0);
+	rt5506_headset_detect(0);
 #endif
 }
 
@@ -441,7 +441,7 @@ static void hs_imp_detec_func(struct work_struct *work)
 		rt5506_query.gpiostatus = AMP_GPIO_ON;
 	}
 
-	usleep_range(20000,20000);
+	msleep(1);
 
 	rt5506_write_reg(0,0x04);
 	rt5506_write_reg(0xa4,0x52);
@@ -669,7 +669,7 @@ static int set_rt5506_amp(int on, int dsp)
 			pr_info("%s: enable gpio %d\n",__func__,pdata->gpio_rt5506_enable);
 			gpio_set_value(pdata->gpio_rt5506_enable, 1);
 			rt5506_query.gpiostatus = AMP_GPIO_ON;
-			usleep_range(20000,20000);
+			msleep(1);
 		}
 		rt5506_query.action_on = 1;
 		queue_delayed_work(ramp_wq, &rt5506_query.volume_ramp_work, msecs_to_jiffies(0));
@@ -831,7 +831,7 @@ static long rt5506_ioctl(struct file *file, unsigned int cmd,
 
 			pr_info("%s: enable gpio %d\n",__func__,pdata->gpio_rt5506_enable);
 			gpio_set_value(pdata->gpio_rt5506_enable, 1);
-			usleep_range(20000,20000);
+			msleep(1);
 		}
 
 		if(ampctrl.ctrl == AMP_WRITE) {
@@ -1077,7 +1077,7 @@ static void rt5506_shutdown(struct i2c_client *client)
 		pr_info("%s: enable gpio %d\n",__func__,pdata->gpio_rt5506_enable);
 		gpio_set_value(pdata->gpio_rt5506_enable, 1);
 		rt5506_query.gpiostatus = AMP_GPIO_ON;
-		usleep_range(20000,20000);
+		msleep(1);
 	}
 	pr_info("%s: reset rt5501\n",__func__);
 	rt5506_write_reg(0x0,0x4);

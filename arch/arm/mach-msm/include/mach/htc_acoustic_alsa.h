@@ -44,7 +44,6 @@
 #define ACOUSTIC_GET_MID		_IOW(ACOUSTIC_IOCTL_MAGIC, 51, unsigned)
 #define ACOUSTIC_RAMDUMP		_IOW(ACOUSTIC_IOCTL_MAGIC, 99, unsigned)
 #define ACOUSTIC_KILL_PID		_IOW(ACOUSTIC_IOCTL_MAGIC, 88, unsigned)
-#define ACOUSTIC_UPDATE_DQ_STATUS	_IOW(ACOUSTIC_IOCTL_MAGIC, 52, unsigned)
 
 #define AUD_AMP_SLAVE_ALL	0xffff
 
@@ -68,12 +67,6 @@ enum AMP_TYPE {
 	AMP_HEADPONE = 0,
 	AMP_SPEAKER,
 	AMP_RECEIVER,
-};
-
-enum HS_NOTIFY_TYPE {
-	HS_AMP_N = 0,
-	HS_CODEC_N,
-	HS_N_MAX,
 };
 
 struct hw_component {
@@ -104,19 +97,12 @@ struct acoustic_ops {
 	int (*get_q6_effect) (void);
 };
 
-struct hs_notify_t {
-	int used;
-	void *private_data;
-	int (*callback_f)(void*,int);
-};
-
 void htc_acoustic_register_ops(struct acoustic_ops *ops);
 void htc_acoustic_register_hs_amp(int (*aud_hs_amp_f)(int, int), struct file_operations* ops);
 int htc_acoustic_hs_amp_ctrl(int on, int dsp);
 void htc_acoustic_register_spk_amp(enum SPK_AMP_TYPE type,int (*aud_spk_amp_f)(int, int), struct file_operations* ops);
 int htc_acoustic_spk_amp_ctrl(enum SPK_AMP_TYPE type,int on, int dsp);
 int htc_acoustic_query_feature(enum HTC_FEATURE feature);
-void htc_acoustic_register_hs_notify(enum HS_NOTIFY_TYPE type, struct hs_notify_t *notify);
 
 struct amp_power_ops {
 	void (*set_amp_power_enable)(bool enable);
