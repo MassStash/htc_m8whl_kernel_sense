@@ -13,8 +13,8 @@ toolchainDir="/home/zaichron-lin/AndroidDev/AAtoolchains/linaro_toolchains_2014/
 #Path where you would like the kernel to be outputed
 exportDir="/home/zaichron-lin/Desktop/Copy/AndroidDev/Kernz/m8whl/out" #( Example /home/user/Desktop )
 #Change default to what ever you like
-kernel1name="MassStashedX-m8whl-v1.1.0-alcor"
-kernel2name="MassStashedX-m8whl-v0.19.3"
+kernel1name="MassStashedX-FlarPort-0.19.5-Sense-4.4.3"
+kernel2name="MassStashedX-FlarPort-0.19.5-Sense-4.4.3"
 kernel3name="Default-3"
 #Do not edit
 now=$(date +"%m-%d-%Y-%H-%M")
@@ -70,7 +70,7 @@ PATH=$PATH:/home/zaichron-lin/AndroidDev/AAtoolchains/linaro_toolchains_2014/arm
 echo
 echo
 echo " Run defconfig "
-make ARCH=arm hypernova_defconfig
+make ARCH=arm elementalx_defconfig
 #Keep thangs sqeaky
 echo
 echo
