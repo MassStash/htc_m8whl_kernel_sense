@@ -222,7 +222,8 @@ static void cpufreq_interactive_timer_resched(
 static void cpufreq_interactive_timer_start(int cpu)
 {
 	struct cpufreq_interactive_cpuinfo *pcpu = &per_cpu(cpuinfo, cpu);
-	unsigned long expires = jiffies + usecs_to_jiffies(timer_rate);
+	unsigned long expires = jiffies +
+		usecs_to_jiffies(pcpu->timer_rate);
 	unsigned long flags;
 	u64 now = ktime_to_us(ktime_get());
 
@@ -467,11 +468,6 @@ static void cpufreq_interactive_timer(unsigned long data)
 	unsigned int index;
 	unsigned long flags;
 	bool boosted;
-	unsigned long mod_min_sample_time;
-	int i, max_load;
-	unsigned int max_freq;
-	unsigned int boosted_freq;
-	struct cpufreq_interactive_cpuinfo *picpu;
 
 	if (!down_read_trylock(&pcpu->enable_sem))
 		return;
@@ -498,42 +494,18 @@ static void cpufreq_interactive_timer(unsigned long data)
 	cpufreq_notify_utilization(pcpu->policy, cpu_load);
 
 	if (cpu_load >= go_hispeed_load || boosted) {
-		if (pcpu->target_freq < boosted_freq) {
-			new_freq = boosted_freq;
+		if (pcpu->target_freq < hispeed_freq) {
+			new_freq = hispeed_freq;
 		} else {
-			new_freq = calc_freq(pcpu, cpu_load);
+			new_freq = choose_freq(pcpu, loadadjfreq);
 
-			if (new_freq < boosted_freq)
-				new_freq = boosted_freq;
+			if (new_freq < hispeed_freq)
+				new_freq = hispeed_freq;
 		}
 	} else if (cpu_load <= DOWN_LOW_LOAD_THRESHOLD) {
 		new_freq = pcpu->policy->cpuinfo.min_freq;
 	} else {
-		new_freq = calc_freq(pcpu, cpu_load);
-		if (new_freq > boosted_freq &&
-				pcpu->target_freq < boosted_freq)
-			new_freq = boosted_freq;
-
-		if (sync_freq && new_freq < sync_freq) {
-
-			max_load = 0;
-			max_freq = 0;
-
-			for_each_online_cpu(i) {
-				picpu = &per_cpu(cpuinfo, i);
-
-				if (i == data || picpu->prev_load <
-						up_threshold_any_cpu_load)
-					continue;
-
-				max_load = max(max_load, picpu->prev_load);
-				max_freq = max(max_freq, picpu->policy->cur);
-			}
-
-			if (max_freq > up_threshold_any_cpu_freq ||
-				max_load >= up_threshold_any_cpu_load)
-				new_freq = sync_freq;
-		}
+		new_freq = choose_freq(pcpu, loadadjfreq);
 	}
 
 	pcpu->timer_rate = freq_to_timer_rate(new_freq);
@@ -566,20 +538,6 @@ static void cpufreq_interactive_timer(unsigned long data)
 	 * Do not scale below floor_freq unless we have been at or above the
 	 * floor frequency for the minimum sample time since last validated.
 	 */
-	if (sampling_down_factor && pcpu->policy->cur == pcpu->policy->max)
-		mod_min_sample_time = max(sampling_down_factor,
-					  pcpu->min_sample_time);
-	else
-		mod_min_sample_time = pcpu->min_sample_time;
-
-	if (pcpu->limits_changed) {
-		if (sampling_down_factor &&
-			(pcpu->policy->cur != pcpu->policy->max))
-			mod_min_sample_time = 0;
-
-		pcpu->limits_changed = false;
-	}
-
 	if (new_freq < pcpu->floor_freq) {
 		if (now - pcpu->floor_validate_time < mod_min_sample_time) {
 			trace_cpufreq_interactive_notyet(
@@ -1449,6 +1407,7 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 			pcpu = &per_cpu(cpuinfo, j);
 			down_write(&pcpu->enable_sem);
 			pcpu->governor_enabled = 0;
+			pcpu->target_freq = 0;
 			del_timer_sync(&pcpu->cpu_timer);
 			del_timer_sync(&pcpu->cpu_slack_timer);
 			up_write(&pcpu->enable_sem);
