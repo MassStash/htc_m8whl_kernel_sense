@@ -18,6 +18,7 @@
 #include <linux/cpu.h>
 #include <linux/jiffies.h>
 #include <linux/kernel_stat.h>
+#include <linux/kthread.h>
 #include <linux/mutex.h>
 #include <linux/hrtimer.h>
 #include <linux/tick.h>
@@ -1165,8 +1166,13 @@ static void boost_min_freq(int min_freq)
 
 static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 {
+
+	/* Extrapolated load of this CPU */
+	unsigned int load_at_max_freq = 0;
 	unsigned int max_load_freq;
 	unsigned int max_load_other_cpu = 0;
+	/* Current load across this CPU */
+	unsigned int cur_load = 0;
 	struct cpufreq_policy *policy;
 	unsigned int j, max_cur_load = 0, prev_load = 0;
 	struct cpu_dbs_info_s *j_dbs_info;
@@ -1346,10 +1352,6 @@ set_freq:
 	if (input_event_boosted()) {
 		trace_cpufreq_interactive_already (policy->cpu, max_cur_load, policy->cur, policy->cur, policy->cur);
 
-	/* Extrapolated load of this CPU */
-	unsigned int load_at_max_freq = 0;
-	unsigned int max_load_freq;
-
 	/* calculate the scaled load across CPU */
 	load_at_max_freq = (cur_load * policy->cur)/policy->max;
 
@@ -1360,7 +1362,7 @@ set_freq:
 		if (policy->cur < policy->max)
 			this_dbs_info->rate_mult =
 				dbs_tuners_ins.sampling_down_factor;
-		dbs_freq_increase(policy, policy->max);
+		dbs_freq_increase(policy, max_cur_load, policy->max);
 
 		return;
 	}
@@ -1457,6 +1459,7 @@ set_freq:
 
 		trace_cpufreq_interactive_setspeed(policy->cpu, freq_next, policy->cur);
 	}
+    }
 }
 
 static void do_dbs_timer(struct work_struct *work)
@@ -1981,6 +1984,7 @@ bail_acq_sema_failed:
 
 	return 0;
 }
+#endif
 
 static int __init cpufreq_gov_dbs_init(void)
 {
