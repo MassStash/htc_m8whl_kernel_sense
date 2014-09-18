@@ -1501,55 +1501,7 @@ static int should_io_be_busy(void)
 	return 0;
 }
 
-static void dbs_refresh_callback(struct work_struct *work)
-{
-	struct cpufreq_policy *policy;
-	struct cpu_dbs_info_s *this_dbs_info;
-	struct dbs_work_struct *dbs_work;
-	unsigned int cpu;
-	unsigned int target_freq;
-
-	dbs_work = container_of(work, struct dbs_work_struct, work);
-	cpu = dbs_work->cpu;
-
-	get_online_cpus();
-
-	if (lock_policy_rwsem_write(cpu) < 0)
-		goto bail_acq_sema_failed;
-
-	this_dbs_info = &per_cpu(od_cpu_dbs_info, cpu);
-	policy = this_dbs_info->cur_policy;
-	if (!policy) {
-		/* CPU not using ondemand governor */
-		goto bail_incorrect_governor;
-	}
-
-	if (dbs_tuners_ins.input_boost)
-		target_freq = dbs_tuners_ins.input_boost;
-	else
-		target_freq = policy->max;
-
-	if (policy->cur < target_freq) {
-		/*
-		 * Arch specific cpufreq driver may fail.
-		 * Don't update governor frequency upon failure.
-		 */
-		if (__cpufreq_driver_target(policy, target_freq,
-					CPUFREQ_RELATION_L) >= 0)
-			policy->cur = target_freq;
-
-		this_dbs_info->prev_cpu_idle = get_cpu_idle_time(cpu,
-				&this_dbs_info->prev_cpu_wall, dbs_tuners_ins.io_is_busy);
-	}
-
-bail_incorrect_governor:
-	unlock_policy_rwsem_write(cpu);
-
-bail_acq_sema_failed:
-	put_online_cpus();
-	return;
-}
-
+#ifndef CONFIG_ARCH_MSM_CORTEXMP
 static int dbs_migration_notify(struct notifier_block *nb,
 				unsigned long target_cpu, void *arg)
 {
