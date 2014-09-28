@@ -1120,11 +1120,11 @@ static int taiko_config_compander(struct snd_soc_dapm_widget *w,
 		/* Set the static gain offset for HPH Path */
 		if (comp == COMPANDER_1) {
 			if (buck_mv == WCD9XXX_CDC_BUCK_MV_2P15) {
-			snd_soc_update_bits(codec,
+				snd_soc_update_bits(codec,
 					TAIKO_A_CDC_COMP0_B4_CTL + (comp * 8),
 					0x80, 0x00);
-		} else {
-			snd_soc_update_bits(codec,
+			} else {
+				snd_soc_update_bits(codec,
 					TAIKO_A_CDC_COMP0_B4_CTL + (comp * 8),
 					0x80, 0x80);
 			}
@@ -2220,12 +2220,6 @@ static int wcd9320_put_dec_enum(struct snd_kcontrol *kcontrol,
 		goto out;
 	}
 
-	if (strpbrk(dec_name, "123456789") == NULL) {
-		pr_err("%s: Invalid decimator = %s\n", __func__, dec_name);
-		ret =  -EINVAL;
-		goto out;
-	}
-
 	ret = kstrtouint(strpbrk(dec_name, "123456789"), 10, &decimator);
 	if (ret < 0) {
 		pr_err("%s: Invalid decimator = %s\n", __func__, dec_name);
@@ -3208,12 +3202,6 @@ static int taiko_codec_enable_dec(struct snd_soc_dapm_widget *w,
 	widget_name = temp;
 	if (!dec_name) {
 		pr_err("%s: Invalid decimator = %s\n", __func__, w->name);
-		ret =  -EINVAL;
-		goto out;
-	}
-
-	if (strpbrk(dec_name, "123456789") == NULL) {
-		pr_err("%s: Invalid decimator = %s\n", __func__, dec_name);
 		ret =  -EINVAL;
 		goto out;
 	}
@@ -4461,7 +4449,7 @@ static int taiko_volatile(struct snd_soc_codec *ssc, unsigned int reg)
 	/* HPH status registers */
 	if (reg == TAIKO_A_RX_HPH_L_STATUS || reg == TAIKO_A_RX_HPH_R_STATUS)
 		return 1;
-	
+
 	/* HPH PA Enable */
 	if (reg == TAIKO_A_RX_HPH_CNP_EN)
 		return 1;
@@ -5722,7 +5710,7 @@ static const struct snd_soc_dapm_widget taiko_dapm_widgets[] = {
 		taiko_hphr_dac_event,
 		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
 		SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMD),
-	
+
 	/* Speaker */
 	SND_SOC_DAPM_OUTPUT("LINEOUT1"),
 	SND_SOC_DAPM_OUTPUT("LINEOUT2"),
@@ -6742,11 +6730,8 @@ static int taiko_setup_irqs(struct taiko_priv *taiko)
 {
 	int ret = 0;
 	struct snd_soc_codec *codec = taiko->codec;
-	struct wcd9xxx *wcd9xxx = codec->control_data;
-	struct wcd9xxx_core_resource *core_res =
-				&wcd9xxx->core_res;
 
-	ret = wcd9xxx_request_irq(core_res, WCD9XXX_IRQ_SLIMBUS,
+	ret = wcd9xxx_request_irq(codec->control_data, WCD9XXX_IRQ_SLIMBUS,
 				  taiko_slimbus_irq, "SLIMBUS Slave", taiko);
 	if (ret)
 		pr_err("%s: Failed to request irq %d\n", __func__,
@@ -6760,11 +6745,8 @@ static int taiko_setup_irqs(struct taiko_priv *taiko)
 static void taiko_cleanup_irqs(struct taiko_priv *taiko)
 {
 	struct snd_soc_codec *codec = taiko->codec;
-	struct wcd9xxx *wcd9xxx = codec->control_data;
-	struct wcd9xxx_core_resource *core_res =
-				&wcd9xxx->core_res;
 
-	wcd9xxx_free_irq(core_res, WCD9XXX_IRQ_SLIMBUS, taiko);
+	wcd9xxx_free_irq(codec->control_data, WCD9XXX_IRQ_SLIMBUS, taiko);
 }
 
 int taiko_hs_detect(struct snd_soc_codec *codec,
@@ -7138,8 +7120,8 @@ static const struct snd_soc_dapm_widget taiko_1_dapm_widgets[] = {
 			   SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_ADC_E("ADC2", NULL, TAIKO_A_TX_1_2_EN, 3, 0,
 			   taiko_codec_enable_adc,
-			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
-			   SND_SOC_DAPM_POST_PMD),
+			   SND_SOC_DAPM_PRE_PMU |
+			   SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_ADC_E("ADC3", NULL, TAIKO_A_TX_3_4_EN, 7, 0,
 			   taiko_codec_enable_adc,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
