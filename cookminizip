@@ -82,13 +82,13 @@ echo
 echo
 echo
 echo " Moved zImage "
-cp arch/arm/boot/zImage ~/AndroidDev/AAmkbootimg_tools/stock_cptb
+cp arch/arm/boot/zImage ~/AndroidDev/AAmkbootimg_tools/venom
 #cp arch/arm/boot/dt.img zip2/kernel/
 
 echo
 echo
 echo " Moved dt.img "
-cp arch/arm/boot/dt.img ~/AndroidDev/AAmkbootimg_tools/stock_cptb
+cp arch/arm/boot/dt.img ~/AndroidDev/AAmkbootimg_tools/venom
 
 echo
 echo
@@ -99,7 +99,7 @@ cd ~/AndroidDev/AAmkbootimg_tools
 echo
 echo
 echo " Making a boot.img ya'll "
-./mkboot stock_cptb boot.img
+./mkboot venom boot.img
 
 echo
 echo
@@ -111,7 +111,7 @@ cd /home/zaichron-lin/Desktop/Copy/AndroidDev/Kernz/m8whl/MassStashedX-AA-Sense-
 echo
 echo
 echo " I a make a da zip now, then move that ish to copy out dir "
-zip -r $kernelName-$now.zip *
+zip -r $kernelName-$now.zip * -x **~*
 mv $kernelName-$now.zip $exportDir
 #cd ..
 cd ~/AndroidDev/htc_m8whl_kernel_sense
