@@ -313,6 +313,18 @@ void cpufreq_notify_transition(struct cpufreq_freqs *freqs, unsigned int state)
 }
 EXPORT_SYMBOL_GPL(cpufreq_notify_transition);
 
+void trace_cpu_state_frequency(unsigned int cpu, int online)
+{
+	if (online) {
+		struct cpufreq_policy *policy = per_cpu(cpufreq_cpu_data, cpu);
+		if (policy) {
+			trace_cpu_frequency(policy->cur, cpu);
+		}
+	} else {
+		trace_cpu_frequency(0, cpu);
+	}
+}
+
 /**
  * cpufreq_notify_utilization - notify CPU userspace about CPU utilization
  * change
@@ -655,7 +667,7 @@ static ssize_t show(struct kobject *kobj, struct attribute *attr, char *buf)
 		goto no_policy;
 
 	if (lock_policy_rwsem_read(policy->cpu) < 0)
-		return ret;
+		goto fail;
 
 	if (fattr->show)
 		ret = fattr->show(policy, buf);
@@ -680,7 +692,7 @@ static ssize_t store(struct kobject *kobj, struct attribute *attr,
 		goto no_policy;
 
 	if (lock_policy_rwsem_write(policy->cpu) < 0)
-		return ret;
+		goto fail;
 
 	if (fattr->store)
 		ret = fattr->store(policy, buf, count);
