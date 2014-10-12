@@ -363,7 +363,6 @@ static int __init msm_rq_stats_init(void)
 		cpumask_copy(pcpu->related_cpus, cpu_policy.cpus);
 	}
 	freq_transition.notifier_call = cpufreq_transition_handler;
-	policy_change.notifier_call = policy_change_handler;
 	cpu_hotplug.notifier_call = cpu_hotplug_handler;
 	cpufreq_register_notifier(&freq_transition,
 					CPUFREQ_TRANSITION_NOTIFIER);
