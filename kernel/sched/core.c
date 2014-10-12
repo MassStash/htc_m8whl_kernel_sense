@@ -2640,33 +2640,6 @@ static inline bool owner_running(struct mutex *lock, struct task_struct *owner)
 	return owner->on_cpu;
 }
 
-/*
- * Look out! "owner" is an entirely speculative pointer
- * access and not reliable.
- */
-int mutex_spin_on_owner(struct mutex *lock, struct task_struct *owner)
-{
-	if (!sched_feat(OWNER_SPIN))
-		return 0;
-
-	rcu_read_lock();
-	while (owner_running(lock, owner)) {
-		if (need_resched())
-			break;
-
-		arch_mutex_cpu_relax();
-	}
-	rcu_read_unlock();
-
-	/*
-	 * We break out the loop above on need_resched() and when the
-	 * owner changed, which is a sign for heavy contention. Return
-	 * success only when lock->owner is NULL.
-	 */
-	return lock->owner == NULL;
-}
-#endif
-
 #ifdef CONFIG_PREEMPT
 /*
  * Look out! "owner" is an entirely speculative pointer
@@ -5675,9 +5648,6 @@ static int cpufreq_notifier_policy(struct notifier_block *nb,
 {
 	struct cpufreq_policy *policy = (struct cpufreq_policy *)data;
 	int i;
-
-	if (val != CPUFREQ_NOTIFY)
-		return 0;
 
 	for_each_cpu(i, policy->related_cpus) {
 		cpu_rq(i)->min_freq = policy->min;
