@@ -201,24 +201,6 @@ int mutex_spin_on_owner(struct mutex *lock, struct task_struct *owner)
 	 */
 	return lock->owner == NULL;
 }
-
-/*
- * Initial check for entering the mutex spinning loop
- */
-static inline int mutex_can_spin_on_owner(struct mutex *lock)
-{
-	int retval = 1;
-
-	rcu_read_lock();
-	if (lock->owner)
-		retval = lock->owner->on_cpu;
-	rcu_read_unlock();
-	/*
-	 * if lock->owner is not set, the mutex owner may have just acquired
-	 * it and not set the owner yet or the mutex has been released.
-	 */
-	return retval;
-}
 #endif
 
 static __used noinline void __sched __mutex_unlock_slowpath(atomic_t *lock_count);
@@ -295,7 +277,6 @@ __mutex_lock_common(struct mutex *lock, long state, unsigned int subclass,
 
 	for (;;) {
 		struct task_struct *owner;
-		mspin_node_t	    node;
 		struct mspin_node  node;
 
 		/*
