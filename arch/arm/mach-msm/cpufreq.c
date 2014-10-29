@@ -62,9 +62,6 @@ static int set_cpu_freq(struct cpufreq_policy *policy, unsigned int new_freq,
 	struct sched_param param = { .sched_priority = MAX_RT_PRIO-1 };
 	unsigned long rate;
 
-#ifdef CONFIG_ARCH_MSM8974
-	mutex_lock(&set_cpufreq_lock);
-#endif
 	freqs.old = policy->cur;
 	freqs.new = new_freq;
 	freqs.cpu = policy->cpu;
@@ -92,14 +89,11 @@ static int set_cpu_freq(struct cpufreq_policy *policy, unsigned int new_freq,
 		trace_cpu_frequency_switch_end(policy->cpu);
 	}
 
-	
+	/* Restore priority after clock ramp-up */
 	if (freqs.new > freqs.old && saved_sched_policy >= 0) {
 		param.sched_priority = saved_sched_rt_prio;
 		sched_setscheduler_nocheck(current, saved_sched_policy, &param);
 	}
-#ifdef CONFIG_ARCH_MSM8974
-	mutex_unlock(&set_cpufreq_lock);
-#endif
 	return ret;
 }
 
@@ -214,6 +208,10 @@ static int msm_cpufreq_cpu_callback(struct notifier_block *nfb,
 		clk_disable(cpu_clk[cpu]);
 		clk_disable(l2_clk);
 		break;
+	/*
+	 * Scale down clock/power of CPU that is dead and scale it back up
+	 * before the CPU is brought up.
+	 */
 	case CPU_DEAD:
 		clk_unprepare(cpu_clk[cpu]);
 		clk_unprepare(l2_clk);
@@ -242,7 +240,6 @@ static int msm_cpufreq_cpu_callback(struct notifier_block *nfb,
 			clk_disable(l2_clk);
 			return NOTIFY_BAD;
 		}
-		set_hotplug_on_footprint(cpu, HOF_LEAVE);
 		break;
 
 	default:
@@ -301,14 +298,11 @@ static struct notifier_block msm_cpufreq_pm_notifier = {
 
 static struct freq_attr *msm_freq_attr[] = {
 	&cpufreq_freq_attr_scaling_available_freqs,
-	&msm_cpufreq_attr_max_screen_off_khz,
- 	&msm_cpufreq_attr_max_screen_off,
-	&msm_cpufreq_attr_ex_max_freq,
 	NULL,
 };
 
 static struct cpufreq_driver msm_cpufreq_driver = {
-	
+	/* lps calculations are handled here. */
 	.flags		= CPUFREQ_STICKY | CPUFREQ_CONST_LOOPS,
 	.init		= msm_cpufreq_init,
 	.verify		= msm_cpufreq_verify,

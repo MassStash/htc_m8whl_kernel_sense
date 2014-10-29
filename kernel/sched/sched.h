@@ -188,7 +188,7 @@ struct cfs_rq {
  * load-balance).
  */
 #ifdef CONFIG_FAIR_GROUP_SCHED
-	struct rq *rq;	
+	struct rq *rq;	/* cpu runqueue to which this cfs_rq is attached */
 
 	/*
 	 * CFS Load tracking
@@ -216,7 +216,6 @@ struct cfs_rq {
 #endif /* CONFIG_SMP */
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
-	struct rq *rq;	/* cpu runqueue to which this cfs_rq is attached */
 
 	/*
 	 * leaf cfs_rqs are those that hold tasks (lowest schedulable entity in
